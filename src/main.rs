@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use ndarray::{arr2, Array2};
 
 const ARENA_WIDTH: u32 = 30;
 const ARENA_HEIGHT: u32 = 30;
@@ -24,6 +25,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_system(size_scaling.system())
         .run();
+
+    arr2(&[[1., 2., 3.], [4., 5., 6.]]); // how to make 2d array
 }
 
 fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
