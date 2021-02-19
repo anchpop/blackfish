@@ -19,8 +19,22 @@ struct Materials {
 }
 
 #[derive(Debug)]
-struct Tilemap {
-    map: Array2<Option<f64>>,
+enum TileProgram {}
+#[derive(Debug)]
+enum TilePhysics {}
+#[derive(Debug)]
+enum TileWorld {
+    Phys(TilePhysics),
+    Prog(TileProgram),
+}
+
+#[derive(Debug)]
+struct TilemapProgram {
+    map: Array2<Option<TileProgram>>,
+}
+#[derive(Debug)]
+struct TilemapWorld {
+    map: Array2<Option<TileWorld>>,
 }
 
 fn main() {
