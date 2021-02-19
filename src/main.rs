@@ -18,15 +18,19 @@ struct Materials {
     t1: Handle<ColorMaterial>,
 }
 
+#[derive(Debug)]
+struct Tilemap {
+    map: Array2<Option<f64>>,
+}
+
 fn main() {
     App::build()
         .add_startup_system(setup.system())
+        .add_startup_system(create_map.system())
         .add_startup_stage("game_setup", SystemStage::single(spawn_main_tile.system())) // Adding a stage lets us access resources (in this case, materials) created in the previous stage
         .add_plugins(DefaultPlugins)
         .add_system(size_scaling.system())
         .run();
-
-    arr2(&[[1., 2., 3.], [4., 5., 6.]]); // how to make 2d array
 }
 
 fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
@@ -36,7 +40,17 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
     });
 }
 
-fn spawn_main_tile(commands: &mut Commands, materials: Res<Materials>) {
+fn create_map(commands: &mut Commands) {
+    let test = arr2(&[
+        [Some(1.), Some(2.), Some(3.)],
+        [Some(4.), Some(5.), Some(6.)],
+    ]); // how to make 2d array
+
+    commands.insert_resource(Tilemap { map: test });
+}
+
+fn spawn_main_tile(commands: &mut Commands, materials: Res<Materials>, tilemap: Res<Tilemap>) {
+    dbg!(tilemap);
     const POS: TilePosition = TilePosition { x: 0, y: 0 };
     const SIZE: TileSize = TileSize {
         width: 1,
