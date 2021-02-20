@@ -66,20 +66,24 @@ fn create_map(commands: &mut Commands) {
 }
 
 fn spawn_main_tile(commands: &mut Commands, materials: Res<Materials>, tilemap: Res<TilemapWorld>) {
-    const POS: TilePosition = TilePosition { x: 0, y: 0 };
-    const SIZE: TileSize = TileSize {
-        width: 1,
-        height: 1,
-    };
-
-    commands
-        .spawn(SpriteBundle {
-            material: materials.t1.clone(),
-            sprite: Sprite::new(Vec2::new(10., 10.)),
-            ..Default::default()
-        })
-        .with(POS)
-        .with(SIZE);
+    for (index, tile) in tilemap.map.indexed_iter() {
+        let pos = TilePosition {
+            x: index.0 as u32,
+            y: index.1 as u32,
+        };
+        let size = TileSize {
+            width: 1,
+            height: 1,
+        };
+        commands
+            .spawn(SpriteBundle {
+                material: materials.t1.clone(),
+                sprite: Sprite::new(Vec2::new(10., 10.)),
+                ..Default::default()
+            })
+            .with(pos)
+            .with(size);
+    }
 }
 
 fn size_scaling(
