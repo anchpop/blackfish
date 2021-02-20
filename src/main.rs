@@ -1,8 +1,7 @@
+use std::fmt::Debug;
+
 use bevy::prelude::*;
 use ndarray::{arr2, Array2};
-
-const ARENA_WIDTH: u32 = 30;
-const ARENA_HEIGHT: u32 = 30;
 
 struct TilePosition {
     x: u32,
@@ -66,7 +65,6 @@ fn create_map(commands: &mut Commands) {
 }
 
 fn spawn_main_tile(commands: &mut Commands, materials: Res<Materials>, tilemap: Res<TilemapWorld>) {
-    dbg!(tilemap);
     const POS: TilePosition = TilePosition { x: 0, y: 0 };
     const SIZE: TileSize = TileSize {
         width: 1,
@@ -83,12 +81,19 @@ fn spawn_main_tile(commands: &mut Commands, materials: Res<Materials>, tilemap: 
         .with(SIZE);
 }
 
-fn size_scaling(windows: Res<Windows>, mut q: Query<(&TileSize, &mut Sprite)>) {
+fn size_scaling(
+    windows: Res<Windows>,
+    mut q: Query<(&TileSize, &mut Sprite)>,
+    tilemap: Res<TilemapWorld>,
+    time: Res<Time>,
+) {
+    let (width, height) = tilemap.map.dim();
+
     let window = windows.get_primary().unwrap();
     for (sprite_size, mut sprite) in q.iter_mut() {
         sprite.size = Vec2::new(
-            sprite_size.width as f32 / ARENA_WIDTH as f32 * window.width() as f32,
-            sprite_size.height as f32 / ARENA_HEIGHT as f32 * window.height() as f32,
+            sprite_size.width as f32 / width as f32 * window.width() as f32,
+            sprite_size.height as f32 / height as f32 * window.height() as f32,
         );
     }
 }
