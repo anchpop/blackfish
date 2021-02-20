@@ -57,9 +57,12 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
 }
 
 fn create_map(commands: &mut Commands) {
-    let test = arr2(&[[Some(TileProgram::Laser), None, None], [None, None, None]]); // how to make 2d array
+    let testProg = arr2(&[[Some(TileProgram::Laser), None, None], [None, None, None]]); // how to make 2d array
 
-    commands.insert_resource(TilemapProgram { map: test });
+    let testWorld = testProg.map(|a| a.clone().map(TileWorld::Prog));
+
+    commands.insert_resource(TilemapProgram { map: testProg });
+    commands.insert_resource(TilemapWorld { map: testWorld });
 }
 
 fn spawn_main_tile(commands: &mut Commands, materials: Res<Materials>, tilemap: Res<TilemapWorld>) {
