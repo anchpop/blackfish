@@ -18,21 +18,23 @@ struct Materials {
     t1: Handle<ColorMaterial>,
 }
 
-#[derive(Debug)]
-enum TileProgram {}
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum TileProgram {
+    Laser,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum TilePhysics {}
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum TileWorld {
     Phys(TilePhysics),
     Prog(TileProgram),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct TilemapProgram {
     map: Array2<Option<TileProgram>>,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct TilemapWorld {
     map: Array2<Option<TileWorld>>,
 }
@@ -55,15 +57,12 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
 }
 
 fn create_map(commands: &mut Commands) {
-    let test = arr2(&[
-        [Some(1.), Some(2.), Some(3.)],
-        [Some(4.), Some(5.), Some(6.)],
-    ]); // how to make 2d array
+    let test = arr2(&[[Some(TileProgram::Laser), None, None], [None, None, None]]); // how to make 2d array
 
-    commands.insert_resource(Tilemap { map: test });
+    commands.insert_resource(TilemapProgram { map: test });
 }
 
-fn spawn_main_tile(commands: &mut Commands, materials: Res<Materials>, tilemap: Res<Tilemap>) {
+fn spawn_main_tile(commands: &mut Commands, materials: Res<Materials>, tilemap: Res<TilemapWorld>) {
     dbg!(tilemap);
     const POS: TilePosition = TilePosition { x: 0, y: 0 };
     const SIZE: TileSize = TileSize {
