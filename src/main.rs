@@ -4,6 +4,7 @@ mod world_sim;
 use std::borrow::BorrowMut;
 
 use types::*;
+use world_sim::sim;
 
 use bevy::prelude::*;
 use ndarray::arr2;
@@ -16,6 +17,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_system(size_scaling.system())
         .add_system(positioning.system())
+        .add_system(tile_type.system())
         .add_system(tile_appearance.system())
         .run();
 }
@@ -35,15 +37,17 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
 }
 
 fn create_map(commands: &mut Commands) {
-    let test_prog = arr2(&[
-        [Some(TileProgram::LaserProducer), None, None],
-        [None, None, None],
-    ]); // how to make 2d array
+    let test_prog = TilemapProgram {
+        map: arr2(&[
+            [Some(TileProgram::LaserProducer), None, None],
+            [None, None, None],
+        ]),
+    };
 
-    let test_world = test_prog.map(|a| a.clone().map(TileWorld::Prog));
+    let test_world = sim(test_prog.clone());
 
-    commands.insert_resource(TilemapProgram { map: test_prog });
-    commands.insert_resource(TilemapWorld { map: test_world });
+    commands.insert_resource(test_prog);
+    commands.insert_resource(test_world);
 }
 
 fn spawn_main_tile(commands: &mut Commands, materials: Res<Materials>, tilemap: Res<TilemapWorld>) {
