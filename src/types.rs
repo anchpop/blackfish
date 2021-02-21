@@ -37,9 +37,9 @@ pub type Tile = Option<TileWorld>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TilemapProgram {
-    pub map: Array2<Option<TileProgram>>,
+    pub program: Array2<Option<TileProgram>>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TilemapWorld {
-    pub map: Array2<Option<TileWorld>>,
+    pub world: Array2<Option<TileWorld>>,
 }

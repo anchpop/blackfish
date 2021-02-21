@@ -1,8 +1,6 @@
 mod types;
 mod world_sim;
 
-use std::borrow::BorrowMut;
-
 use types::*;
 use world_sim::sim;
 
@@ -38,7 +36,7 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
 
 fn create_map(commands: &mut Commands) {
     let test_prog = TilemapProgram {
-        map: arr2(&[
+        program: arr2(&[
             [Some(TileProgram::LaserProducer), None, None],
             [None, None, None],
         ]),
@@ -51,7 +49,7 @@ fn create_map(commands: &mut Commands) {
 }
 
 fn spawn_main_tile(commands: &mut Commands, materials: Res<Materials>, tilemap: Res<TilemapWorld>) {
-    for (index, tile) in tilemap.map.indexed_iter() {
+    for (index, tile) in tilemap.world.indexed_iter() {
         let pos = TilePosition {
             x: index.1 as u32,
             y: index.0 as u32,
@@ -78,7 +76,7 @@ fn size_scaling(
     mut q: Query<(&TileSize, &mut Sprite)>,
     tilemap: Res<TilemapWorld>,
 ) {
-    let (arena_tiles_tall, arena_tiles_wide) = tilemap.map.dim();
+    let (arena_tiles_tall, arena_tiles_wide) = tilemap.world.dim();
     let window = windows.get_primary().unwrap();
 
     for (sprite_size, mut sprite) in q.iter_mut() {
@@ -94,7 +92,7 @@ fn positioning(
     mut q: Query<(&TilePosition, &mut Transform)>,
     tilemap: Res<TilemapWorld>,
 ) {
-    let (arena_tiles_tall, arena_tiles_wide) = tilemap.map.dim();
+    let (arena_tiles_tall, arena_tiles_wide) = tilemap.world.dim();
     let window = windows.get_primary().unwrap();
 
     fn convert(pos: f32, bound_window: f32, bound_game: f32) -> f32 {
@@ -124,7 +122,7 @@ fn get_tile_material(tile: &Tile, materials: &Materials) -> Handle<ColorMaterial
 
 fn tile_type(mut q: Query<(&TilePosition, &mut Tile)>, world: Res<TilemapWorld>) {
     for (pos, mut tile) in q.iter_mut() {
-        *tile = world.map[(pos.y as usize, pos.x as usize)].clone();
+        *tile = world.world[(pos.y as usize, pos.x as usize)].clone();
     }
 }
 
