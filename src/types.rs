@@ -4,6 +4,9 @@ use std::fmt::Debug;
 use bevy::prelude::*;
 use ndarray::Array2;
 
+use frunk::monoid::Monoid;
+use frunk::semigroup::Semigroup;
+
 pub struct TilePosition {
     pub x: u32,
     pub y: u32,
@@ -21,24 +24,27 @@ pub struct Materials {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TileProgram {
-    LaserProducer(Dir),
+    LaserProducer(Dir, Data),
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TilePhysics {
+    Laser(DirData<Option<Data>>),
 }
 impl TileProgram {
     pub fn name(&self) -> &'static str {
         match self {
-            Self::LaserProducer(_) => "LaserProducer",
+            Self::LaserProducer(_, _) => "LaserProducer",
         }
     }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum TilePhysics {
-    Laser,
 }
 impl TilePhysics {
     pub fn name(&self) -> &'static str {
         match self {
-            Self::Laser => "Laser",
+            Self::Laser(_) => "Laser",
         }
+    }
+    pub fn empty_laser() -> Self {
+        Self::Laser(DirData::empty())
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -70,8 +76,13 @@ pub struct TilemapWorld {
 pub enum Data {
     Number(i32),
 }
+impl Semigroup for Data {
+    fn combine(&self, other: &Self) -> Self {
+        return other.clone();
+    }
+}
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum Dir {
     North,
     East,
@@ -85,6 +96,53 @@ impl Dir {
             Self::East => Vec2::new(1., 0.),
             Self::South => Vec2::new(0., -1.),
             Self::West => Vec2::new(-1., 0.),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DirData<V> {
+    north: V,
+    east: V,
+    south: V,
+    west: V,
+}
+impl<V> DirData<V> {
+    pub fn get(&self, dir: &Dir) -> &V {
+        match dir {
+            Dir::North => &self.north,
+            Dir::South => &self.south,
+            Dir::East => &self.east,
+            Dir::West => &self.west,
+        }
+    }
+    pub fn update(self, dir: &Dir, v: V) -> Self {
+        match dir {
+            Dir::North => Self { north: v, ..self },
+            Dir::South => Self { south: v, ..self },
+            Dir::East => Self { east: v, ..self },
+            Dir::West => Self { west: v, ..self },
+        }
+    }
+}
+
+impl<V: Semigroup> Semigroup for DirData<V> {
+    fn combine(&self, other: &Self) -> Self {
+        DirData {
+            north: self.north.combine(&other.north),
+            east: self.east.combine(&other.east),
+            south: self.south.combine(&other.south),
+            west: self.west.combine(&other.west),
+        }
+    }
+}
+impl<V: Monoid> Monoid for DirData<V> {
+    fn empty() -> Self {
+        DirData {
+            north: V::empty(),
+            east: V::empty(),
+            south: V::empty(),
+            west: V::empty(),
         }
     }
 }

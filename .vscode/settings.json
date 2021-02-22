@@ -1,5 +1,7 @@
 {
     "cSpell.words": [
+        "Monoid",
+        "frunk",
         "mapv",
         "ndarray",
         "tilemap"

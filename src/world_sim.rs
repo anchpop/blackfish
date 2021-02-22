@@ -1,4 +1,5 @@
 use crate::types::*;
+use frunk::monoid::Monoid;
 
 pub fn sim(prog: TilemapProgram) -> TilemapWorld {
     let world = TilemapWorld {
@@ -24,15 +25,42 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
     let shape = new_world.dim();
     for y in 0..shape.0 {
         for x in 0..shape.1 {
-            if let Some(below) = world.get([y.wrapping_sub(1), x]) {
-                if let None = world[[y, x]] {
-                    match below {
+            for dir in [Dir::North, Dir::South, Dir::East, Dir::West].iter() {
+                let dir_v = dir.to_vector();
+                // addition here should behave correctly,
+                // see https://stackoverflow.com/questions/53453628/how-do-i-add-a-signed-integer-to-an-unsigned-integer-in-rust
+                // and https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=1448b2d8f02f844f72864e10dbe98049
+                if let Some(adjacent) = world.get([
+                    y.wrapping_sub((dir_v.y as i64) as usize),
+                    x.wrapping_sub((dir_v.x as i64) as usize),
+                ]) {
+                    match adjacent {
+                        Some(TileWorld::Prog(TileProgram::LaserProducer(laser_dir, data))) => {
+                            if dir == laser_dir {
+                                new_world[[y, x]] = Some(TileWorld::Phys(TilePhysics::Laser(
+                                    DirData::empty().update(dir, Some(data.clone())),
+                                )))
+                            }
+                        }
+
+                        Some(TileWorld::Phys(TilePhysics::Laser(dir_data))) => {
+                            if let Some(data) = dir_data.get(dir) {
+                                new_world[[y, x]] = Some(TileWorld::Phys(TilePhysics::Laser(
+                                    DirData::empty().update(dir, Some(data.clone())),
+                                )))
+                            }
+                        }
+
+                        _ => {}
+                    }
+                    /*
+                    match adjacent {
                         Some(
-                            TileWorld::Prog(TileProgram::LaserProducer(_))
+                            TileWorld::Prog(TileProgram::LaserProducer(_, data))
                             | TileWorld::Phys(TilePhysics::Laser),
                         ) => new_world[[y, x]] = Some(TileWorld::Phys(TilePhysics::Laser)),
                         _ => {}
-                    }
+                    }*/
                 }
             }
         }

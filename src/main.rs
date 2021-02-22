@@ -9,6 +9,8 @@ use world_sim::sim;
 use bevy::prelude::*;
 use ndarray::arr2;
 
+use frunk::monoid::Monoid;
+
 fn main() {
     App::build()
         .add_startup_system(setup.system())
@@ -28,11 +30,11 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
         empty: materials.add(Color::rgb(0.1, 0.1, 0.1).into()),
         tiles: [
             (
-                TileWorld::Prog(TileProgram::LaserProducer(Dir::North)).name(),
+                TileWorld::Prog(TileProgram::LaserProducer(Dir::North, Data::Number(2))).name(),
                 materials.add(Color::rgb(0.3, 0.3, 0.3).into()),
             ),
             (
-                TileWorld::Phys(TilePhysics::Laser).name(),
+                TileWorld::Phys(TilePhysics::Laser(DirData::empty())).name(),
                 materials.add(Color::rgb(0.9, 0.3, 0.3).into()),
             ),
         ]
@@ -51,7 +53,7 @@ fn create_map(commands: &mut Commands) {
                 None,
                 None,
                 None,
-                Some(TileProgram::LaserProducer(Dir::North)),
+                Some(TileProgram::LaserProducer(Dir::South, Data::Number(2))),
                 None,
                 None,
                 None,
