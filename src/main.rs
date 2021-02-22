@@ -1,3 +1,5 @@
+#![feature(or_patterns)]
+
 mod types;
 mod world_sim;
 
@@ -24,10 +26,16 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
     commands.spawn(Camera2dBundle::default());
     commands.insert_resource(Materials {
         empty: materials.add(Color::rgb(0.1, 0.1, 0.1).into()),
-        tiles: [(
-            TileWorld::Prog(TileProgram::LaserProducer),
-            materials.add(Color::rgb(0.3, 0.3, 0.3).into()),
-        )]
+        tiles: [
+            (
+                TileWorld::Prog(TileProgram::LaserProducer),
+                materials.add(Color::rgb(0.3, 0.3, 0.3).into()),
+            ),
+            (
+                TileWorld::Phys(TilePhysics::Laser),
+                materials.add(Color::rgb(0.9, 0.3, 0.3).into()),
+            ),
+        ]
         .iter()
         .cloned()
         .collect(),
@@ -37,8 +45,26 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
 fn create_map(commands: &mut Commands) {
     let test_prog = TilemapProgram {
         program: arr2(&[
-            [Some(TileProgram::LaserProducer), None, None],
-            [None, None, None],
+            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
+            [
+                None,
+                None,
+                None,
+                Some(TileProgram::LaserProducer),
+                None,
+                None,
+                None,
+                None,
+                None,
+            ],
+            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
         ]),
     };
 
