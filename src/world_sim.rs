@@ -28,7 +28,7 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                 if let None = world[[y, x]] {
                     match below {
                         Some(
-                            TileWorld::Prog(TileProgram::LaserProducer)
+                            TileWorld::Prog(TileProgram::LaserProducer(_))
                             | TileWorld::Phys(TilePhysics::Laser),
                         ) => new_world[[y, x]] = Some(TileWorld::Phys(TilePhysics::Laser)),
                         _ => {}

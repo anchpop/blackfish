@@ -28,11 +28,11 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
         empty: materials.add(Color::rgb(0.1, 0.1, 0.1).into()),
         tiles: [
             (
-                TileWorld::Prog(TileProgram::LaserProducer),
+                TileWorld::Prog(TileProgram::LaserProducer(Dir::North)).name(),
                 materials.add(Color::rgb(0.3, 0.3, 0.3).into()),
             ),
             (
-                TileWorld::Phys(TilePhysics::Laser),
+                TileWorld::Phys(TilePhysics::Laser).name(),
                 materials.add(Color::rgb(0.9, 0.3, 0.3).into()),
             ),
         ]
@@ -51,7 +51,7 @@ fn create_map(commands: &mut Commands) {
                 None,
                 None,
                 None,
-                Some(TileProgram::LaserProducer),
+                Some(TileProgram::LaserProducer(Dir::North)),
                 None,
                 None,
                 None,
@@ -142,7 +142,7 @@ fn positioning(
 fn get_tile_material(tile: &Tile, materials: &Materials) -> Handle<ColorMaterial> {
     match tile {
         None => materials.empty.clone(),
-        Some(t) => materials.tiles[t].clone(),
+        Some(t) => materials.tiles[t.name()].clone(),
     }
 }
 
