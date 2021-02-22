@@ -78,3 +78,13 @@ pub enum Dir {
     South,
     West,
 }
+impl Dir {
+    pub fn to_vector(&self) -> Vec2 {
+        match self {
+            Self::North => Vec2::new(0., 1.),
+            Self::East => Vec2::new(1., 0.),
+            Self::South => Vec2::new(0., -1.),
+            Self::West => Vec2::new(-1., 0.),
+        }
+    }
+}
