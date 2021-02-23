@@ -19,8 +19,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_system(size_scaling.system())
         .add_system(positioning.system())
-        .add_system(tile_type.system())
         .add_system(tile_appearance.system())
+        .add_system(tile_text.system())
         .run();
 }
 
@@ -185,14 +185,33 @@ fn get_tile_material(tile: &Tile, materials: &Materials) -> Handle<ColorMaterial
     }
 }
 
-fn tile_type(mut q: Query<(&TilePosition, &mut Tile)>, world: Res<TilemapWorld>) {
-    for (pos, mut tile) in q.iter_mut() {
-        *tile = world.world[(pos.y as usize, pos.x as usize)].clone();
+fn tile_appearance(
+    mut q: Query<(&TilePosition, &mut Handle<ColorMaterial>)>,
+    materials: Res<Materials>,
+    tilemap: Res<TilemapWorld>,
+) {
+    for (tile_position, mut color_mat_handle) in q.iter_mut() {
+        let tile = tilemap.getu((tile_position.x, tile_position.y));
+        *color_mat_handle = get_tile_material(tile, &materials);
     }
 }
 
-fn tile_appearance(mut q: Query<(&Tile, &mut Handle<ColorMaterial>)>, materials: Res<Materials>) {
-    for (tile, mut color_mat_handle) in q.iter_mut() {
-        *color_mat_handle = get_tile_material(tile, &materials);
+fn tile_text(
+    mut q: Query<(&TilePosition, &Children)>,
+    mut text_q: Query<&mut Text>,
+    tilemap: Res<TilemapWorld>,
+) {
+    for (tile_position, children) in q.iter_mut() {
+        let tile = tilemap.getu((tile_position.x, tile_position.y));
+        for child in children.iter() {
+            if let Ok(mut text) = text_q.get_mut(*child) {
+                text.sections[0].value = match tile {
+                    Some(TileWorld::Prog(TileProgram::LaserProducer(dir, data))) => {
+                        format!("{}", dir.to_arrow())
+                    }
+                    _ => "".to_string(),
+                };
+            }
+        }
     }
 }

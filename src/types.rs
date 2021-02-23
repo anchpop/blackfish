@@ -86,6 +86,15 @@ impl TilemapWorld {
     pub fn get(&self, location: IntVector2) -> Option<&Tile> {
         self.world.get([location.1, location.0])
     }
+
+    pub fn getu(&self, location: IntVector2) -> &Tile {
+        self.world.get([location.1, location.0]).expect(&format!(
+            "Attempted to access a tile at ({}, {}) but tilemap dimensions are {:?}",
+            location.0,
+            location.1,
+            self.world.dim()
+        ))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -112,6 +121,15 @@ impl Dir {
             Self::East => Vec2::new(1., 0.),
             Self::South => Vec2::new(0., -1.),
             Self::West => Vec2::new(-1., 0.),
+        }
+    }
+
+    pub fn to_arrow(&self) -> &str {
+        match self {
+            Self::North => "↑",
+            Self::East => "→",
+            Self::South => "↓",
+            Self::West => "←",
         }
     }
 }
