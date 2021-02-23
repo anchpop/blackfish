@@ -86,7 +86,12 @@ fn create_map(commands: &mut Commands) {
     commands.insert_resource(test_world);
 }
 
-fn spawn_main_tile(commands: &mut Commands, materials: Res<Materials>, tilemap: Res<TilemapWorld>) {
+fn spawn_main_tile(
+    commands: &mut Commands,
+    materials: Res<Materials>,
+    tilemap: Res<TilemapWorld>,
+    asset_server: Res<AssetServer>,
+) {
     for (index, tile) in tilemap.world.indexed_iter() {
         let pos = TilePosition {
             x: index.1 as usize,
@@ -105,7 +110,29 @@ fn spawn_main_tile(commands: &mut Commands, materials: Res<Materials>, tilemap: 
             })
             .with(pos)
             .with(size)
-            .with(block);
+            .with(block)
+            .with_children(|parent| {
+                parent.spawn(Text2dBundle {
+                    text: Text::with_section(
+                        format!("{}, {}", index.1, index.0),
+                        TextStyle {
+                            font: asset_server.load("fonts/FiraSans/FiraSans-Light.ttf"),
+                            font_size: 60.0,
+                            color: Color::WHITE,
+                        },
+                        TextAlignment {
+                            vertical: VerticalAlign::Center,
+                            horizontal: HorizontalAlign::Center,
+                        },
+                    ),
+                    transform: Transform {
+                        translation: Vec3::new(0., 0., 2.),
+                        rotation: Quat::identity(),
+                        scale: Vec3::new(0., 0., 0.),
+                    },
+                    ..Default::default()
+                });
+            });
     }
 }
 
