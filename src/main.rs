@@ -25,7 +25,7 @@ fn main() {
 }
 
 fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(OrthographicCameraBundle::new_2d());
     commands.insert_resource(Materials {
         empty: materials.add(Color::rgb(0.1, 0.1, 0.1).into()),
         tiles: [

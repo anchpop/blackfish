@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = "0.4.0"
+bevy = { git = "https://github.com/bevyengine/bevy", rev = "bc4fe9b186db3f32eef38fc4241289df480fa949" }
 rand = "0.7.3"
 ndarray = "0.14.0"
 frunk = "0.3.1"

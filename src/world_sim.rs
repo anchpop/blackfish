@@ -26,7 +26,7 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
         for x in 0..shape.1 {
             for dir in [Dir::North, Dir::South, Dir::East, Dir::West].iter() {
                 let dir_v = dir.to_vector();
-                // addition here should behave correctly,
+                // the subtraction here should behave correctly,
                 // see https://stackoverflow.com/questions/53453628/how-do-i-add-a-signed-integer-to-an-unsigned-integer-in-rust
                 // and https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=1448b2d8f02f844f72864e10dbe98049
                 if let Some(adjacent) = world.get((
@@ -54,14 +54,6 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
 
                         _ => {}
                     }
-                    /*
-                    match adjacent {
-                        Some(
-                            TileWorld::Prog(TileProgram::LaserProducer(_, data))
-                            | TileWorld::Phys(TilePhysics::Laser),
-                        ) => new_world[[y, x]] = Some(TileWorld::Phys(TilePhysics::Laser)),
-                        _ => {}
-                    }*/
                 }
             }
         }
