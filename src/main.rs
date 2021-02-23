@@ -53,9 +53,9 @@ fn create_map(commands: &mut Commands) {
                 None,
                 None,
                 None,
-                Some(TileProgram::LaserProducer(Dir::South, Data::Number(2))),
+                Some(TileProgram::LaserProducer(Dir::North, Data::Number(2))),
                 None,
-                None,
+                Some(TileProgram::LaserProducer(Dir::West, Data::Number(2))),
                 None,
                 None,
                 None,
@@ -64,7 +64,17 @@ fn create_map(commands: &mut Commands) {
             [None, None, None, None, None, None, None, None, None],
             [None, None, None, None, None, None, None, None, None],
             [None, None, None, None, None, None, None, None, None],
-            [None, None, None, None, None, None, None, None, None],
+            [
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(TileProgram::LaserProducer(Dir::West, Data::Number(2))),
+                None,
+            ],
             [None, None, None, None, None, None, None, None, None],
             [None, None, None, None, None, None, None, None, None],
         ]),
@@ -79,8 +89,8 @@ fn create_map(commands: &mut Commands) {
 fn spawn_main_tile(commands: &mut Commands, materials: Res<Materials>, tilemap: Res<TilemapWorld>) {
     for (index, tile) in tilemap.world.indexed_iter() {
         let pos = TilePosition {
-            x: index.1 as u32,
-            y: index.0 as u32,
+            x: index.1 as usize,
+            y: index.0 as usize,
         };
         let size = TileSize {
             width: 1,

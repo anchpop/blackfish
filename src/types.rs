@@ -8,13 +8,13 @@ use frunk::monoid::Monoid;
 use frunk::semigroup::Semigroup;
 
 pub struct TilePosition {
-    pub x: u32,
-    pub y: u32,
+    pub x: usize,
+    pub y: usize,
 }
 
 pub struct TileSize {
-    pub width: u32,
-    pub height: u32,
+    pub width: usize,
+    pub height: usize,
 }
 
 pub struct Materials {
@@ -43,9 +43,6 @@ impl TilePhysics {
             Self::Laser(_) => "Laser",
         }
     }
-    pub fn empty_laser() -> Self {
-        Self::Laser(DirData::empty())
-    }
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TileWorld {
@@ -63,6 +60,9 @@ impl TileWorld {
 
 pub type Tile = Option<TileWorld>;
 
+// It's confusing but I'm going to be using column-major order here, so the first coordinate is x and the second is y
+pub type IntVector2 = (usize, usize);
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TilemapProgram {
     pub program: Array2<Option<TileProgram>>,
@@ -70,6 +70,22 @@ pub struct TilemapProgram {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TilemapWorld {
     pub world: Array2<Option<TileWorld>>,
+}
+impl TilemapWorld {
+    pub fn add_laser(&mut self, location: IntVector2, d1: LaserDirData) {
+        let tile = &mut self.world[[location.1, location.0]];
+        match tile {
+            None => *tile = Some(TileWorld::Phys(TilePhysics::Laser(DirData::empty()))),
+            Some(TileWorld::Phys(TilePhysics::Laser(d2))) => {
+                *tile = Some(TileWorld::Phys(TilePhysics::Laser(d1.combine(d2))))
+            }
+            _ => {}
+        }
+    }
+
+    pub fn get(&self, location: IntVector2) -> Option<&Tile> {
+        self.world.get([location.1, location.0])
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -125,6 +141,7 @@ impl<V> DirData<V> {
         }
     }
 }
+type LaserDirData = DirData<Option<Data>>;
 
 impl<V: Semigroup> Semigroup for DirData<V> {
     fn combine(&self, other: &Self) -> Self {
