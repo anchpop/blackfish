@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use std::fmt::Debug;
+use std::{collections::HashMap, num::NonZeroUsize};
 
 use bevy::prelude::*;
 use ndarray::Array2;
@@ -23,8 +23,18 @@ pub struct Materials {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum BuiltInMachines {
+    Iffy,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum MachineInfo {
+    BuiltIn(BuiltInMachines),
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TileProgram {
     LaserProducer(Dir, Data),
+    Machine(MachineInfo),
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TilePhysics {
@@ -34,6 +44,7 @@ impl TileProgram {
     pub fn name(&self) -> &'static str {
         match self {
             Self::LaserProducer(_, _) => "LaserProducer",
+            Self::Machine(_) => "Machine",
         }
     }
 }
@@ -54,6 +65,14 @@ impl TileWorld {
         match self {
             Self::Phys(p) => p.name(),
             Self::Prog(p) => p.name(),
+        }
+    }
+
+    pub fn size(&self) -> (usize, usize) {
+        match self {
+            Self::Phys(TilePhysics::Laser(_)) => (1, 1),
+            Self::Prog(TileProgram::LaserProducer(_, _)) => (1, 1),
+            Self::Prog(TileProgram::Machine(MachineInfo::BuiltIn(BuiltInMachines::Iffy))) => (3, 1),
         }
     }
 }
@@ -104,6 +123,13 @@ pub enum Data {
 impl Semigroup for Data {
     fn combine(&self, other: &Self) -> Self {
         return other.clone();
+    }
+}
+impl Data {
+    pub fn show(&self) -> String {
+        match self {
+            Data::Number(num) => format!("{}", num),
+        }
     }
 }
 

@@ -207,7 +207,7 @@ fn tile_text(
             if let Ok(mut text) = text_q.get_mut(*child) {
                 text.sections[0].value = match tile {
                     Some(TileWorld::Prog(TileProgram::LaserProducer(dir, data))) => {
-                        format!("{}", dir.to_arrow())
+                        format!("{} {}", dir.to_arrow(), data.show())
                     }
                     _ => "".to_string(),
                 };
