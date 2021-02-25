@@ -11,3 +11,4 @@ bevy = { git = "https://github.com/bevyengine/bevy", rev = "bc4fe9b186db3f32eef3
 rand = "0.7.3"
 ndarray = "0.14.0"
 frunk = "0.3.1"
+slotmap = "1.0"
