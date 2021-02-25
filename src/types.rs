@@ -83,16 +83,29 @@ pub type Tile = Option<TileWorld>;
 pub type IntVector2 = (usize, usize);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TilemapProgram {
-    pub program: Array2<Option<TileProgram>>,
+pub struct Tilemap<I> {
+    pub map: Array2<Option<I>>,
 }
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TilemapWorld {
-    pub world: Array2<Option<TileWorld>>,
-}
+pub struct TilemapProgram(pub Tilemap<TileProgram>);
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TilemapWorld(pub Tilemap<TileWorld>);
+
 impl TilemapWorld {
+    pub fn world(self) -> Array2<Option<TileWorld>> {
+        self.0.map
+    }
+    pub fn new(world: Array2<Option<TileWorld>>) -> Self {
+        Self(Tilemap { map: world })
+    }
+    pub fn world_dim(&self) -> (usize, usize) {
+        let dim = self.0.map.dim();
+        return (dim.1, dim.0);
+    }
+
     pub fn add_laser(&mut self, location: IntVector2, d1: LaserDirData) {
-        let tile = &mut self.world[[location.1, location.0]];
+        let tile = &mut self.0.map[[location.1, location.0]];
         match tile {
             None => *tile = Some(TileWorld::Phys(TilePhysics::Laser(DirData::empty()))),
             Some(TileWorld::Phys(TilePhysics::Laser(d2))) => {
@@ -103,16 +116,29 @@ impl TilemapWorld {
     }
 
     pub fn get(&self, location: IntVector2) -> Option<&Tile> {
-        self.world.get([location.1, location.0])
+        self.0.map.get([location.1, location.0])
     }
 
     pub fn getu(&self, location: IntVector2) -> &Tile {
-        self.world.get([location.1, location.0]).expect(&format!(
+        self.0.map.get([location.1, location.0]).expect(&format!(
             "Attempted to access a tile at ({}, {}) but tilemap dimensions are {:?}",
             location.0,
             location.1,
-            self.world.dim()
+            self.0.map.dim()
         ))
+    }
+}
+
+impl TilemapProgram {
+    pub fn program(self) -> Array2<Option<TileProgram>> {
+        self.0.map
+    }
+    pub fn new(program: Array2<Option<TileProgram>>) -> Self {
+        Self(Tilemap { map: program })
+    }
+    pub fn program_dim(&self) -> (usize, usize) {
+        let dim = self.0.map.dim();
+        return (dim.1, dim.0);
     }
 }
 
