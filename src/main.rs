@@ -45,38 +45,40 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
 }
 
 fn create_map(commands: &mut Commands) {
-    let test_prog = TilemapProgram::new(arr2(&[
-        [None, None, None, None, None, None, None, None, None],
-        [None, None, None, None, None, None, None, None, None],
-        [
-            None,
-            None,
-            None,
-            Some(TileProgram::LaserProducer(Dir::North, Data::Number(2))),
-            None,
-            Some(TileProgram::LaserProducer(Dir::West, Data::Number(2))),
-            None,
-            None,
-            None,
-        ],
-        [None, None, None, None, None, None, None, None, None],
-        [None, None, None, None, None, None, None, None, None],
-        [None, None, None, None, None, None, None, None, None],
-        [None, None, None, None, None, None, None, None, None],
-        [
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Some(TileProgram::LaserProducer(Dir::West, Data::Number(2))),
-            None,
-        ],
-        [None, None, None, None, None, None, None, None, None],
-        [None, None, None, None, None, None, None, None, None],
-    ]));
+    let test_prog = TilemapProgram {
+        program: arr2(&[
+            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
+            [
+                None,
+                None,
+                None,
+                Some(TileProgram::LaserProducer(Dir::North, Data::Number(2))),
+                None,
+                Some(TileProgram::LaserProducer(Dir::West, Data::Number(2))),
+                None,
+                None,
+                None,
+            ],
+            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
+            [
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(TileProgram::LaserProducer(Dir::West, Data::Number(2))),
+                None,
+            ],
+            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
+        ]),
+    };
 
     let test_world = sim(test_prog.clone());
 
@@ -90,7 +92,7 @@ fn spawn_main_tile(
     tilemap: Res<TilemapWorld>,
     asset_server: Res<AssetServer>,
 ) {
-    for (index, tile) in tilemap.0.map.indexed_iter() {
+    for (index, tile) in tilemap.world.indexed_iter() {
         let pos = TilePosition {
             x: index.1 as usize,
             y: index.0 as usize,
@@ -139,7 +141,7 @@ fn size_scaling(
     mut q: Query<(&TileSize, &mut Sprite)>,
     tilemap: Res<TilemapWorld>,
 ) {
-    let (arena_tiles_wide, arena_tiles_tall) = tilemap.world_dim();
+    let (arena_tiles_tall, arena_tiles_wide) = tilemap.world.dim();
     let window = windows.get_primary().unwrap();
 
     for (sprite_size, mut sprite) in q.iter_mut() {
@@ -155,7 +157,7 @@ fn positioning(
     mut q: Query<(&TilePosition, &mut Transform)>,
     tilemap: Res<TilemapWorld>,
 ) {
-    let (arena_tiles_wide, arena_tiles_tall) = tilemap.world_dim();
+    let (arena_tiles_tall, arena_tiles_wide) = tilemap.world.dim();
     let window = windows.get_primary().unwrap();
 
     fn convert(pos: f32, bound_window: f32, bound_game: f32) -> f32 {

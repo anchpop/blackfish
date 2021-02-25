@@ -2,9 +2,9 @@ use crate::types::*;
 use frunk::monoid::Monoid;
 
 pub fn sim(prog: TilemapProgram) -> TilemapWorld {
-    let world = TilemapWorld(Tilemap {
-        map: prog.program().mapv(|a| a.map(TileWorld::Prog)),
-    });
+    let world = TilemapWorld {
+        world: prog.program.mapv(|a| a.map(TileWorld::Prog)),
+    };
     simulate_until_stable(world)
 }
 
@@ -21,7 +21,7 @@ fn simulate_until_stable(mut world: TilemapWorld) -> TilemapWorld {
 fn iterate(world: TilemapWorld) -> TilemapWorld {
     let mut new_world = world.clone();
 
-    let shape = new_world.world_dim();
+    let shape = new_world.world.dim();
 
     let mut propagate_lasers = |x: usize, y: usize| {
         for dir in [Dir::North, Dir::South, Dir::East, Dir::West].iter() {
@@ -60,8 +60,8 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
 
     let mut handle_receivers = |x: usize, y: usize| {};
 
-    for x in 0..shape.0 {
-        for y in 0..shape.1 {
+    for y in 0..shape.0 {
+        for x in 0..shape.1 {
             propagate_lasers(x, y);
             handle_receivers(x, y);
         }
