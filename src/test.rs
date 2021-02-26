@@ -44,7 +44,7 @@ fn default_map() -> TilemapProgram {
         ]),
     });
 
-    return test_prog;
+    test_prog
 }
 
 #[cfg(test)]
@@ -65,7 +65,7 @@ mod tests {
 
     #[test]
     fn tilemap_world_equality() {
-        assert_eq!(default_map().to_world(), default_map().to_world());
+        assert_eq!(default_map().into_world(), default_map().into_world());
     }
 
     #[test]
@@ -86,5 +86,16 @@ mod tests {
             TileProgram::LaserProducer(Dir::North, Data::Number(2)),
         );
         assert_eq!(m1, m2);
+    }
+
+    #[test]
+    fn tilemap_inequality() {
+        let m1 = default_map();
+        let mut m2 = m1.clone();
+        m2.0.set_tile(
+            (0, 0),
+            TileProgram::LaserProducer(Dir::North, Data::Number(2)),
+        );
+        assert_ne!(m1, m2);
     }
 }

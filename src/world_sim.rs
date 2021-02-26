@@ -2,7 +2,7 @@ use crate::types::*;
 use frunk::monoid::Monoid;
 
 pub fn sim(prog: TilemapProgram) -> TilemapWorld {
-    simulate_until_stable(prog.to_world())
+    simulate_until_stable(prog.into_world())
 }
 
 fn simulate_until_stable(mut world: TilemapWorld) -> TilemapWorld {
@@ -10,7 +10,6 @@ fn simulate_until_stable(mut world: TilemapWorld) -> TilemapWorld {
     loop {
         if count > 4096 {
             panic!("Unable to get the tilemap stable after 4096 repetitions");
-            break world;
         }
         count += 1;
 
@@ -53,7 +52,6 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                                 (x, y),
                                 DirData::empty().update(dir, Some(data.clone())),
                             );
-                            print!("propagated Laser!")
                         }
                     }
 
@@ -63,12 +61,12 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
         }
     };
 
-    let mut handle_receivers = |x: usize, y: usize| {};
+    //let mut handle_receivers = |x: usize, y: usize| {};
 
     for x in 0..shape.0 {
         for y in 0..shape.1 {
             propagate_lasers(x, y);
-            handle_receivers(x, y);
+            //handle_receivers(x, y);
         }
     }
 

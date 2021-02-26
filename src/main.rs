@@ -95,11 +95,10 @@ fn create_map(commands: &mut Commands) {
 
 fn spawn_main_tile(
     commands: &mut Commands,
-    materials: Res<Materials>,
     tilemap: Res<TilemapWorld>,
     asset_server: Res<AssetServer>,
 ) {
-    for (index, tile_key) in tilemap.0.map.indexed_iter() {
+    for (index, _) in tilemap.0.map.indexed_iter() {
         let pos = TilePosition {
             x: index.1 as usize,
             y: index.0 as usize,
@@ -108,16 +107,8 @@ fn spawn_main_tile(
             width: 1,
             height: 1,
         };
-        let block: Option<&TileWorld> = tile_key.map(|tile_key| {
-            tilemap
-                .0
-                .tiles
-                .get(tile_key)
-                .expect("A key is referenced that doesn't exist in the tile slotmap!")
-        });
         commands
             .spawn(SpriteBundle {
-                material: get_tile_material(&block, &materials),
                 sprite: Sprite::new(Vec2::new(10., 10.)),
                 ..Default::default()
             })

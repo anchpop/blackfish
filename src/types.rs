@@ -137,7 +137,7 @@ impl<K: Key, I: PartialEq> PartialEq for Tilemap<K, I> {
                 }
             }
 
-            return true;
+            true
         }
         e(self, other)
     }
@@ -153,10 +153,12 @@ impl<K: Key, I> Tilemap<K, I> {
     }
 
     pub fn getu(&self, location: IntVector2) -> &I {
-        self.get(location).expect(&format!(
+        self.get(location).unwrap_or_else(|| {
+            panic!(
             "Attempted to access a tile at ({}, {}) but it was not present (out of bounds or None)",
             location.0, location.1
-        ))
+        )
+        })
     }
 
     pub fn get_mut(&mut self, location: IntVector2) -> Option<&mut I> {
@@ -167,14 +169,16 @@ impl<K: Key, I> Tilemap<K, I> {
         }
     }
     pub fn getu_mut(&mut self, location: IntVector2) -> &mut I {
-        self.get_mut(location).expect(&format!(
+        self.get_mut(location).unwrap_or_else(|| {
+            panic!(
             "Attempted to access a tile at ({}, {}) but it was not present (out of bounds or None)",
             location.0, location.1
-        ))
+        )
+        })
     }
 
     pub fn add_tile(&mut self, location: IntVector2, tile: I) {
-        if let None = self.get(location) {
+        if self.get(location).is_none() {
             let tile_key = self.tiles.insert(tile);
             self.map[[location.1, location.0]] = Some(tile_key);
         } else {
@@ -219,7 +223,7 @@ impl TilemapWorld {
     }
     pub fn world_dim(&self) -> (usize, usize) {
         let dim = self.0.map.dim();
-        return (dim.1, dim.0);
+        (dim.1, dim.0)
     }
 
     pub fn set_tile(&mut self, location: IntVector2, tile: TileWorld) {
@@ -234,17 +238,17 @@ impl TilemapWorld {
     }
 
     pub fn add_laser(&mut self, location: IntVector2, d1: LaserDirData) {
-        let tile = self.get(location);
-        match tile {
+        match self.get(location) {
             None => self.add_tile(
                 location,
                 TileWorld::Phys(TilePhysics::Laser(DirData::empty())),
             ),
             Some(TileWorld::Phys(TilePhysics::Laser(d2))) => {
                 if d1 != *d2 {
+                    let d2 = d2.clone();
                     self.set_tile(
                         location,
-                        TileWorld::Phys(TilePhysics::Laser(d1.combine(d2))),
+                        TileWorld::Phys(TilePhysics::Laser(d1.combine(&d2))),
                     )
                 }
             }
@@ -278,13 +282,13 @@ impl TilemapProgram {
     }
     pub fn program_dim(&self) -> (usize, usize) {
         let dim = self.0.map.dim();
-        return (dim.1, dim.0);
+        (dim.1, dim.0)
     }
-    pub fn to_world(self) -> TilemapWorld {
+    pub fn into_world(self) -> TilemapWorld {
         let map = self.0.map;
         let mut tiles = self.0.tiles;
 
-        let mut world_tiles: SlotMap<KeyWorld, TileWorld> = SlotMap::with_key();
+        let mut world_tiles: SlotMap<KeyWorld, TileWorld> = TilemapWorld::make_slotmap();
 
         let world_map: Array2<Option<KeyWorld>> = map.mapv(|program_key| match program_key {
             Some(program_key) => {
@@ -295,7 +299,7 @@ impl TilemapProgram {
                     None
                 }
             }
-            _ => return None,
+            _ => None,
         });
         TilemapWorld(Tilemap {
             tiles: world_tiles,
@@ -314,7 +318,7 @@ pub enum Data {
 }
 impl Semigroup for Data {
     fn combine(&self, other: &Self) -> Self {
-        return other.clone();
+        other.clone()
     }
 }
 impl Data {
