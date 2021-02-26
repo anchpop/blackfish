@@ -2,18 +2,22 @@ use crate::types::*;
 use frunk::monoid::Monoid;
 
 pub fn sim(prog: TilemapProgram) -> TilemapWorld {
-    let world = TilemapWorld(Tilemap {
-        map: prog.program().mapv(|a| a.map(TileWorld::Prog)),
-    });
-    simulate_until_stable(world)
+    simulate_until_stable(prog.to_world())
 }
 
 fn simulate_until_stable(mut world: TilemapWorld) -> TilemapWorld {
+    let mut count = 0;
     loop {
+        if count > 4096 {
+            panic!("Unable to get the tilemap stable after 4096 repetitions");
+            break world;
+        }
+        count += 1;
+
         let old_world = world.clone();
         world = iterate(world);
         if world == old_world {
-            return world;
+            break world;
         }
     }
 }
@@ -34,7 +38,7 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                 y.wrapping_sub((dir_v.y as i64) as usize),
             )) {
                 match adjacent {
-                    Some(TileWorld::Prog(TileProgram::LaserProducer(laser_dir, data))) => {
+                    TileWorld::Prog(TileProgram::LaserProducer(laser_dir, data)) => {
                         if dir == laser_dir {
                             new_world.add_laser(
                                 (x, y),
@@ -43,12 +47,13 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                         }
                     }
 
-                    Some(TileWorld::Phys(TilePhysics::Laser(dir_data))) => {
+                    TileWorld::Phys(TilePhysics::Laser(dir_data)) => {
                         if let Some(data) = dir_data.get(dir) {
                             new_world.add_laser(
                                 (x, y),
                                 DirData::empty().update(dir, Some(data.clone())),
                             );
+                            print!("propagated Laser!")
                         }
                     }
 

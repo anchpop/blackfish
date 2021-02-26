@@ -1,5 +1,4 @@
-#![feature(or_patterns)]
-
+mod test;
 mod types;
 mod world_sim;
 
@@ -7,7 +6,9 @@ use types::*;
 use world_sim::sim;
 
 use bevy::prelude::*;
+
 use ndarray::arr2;
+use slotmap::{new_key_type, Key, SlotMap};
 
 use frunk::monoid::Monoid;
 
@@ -45,38 +46,46 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
 }
 
 fn create_map(commands: &mut Commands) {
-    let test_prog = TilemapProgram::new(arr2(&[
-        [None, None, None, None, None, None, None, None, None],
-        [None, None, None, None, None, None, None, None, None],
-        [
-            None,
-            None,
-            None,
-            Some(TileProgram::LaserProducer(Dir::North, Data::Number(2))),
-            None,
-            Some(TileProgram::LaserProducer(Dir::West, Data::Number(2))),
-            None,
-            None,
-            None,
-        ],
-        [None, None, None, None, None, None, None, None, None],
-        [None, None, None, None, None, None, None, None, None],
-        [None, None, None, None, None, None, None, None, None],
-        [None, None, None, None, None, None, None, None, None],
-        [
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Some(TileProgram::LaserProducer(Dir::West, Data::Number(2))),
-            None,
-        ],
-        [None, None, None, None, None, None, None, None, None],
-        [None, None, None, None, None, None, None, None, None],
-    ]));
+    let mut tiles = TilemapProgram::make_slotmap();
+    let north_laser = tiles.insert(TileProgram::LaserProducer(Dir::North, Data::Number(2)));
+    let west_laser = tiles.insert(TileProgram::LaserProducer(Dir::West, Data::Number(2)));
+    let west_laser_2 = tiles.insert(TileProgram::LaserProducer(Dir::West, Data::Number(2)));
+
+    let test_prog = TilemapProgram(Tilemap {
+        tiles,
+        map: arr2(&[
+            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
+            [
+                None,
+                None,
+                None,
+                Some(north_laser),
+                None,
+                Some(west_laser),
+                None,
+                None,
+                None,
+            ],
+            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
+            [
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(west_laser_2),
+                None,
+            ],
+            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
+        ]),
+    });
 
     let test_world = sim(test_prog.clone());
 
@@ -90,7 +99,7 @@ fn spawn_main_tile(
     tilemap: Res<TilemapWorld>,
     asset_server: Res<AssetServer>,
 ) {
-    for (index, tile) in tilemap.0.map.indexed_iter() {
+    for (index, tile_key) in tilemap.0.map.indexed_iter() {
         let pos = TilePosition {
             x: index.1 as usize,
             y: index.0 as usize,
@@ -99,7 +108,13 @@ fn spawn_main_tile(
             width: 1,
             height: 1,
         };
-        let block: Tile = tile.clone();
+        let block: Option<&TileWorld> = tile_key.map(|tile_key| {
+            tilemap
+                .0
+                .tiles
+                .get(tile_key)
+                .expect("A key is referenced that doesn't exist in the tile slotmap!")
+        });
         commands
             .spawn(SpriteBundle {
                 material: get_tile_material(&block, &materials),
@@ -108,7 +123,6 @@ fn spawn_main_tile(
             })
             .with(pos)
             .with(size)
-            .with(block)
             .with_children(|parent| {
                 parent.spawn(Text2dBundle {
                     text: Text::with_section(
@@ -176,7 +190,7 @@ fn positioning(
     }
 }
 
-fn get_tile_material(tile: &Tile, materials: &Materials) -> Handle<ColorMaterial> {
+fn get_tile_material(tile: &Option<&TileWorld>, materials: &Materials) -> Handle<ColorMaterial> {
     match tile {
         None => materials.empty.clone(),
         Some(t) => materials.tiles[t.name()].clone(),
@@ -189,8 +203,8 @@ fn tile_appearance(
     tilemap: Res<TilemapWorld>,
 ) {
     for (tile_position, mut color_mat_handle) in q.iter_mut() {
-        let tile = tilemap.getu((tile_position.x, tile_position.y));
-        *color_mat_handle = get_tile_material(tile, &materials);
+        let tile = tilemap.get((tile_position.x, tile_position.y));
+        *color_mat_handle = get_tile_material(&tile, &materials);
     }
 }
 
@@ -200,7 +214,7 @@ fn tile_text(
     tilemap: Res<TilemapWorld>,
 ) {
     for (tile_position, children) in q.iter_mut() {
-        let tile = tilemap.getu((tile_position.x, tile_position.y));
+        let tile = tilemap.get((tile_position.x, tile_position.y));
         for child in children.iter() {
             if let Ok(mut text) = text_q.get_mut(*child) {
                 text.sections[0].value = match tile {
