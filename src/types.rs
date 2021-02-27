@@ -25,28 +25,41 @@ pub struct Materials {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum BuiltInMachines {
-    Iffy,
+pub struct NoInfo {}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct WorldMachineInfo {
+    display: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum MachineInfo {
-    BuiltIn(BuiltInMachines),
+pub enum BuiltInMachines {
+    Iffy,
+    Trace,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum MachineInfo<I> {
+    BuiltIn(BuiltInMachines, I),
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum TileProgram {
+pub enum TileProgramF<I> {
     LaserProducer(Dir, Data),
-    Machine(MachineInfo),
+    Machine(MachineInfo<I>),
 }
+pub type TileProgram = TileProgramF<NoInfo>;
+pub type TileProgramMachineInfo = TileProgramF<WorldMachineInfo>;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TilePhysics {
     Laser(DirData<Option<Data>>),
 }
-impl TileProgram {
+
+impl<I> TileProgramF<I> {
     pub fn name(&self) -> &'static str {
         match self {
             Self::LaserProducer(_, _) => "LaserProducer",
-            Self::Machine(_) => "Machine",
+            Self::Machine(MachineInfo::BuiltIn(BuiltInMachines::Iffy, _)) => "Iffy",
+            Self::Machine(MachineInfo::BuiltIn(BuiltInMachines::Trace, _)) => "Trace",
         }
     }
 }
@@ -60,7 +73,7 @@ impl TilePhysics {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TileWorld {
     Phys(TilePhysics),
-    Prog(TileProgram),
+    Prog(TileProgramMachineInfo),
 }
 impl TileWorld {
     pub fn name(&self) -> &'static str {
@@ -70,11 +83,31 @@ impl TileWorld {
         }
     }
 
+    #[allow(dead_code)]
     pub fn size(&self) -> (usize, usize) {
         match self {
             Self::Phys(TilePhysics::Laser(_)) => (1, 1),
-            Self::Prog(TileProgram::LaserProducer(_, _)) => (1, 1),
-            Self::Prog(TileProgram::Machine(MachineInfo::BuiltIn(BuiltInMachines::Iffy))) => (3, 1),
+            Self::Prog(TileProgramMachineInfo::LaserProducer(_, _)) => (1, 1),
+            Self::Prog(TileProgramMachineInfo::Machine(MachineInfo::BuiltIn(b, _))) => match b {
+                BuiltInMachines::Iffy => (1, 1),
+                BuiltInMachines::Trace => (1, 1),
+            },
+        }
+    }
+}
+impl TileProgram {
+    pub fn create_machine_info(self) -> TileProgramMachineInfo {
+        match self {
+            TileProgram::LaserProducer(dir, data) => {
+                TileProgramMachineInfo::LaserProducer(dir, data)
+            }
+            TileProgram::Machine(machine_info) => {
+                TileProgramMachineInfo::Machine(match machine_info {
+                    MachineInfo::BuiltIn(machine_type, _) => {
+                        MachineInfo::BuiltIn(machine_type, WorldMachineInfo::empty())
+                    }
+                })
+            }
         }
     }
 }
@@ -152,7 +185,7 @@ impl<K: Key, I> Tilemap<K, I> {
         }
     }
 
-    pub fn getu(&self, location: IntVector2) -> &I {
+    pub fn get_unchecked(&self, location: IntVector2) -> &I {
         self.get(location).unwrap_or_else(|| {
             panic!(
             "Attempted to access a tile at ({}, {}) but it was not present (out of bounds or None)",
@@ -168,7 +201,7 @@ impl<K: Key, I> Tilemap<K, I> {
             None
         }
     }
-    pub fn getu_mut(&mut self, location: IntVector2) -> &mut I {
+    pub fn get_unchecked_mut(&mut self, location: IntVector2) -> &mut I {
         self.get_mut(location).unwrap_or_else(|| {
             panic!(
             "Attempted to access a tile at ({}, {}) but it was not present (out of bounds or None)",
@@ -207,6 +240,8 @@ impl<K: Key, I> Tilemap<K, I> {
             }
         }
     }
+
+    #[allow(dead_code)]
     pub fn make_slotmap() -> SlotMap<K, I> {
         SlotMap::with_key()
     }
@@ -218,6 +253,7 @@ pub struct TilemapProgram(pub Tilemap<KeyProgram, TileProgram>);
 pub struct TilemapWorld(pub Tilemap<KeyWorld, TileWorld>);
 
 impl TilemapWorld {
+    #[allow(dead_code)]
     pub fn world(self) -> Array2<Option<KeyWorld>> {
         self.0.map
     }
@@ -229,6 +265,8 @@ impl TilemapWorld {
     pub fn set_tile(&mut self, location: IntVector2, tile: TileWorld) {
         self.0.set_tile(location, tile);
     }
+
+    #[allow(dead_code)]
     pub fn remove_tile(&mut self, location: IntVector2) {
         self.0.remove_tile(location);
     }
@@ -260,15 +298,19 @@ impl TilemapWorld {
         self.0.get(location)
     }
 
+    #[allow(dead_code)]
     pub fn getu(&self, location: IntVector2) -> &TileWorld {
-        self.0.getu(location)
+        self.0.get_unchecked(location)
     }
 
+    #[allow(dead_code)]
     pub fn get_mut(&mut self, location: IntVector2) -> Option<&mut TileWorld> {
         self.0.get_mut(location)
     }
+
+    #[allow(dead_code)]
     pub fn getu_mut(&mut self, location: IntVector2) -> &mut TileWorld {
-        self.0.getu_mut(location)
+        self.0.get_unchecked_mut(location)
     }
 
     pub fn make_slotmap() -> SlotMap<KeyWorld, TileWorld> {
@@ -277,9 +319,11 @@ impl TilemapWorld {
 }
 
 impl TilemapProgram {
+    #[allow(dead_code)]
     pub fn program(self) -> Array2<Option<KeyProgram>> {
         self.0.map
     }
+    #[allow(dead_code)]
     pub fn program_dim(&self) -> (usize, usize) {
         let dim = self.0.map.dim();
         (dim.1, dim.0)
@@ -293,7 +337,8 @@ impl TilemapProgram {
         let world_map: Array2<Option<KeyWorld>> = map.mapv(|program_key| match program_key {
             Some(program_key) => {
                 if let Some(program_tile) = tiles.remove(program_key) {
-                    let world_key = world_tiles.insert(TileWorld::Prog(program_tile));
+                    let world_key =
+                        world_tiles.insert(TileWorld::Prog(program_tile.create_machine_info()));
                     Some(world_key)
                 } else {
                     None
@@ -400,6 +445,38 @@ impl<V: Monoid> Monoid for DirData<V> {
             east: V::empty(),
             south: V::empty(),
             west: V::empty(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Void {}
+
+impl Semigroup for Void {
+    fn combine(&self, _: &Self) -> Self {
+        match self.clone() {}
+    }
+}
+
+impl Semigroup for NoInfo {
+    fn combine(&self, other: &Self) -> Self {
+        other.clone()
+    }
+}
+impl Monoid for NoInfo {
+    fn empty() -> Self {
+        NoInfo {}
+    }
+}
+impl Semigroup for WorldMachineInfo {
+    fn combine(&self, other: &Self) -> Self {
+        other.clone()
+    }
+}
+impl Monoid for WorldMachineInfo {
+    fn empty() -> Self {
+        WorldMachineInfo {
+            display: Option::empty(),
         }
     }
 }

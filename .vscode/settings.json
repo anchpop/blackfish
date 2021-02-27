@@ -5,6 +5,7 @@
         "frunk",
         "mapv",
         "ndarray",
+        "slotmap",
         "tilemap"
     ]
 }

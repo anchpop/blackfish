@@ -37,7 +37,7 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                 y.wrapping_sub((dir_v.y as i64) as usize),
             )) {
                 match adjacent {
-                    TileWorld::Prog(TileProgram::LaserProducer(laser_dir, data)) => {
+                    TileWorld::Prog(TileProgramMachineInfo::LaserProducer(laser_dir, data)) => {
                         if dir == laser_dir {
                             new_world.add_laser(
                                 (x, y),
