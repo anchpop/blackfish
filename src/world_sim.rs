@@ -27,7 +27,7 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
 
     let shape = new_world.world_dim();
 
-    let propagate_lasers = |tile: Option<&TileWorld>, location: XYPair| -> Option<Edit> {
+    let propagate_lasers = |_tile: Option<&TileWorld>, location: XYPair| -> Option<Edit> {
         Some(Edit::Edits(
             [Dir::North, Dir::South, Dir::East, Dir::West]
                 .iter()
@@ -68,47 +68,42 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                         None
                     }
                 })
-                .filter_map(|x| x)
+                .flatten()
                 .collect(),
         ))
     };
 
     let handle_machines = |tile: Option<&TileWorld>, location: XYPair| -> Option<Edit> {
-        if let Some(tile) = tile {
-            if let TileWorld::Prog(test) = tile {
-                if let TileProgramMachineInfo::Machine(MachineInfo::BuiltIn(builtin_type, _)) = test
-                {
-                    match builtin_type {
-                        BuiltInMachines::Iffy => {
-                            todo!()
-                        }
-                        BuiltInMachines::Trace => Some(Edit::SetTile(
-                            location,
-                            TileWorld::Prog(TileProgramMachineInfo::Machine(MachineInfo::BuiltIn(
-                                *builtin_type,
-                                WorldMachineInfo {
-                                    display: Some({
-                                        if let Some(TileWorld::Phys(TilePhysics::Laser(dir_data))) =
-                                            world.get(Dir::South.shift(location))
-                                        {
-                                            if let Some(ref data) = dir_data.north {
-                                                data.show()
-                                            } else {
-                                                "".to_string()
-                                            }
-                                        } else {
-                                            "".to_string()
-                                        }
-                                    }),
-                                },
-                            ))),
-                        )),
-                    }
-                } else {
-                    None
+        if let Some(TileWorld::Prog(TileProgramMachineInfo::Machine(MachineInfo::BuiltIn(
+            builtin_type,
+            _,
+        )))) = tile
+        {
+            match builtin_type {
+                BuiltInMachines::Iffy => {
+                    todo!()
                 }
-            } else {
-                None
+                BuiltInMachines::Trace => Some(Edit::SetTile(
+                    location,
+                    TileWorld::Prog(TileProgramMachineInfo::Machine(MachineInfo::BuiltIn(
+                        *builtin_type,
+                        WorldMachineInfo {
+                            display: Some({
+                                if let Some(TileWorld::Phys(TilePhysics::Laser(dir_data))) =
+                                    world.get(Dir::South.shift(location))
+                                {
+                                    if let Some(ref data) = dir_data.north {
+                                        data.show()
+                                    } else {
+                                        "".to_string()
+                                    }
+                                } else {
+                                    "".to_string()
+                                }
+                            }),
+                        },
+                    ))),
+                )),
             }
         } else {
             None

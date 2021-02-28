@@ -8,7 +8,7 @@ fn default_map() -> TilemapProgram {
     let west_laser = tiles.insert(TileProgram::LaserProducer(Dir::West, Data::Number(2)));
     let west_laser_2 = tiles.insert(TileProgram::LaserProducer(Dir::West, Data::Number(2)));
 
-    let test_prog = TilemapProgram(Tilemap {
+    TilemapProgram(Tilemap {
         tiles,
         map: arr2(&[
             [None, None, None, None, None, None, None, None, None],
@@ -42,9 +42,7 @@ fn default_map() -> TilemapProgram {
             [None, None, None, None, None, None, None, None, None],
             [None, None, None, None, None, None, None, None, None],
         ]),
-    });
-
-    test_prog
+    })
 }
 
 #[cfg(test)]

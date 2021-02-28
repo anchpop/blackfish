@@ -345,7 +345,7 @@ impl TilemapWorld {
     ) {
         // Before applying any edits, I actually would like to create one big megalist of edits, and then search for incompatibilities (conflicting instructions on whether to update or remove a tile for instance)
         from.0.map.indexed_iter().for_each(|(index, world_key)| {
-            transformation(
+            if let Some(edit) = transformation(
                 world_key.map(|key| {
                     from.0
                         .tiles
@@ -353,8 +353,9 @@ impl TilemapWorld {
                         .expect("referenced key not found in world!")
                 }),
                 (index.1, index.0),
-            )
-            .map(|edit| self.apply_edit(edit));
+            ) {
+                self.apply_edit(edit)
+            }
         });
     }
 
@@ -448,7 +449,7 @@ impl Dir {
     pub fn shift(&self, by: XYPair) -> XYPair {
         let (x, y) = by;
         let v = self.to_vector();
-        return (x.wrapping_add(v.0 as usize), y.wrapping_add(v.1 as usize));
+        (x.wrapping_add(v.0 as usize), y.wrapping_add(v.1 as usize))
     }
 }
 impl Neg for Dir {
