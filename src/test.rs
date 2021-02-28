@@ -58,6 +58,7 @@ mod tests {
 
     // I want to put algebra-driven design into practice and design a tilemap algebra with proprety-based tests.
     // But for now, I'm just going to write simple unit tests to test things that obviously should work.
+
     #[test]
     fn basic_tilemap_equality() {
         assert_eq!(default_map(), default_map());

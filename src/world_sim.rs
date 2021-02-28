@@ -74,7 +74,6 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
     };
 
     let handle_machines = |tile: Option<&TileWorld>, location: XYPair| -> Option<Edit> {
-        // this is getting ridiculous... I need lenses
         if let Some(tile) = tile {
             if let TileWorld::Prog(test) = tile {
                 if let TileProgramMachineInfo::Machine(MachineInfo::BuiltIn(builtin_type, _)) = test

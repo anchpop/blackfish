@@ -127,6 +127,10 @@ impl TileProgram {
 
 new_key_type! { pub struct KeyProgram; }
 new_key_type! { pub struct KeyWorld; }
+
+// There's no reason a tilemap couldn't be a functor and an applicative - actually, it'd be cool if it were.
+// I suspect it would be useful for the same reason that making tiles applicatives was useful for the
+// Tile algebra.
 #[derive(Debug, Clone)]
 pub struct Tilemap<K: Key, I> {
     pub tiles: SlotMap<K, I>,
@@ -339,6 +343,7 @@ impl TilemapWorld {
         from: &Self,
         transformation: F,
     ) {
+        // Before applying any edits, I actually would like to create one big megalist of edits, and then search for incompatibilities (conflicting instructions on whether to update or remove a tile for instance)
         from.0.map.indexed_iter().for_each(|(index, world_key)| {
             transformation(
                 world_key.map(|key| {
