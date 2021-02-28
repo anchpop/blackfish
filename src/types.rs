@@ -1,5 +1,5 @@
 use std::fmt::Debug;
-use std::{collections::HashMap, num::NonZeroUsize};
+use std::{collections::HashMap, iter, num::NonZeroUsize};
 
 use bevy::prelude::*;
 use ndarray::{Array, Array2};
@@ -9,11 +9,24 @@ use slotmap::{new_key_type, Key, SlotMap};
 use frunk::monoid::Monoid;
 use frunk::semigroup::Semigroup;
 
+pub type XYPair = (usize, usize);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Edit {
+    AddTile(XYPair, TileWorld),
+    SetTile(XYPair, TileWorld),
+    RemoveTile(XYPair),
+    AddLaser(XYPair, LaserDirData),
+    Edits(Vec<Edit>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TilePosition {
     pub x: usize,
     pub y: usize,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TileSize {
     pub width: usize,
     pub height: usize,
@@ -84,7 +97,7 @@ impl TileWorld {
     }
 
     #[allow(dead_code)]
-    pub fn size(&self) -> (usize, usize) {
+    pub fn size(&self) -> XYPair {
         match self {
             Self::Phys(TilePhysics::Laser(_)) => (1, 1),
             Self::Prog(TileProgramMachineInfo::LaserProducer(_, _)) => (1, 1),
@@ -111,9 +124,6 @@ impl TileProgram {
         }
     }
 }
-
-// It's confusing but I'm going to be using column-major order here, so the first coordinate is x and the second is y
-pub type IntVector2 = (usize, usize);
 
 new_key_type! { pub struct KeyProgram; }
 new_key_type! { pub struct KeyWorld; }
@@ -177,7 +187,7 @@ impl<K: Key, I: PartialEq> PartialEq for Tilemap<K, I> {
 }
 impl<K: Key, I: Eq> Eq for Tilemap<K, I> {}
 impl<K: Key, I> Tilemap<K, I> {
-    pub fn get(&self, location: IntVector2) -> Option<&I> {
+    pub fn get(&self, location: XYPair) -> Option<&I> {
         if let Some(Some(tile_key)) = self.map.get([location.1, location.0]) {
             self.tiles.get(*tile_key)
         } else {
@@ -185,7 +195,7 @@ impl<K: Key, I> Tilemap<K, I> {
         }
     }
 
-    pub fn get_unchecked(&self, location: IntVector2) -> &I {
+    pub fn get_unchecked(&self, location: XYPair) -> &I {
         self.get(location).unwrap_or_else(|| {
             panic!(
             "Attempted to access a tile at ({}, {}) but it was not present (out of bounds or None)",
@@ -194,14 +204,14 @@ impl<K: Key, I> Tilemap<K, I> {
         })
     }
 
-    pub fn get_mut(&mut self, location: IntVector2) -> Option<&mut I> {
+    pub fn get_mut(&mut self, location: XYPair) -> Option<&mut I> {
         if let Some(Some(tile_key)) = self.map.get([location.1, location.0]) {
             self.tiles.get_mut(*tile_key)
         } else {
             None
         }
     }
-    pub fn get_unchecked_mut(&mut self, location: IntVector2) -> &mut I {
+    pub fn get_unchecked_mut(&mut self, location: XYPair) -> &mut I {
         self.get_mut(location).unwrap_or_else(|| {
             panic!(
             "Attempted to access a tile at ({}, {}) but it was not present (out of bounds or None)",
@@ -210,7 +220,7 @@ impl<K: Key, I> Tilemap<K, I> {
         })
     }
 
-    pub fn add_tile(&mut self, location: IntVector2, tile: I) {
+    pub fn add_tile(&mut self, location: XYPair, tile: I) {
         if self.get(location).is_none() {
             let tile_key = self.tiles.insert(tile);
             self.map[[location.1, location.0]] = Some(tile_key);
@@ -218,7 +228,7 @@ impl<K: Key, I> Tilemap<K, I> {
             panic!("Tried to add a tile where one already exists!")
         }
     }
-    pub fn set_tile(&mut self, location: IntVector2, tile: I) {
+    pub fn set_tile(&mut self, location: XYPair, tile: I) {
         let tile_key = &mut self.map[[location.1, location.0]];
         if let Some(tile_key) = tile_key {
             if let Some(tile_to_update) = self.tiles.get_mut(*tile_key) {
@@ -231,7 +241,7 @@ impl<K: Key, I> Tilemap<K, I> {
             self.map[[location.1, location.0]] = Some(tile_key);
         }
     }
-    pub fn remove_tile(&mut self, location: IntVector2) {
+    pub fn remove_tile(&mut self, location: XYPair) {
         match self.map[[location.1, location.0]] {
             None => { /* Nothing to do, no tile at location */ }
             Some(tile_key) => {
@@ -257,25 +267,24 @@ impl TilemapWorld {
     pub fn world(self) -> Array2<Option<KeyWorld>> {
         self.0.map
     }
-    pub fn world_dim(&self) -> (usize, usize) {
+    pub fn world_dim(&self) -> XYPair {
         let dim = self.0.map.dim();
         (dim.1, dim.0)
     }
 
-    pub fn set_tile(&mut self, location: IntVector2, tile: TileWorld) {
+    pub fn set_tile(&mut self, location: XYPair, tile: TileWorld) {
         self.0.set_tile(location, tile);
     }
 
-    #[allow(dead_code)]
-    pub fn remove_tile(&mut self, location: IntVector2) {
-        self.0.remove_tile(location);
-    }
-
-    pub fn add_tile(&mut self, location: IntVector2, tile: TileWorld) {
+    pub fn add_tile(&mut self, location: XYPair, tile: TileWorld) {
         self.0.add_tile(location, tile)
     }
 
-    pub fn add_laser(&mut self, location: IntVector2, d1: LaserDirData) {
+    pub fn remove_tile(&mut self, location: XYPair) {
+        self.0.remove_tile(location);
+    }
+
+    pub fn add_laser(&mut self, location: XYPair, d1: LaserDirData) {
         match self.get(location) {
             None => self.add_tile(
                 location,
@@ -294,23 +303,52 @@ impl TilemapWorld {
         }
     }
 
-    pub fn get(&self, location: IntVector2) -> Option<&TileWorld> {
+    pub fn get(&self, location: XYPair) -> Option<&TileWorld> {
         self.0.get(location)
     }
 
     #[allow(dead_code)]
-    pub fn getu(&self, location: IntVector2) -> &TileWorld {
+    pub fn getu(&self, location: XYPair) -> &TileWorld {
         self.0.get_unchecked(location)
     }
 
     #[allow(dead_code)]
-    pub fn get_mut(&mut self, location: IntVector2) -> Option<&mut TileWorld> {
+    pub fn get_mut(&mut self, location: XYPair) -> Option<&mut TileWorld> {
         self.0.get_mut(location)
     }
 
     #[allow(dead_code)]
-    pub fn getu_mut(&mut self, location: IntVector2) -> &mut TileWorld {
+    pub fn getu_mut(&mut self, location: XYPair) -> &mut TileWorld {
         self.0.get_unchecked_mut(location)
+    }
+
+    pub fn apply_edit(&mut self, edit: Edit) {
+        match edit {
+            Edit::AddTile(location, tile) => self.add_tile(location, tile),
+            Edit::SetTile(location, tile) => self.set_tile(location, tile),
+            Edit::RemoveTile(location) => self.remove_tile(location),
+            Edit::AddLaser(location, data) => self.add_laser(location, data),
+            Edit::Edits(edits) => edits.into_iter().for_each(|edit| self.apply_edit(edit)),
+        }
+    }
+
+    pub fn apply_transformation<F: Fn(Option<&TileWorld>, XYPair) -> Option<Edit>>(
+        &mut self,
+        from: &Self,
+        transformation: F,
+    ) {
+        from.0.map.indexed_iter().for_each(|(index, world_key)| {
+            transformation(
+                world_key.map(|key| {
+                    from.0
+                        .tiles
+                        .get(key)
+                        .expect("referenced key not found in world!")
+                }),
+                (index.1, index.0),
+            )
+            .map(|edit| self.apply_edit(edit));
+        });
     }
 
     pub fn make_slotmap() -> SlotMap<KeyWorld, TileWorld> {
@@ -324,7 +362,7 @@ impl TilemapProgram {
         self.0.map
     }
     #[allow(dead_code)]
-    pub fn program_dim(&self) -> (usize, usize) {
+    pub fn program_dim(&self) -> XYPair {
         let dim = self.0.map.dim();
         (dim.1, dim.0)
     }
@@ -382,12 +420,12 @@ pub enum Dir {
     West,
 }
 impl Dir {
-    pub fn to_vector(&self) -> Vec2 {
+    pub fn to_vector(&self) -> (i64, i64) {
         match self {
-            Self::North => Vec2::new(0., 1.),
-            Self::East => Vec2::new(1., 0.),
-            Self::South => Vec2::new(0., -1.),
-            Self::West => Vec2::new(-1., 0.),
+            Self::North => (0, 1),
+            Self::East => (1, 0),
+            Self::South => (0, -1),
+            Self::West => (-1, 0),
         }
     }
 
@@ -398,6 +436,12 @@ impl Dir {
             Self::South => "↓",
             Self::West => "←",
         }
+    }
+
+    pub fn shift(&self, by: XYPair) -> XYPair {
+        let (x, y) = by;
+        let v = self.to_vector();
+        return (x.wrapping_sub(v.0 as usize), y.wrapping_sub(v.1 as usize));
     }
 }
 
@@ -478,5 +522,28 @@ impl Monoid for WorldMachineInfo {
         WorldMachineInfo {
             display: Option::empty(),
         }
+    }
+}
+
+impl Semigroup for Edit {
+    fn combine(&self, other: &Self) -> Self {
+        match (self, other) {
+            (Edit::Edits(e1s), Edit::Edits(e2s)) => {
+                Edit::Edits(e1s.iter().chain(e2s).cloned().collect())
+            }
+            (Edit::Edits(e1s), e2) => {
+                Edit::Edits(e1s.iter().chain(iter::once(e2)).cloned().collect())
+            }
+            (e1, Edit::Edits(e2s)) => {
+                Edit::Edits(iter::once(e1).chain(e2s.iter()).cloned().collect())
+            }
+            (e1, e2) => Edit::Edits(vec![e1.clone(), e2.clone()]),
+        }
+    }
+}
+
+impl Monoid for Edit {
+    fn empty() -> Self {
+        Edit::Edits(vec![])
     }
 }

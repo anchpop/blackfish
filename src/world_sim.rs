@@ -26,49 +26,75 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
 
     let shape = new_world.world_dim();
 
-    let mut propagate_lasers = |x: usize, y: usize| {
-        for dir in [Dir::North, Dir::South, Dir::East, Dir::West].iter() {
-            let dir_v = dir.to_vector();
-            // the subtraction here should behave correctly,
-            // see https://stackoverflow.com/questions/53453628/how-do-i-add-a-signed-integer-to-an-unsigned-integer-in-rust
-            // and https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=1448b2d8f02f844f72864e10dbe98049
-            if let Some(adjacent) = world.get((
-                x.wrapping_sub((dir_v.x as i64) as usize),
-                y.wrapping_sub((dir_v.y as i64) as usize),
-            )) {
-                match adjacent {
-                    TileWorld::Prog(TileProgramMachineInfo::LaserProducer(laser_dir, data)) => {
-                        if dir == laser_dir {
-                            new_world.add_laser(
-                                (x, y),
-                                DirData::empty().update(dir, Some(data.clone())),
-                            );
-                        }
-                    }
+    let propagate_lasers = |tile: Option<&TileWorld>, location: XYPair| -> Option<Edit> {
+        Some(Edit::Edits(
+            [Dir::North, Dir::South, Dir::East, Dir::West]
+                .iter()
+                .map(|dir| {
+                    // the subtraction here should behave correctly,
+                    // see https://stackoverflow.com/questions/53453628/how-do-i-add-a-signed-integer-to-an-unsigned-integer-in-rust
+                    // and https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=1448b2d8f02f844f72864e10dbe98049
+                    if let Some(adjacent) = world.get(dir.shift(location)) {
+                        match adjacent {
+                            TileWorld::Prog(TileProgramMachineInfo::LaserProducer(
+                                laser_dir,
+                                data,
+                            )) => {
+                                if dir == laser_dir {
+                                    Some(Edit::AddLaser(
+                                        location,
+                                        DirData::empty().update(dir, Some(data.clone())),
+                                    ))
+                                } else {
+                                    None
+                                }
+                            }
 
-                    TileWorld::Phys(TilePhysics::Laser(dir_data)) => {
-                        if let Some(data) = dir_data.get(dir) {
-                            new_world.add_laser(
-                                (x, y),
-                                DirData::empty().update(dir, Some(data.clone())),
-                            );
-                        }
-                    }
+                            TileWorld::Phys(TilePhysics::Laser(dir_data)) => {
+                                if let Some(data) = dir_data.get(dir) {
+                                    Some(Edit::AddLaser(
+                                        location,
+                                        DirData::empty().update(dir, Some(data.clone())),
+                                    ))
+                                } else {
+                                    None
+                                }
+                            }
 
-                    _ => {}
+                            _ => None,
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .filter_map(|x| x)
+                .collect(),
+        ))
+    };
+
+    let handle_machines = |tile: Option<&TileWorld>, _: XYPair| -> Option<Edit> {
+        if let Some(tile) = tile {
+            if let TileWorld::Prog(test) = tile {
+                if let TileProgramF::Machine(MachineInfo::BuiltIn(builtin_type, _)) = test {
+                    match builtin_type {
+                        BuiltInMachines::Iffy => {
+                            panic!("Haven't figured out how I'm gonna do this yet :/")
+                        }
+                        BuiltInMachines::Trace => None,
+                    }
+                } else {
+                    None
                 }
+            } else {
+                None
             }
+        } else {
+            None
         }
     };
 
-    //let mut handle_receivers = |x: usize, y: usize| {};
-
-    for x in 0..shape.0 {
-        for y in 0..shape.1 {
-            propagate_lasers(x, y);
-            //handle_receivers(x, y);
-        }
-    }
+    new_world.apply_transformation(&world, propagate_lasers);
+    new_world.apply_transformation(&world, handle_machines);
 
     new_world
 }
