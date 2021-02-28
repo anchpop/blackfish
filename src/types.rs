@@ -1,5 +1,5 @@
-use std::fmt::Debug;
 use std::{collections::HashMap, iter, num::NonZeroUsize};
+use std::{fmt::Debug, ops::Neg};
 
 use bevy::prelude::*;
 use ndarray::{Array, Array2};
@@ -41,10 +41,10 @@ pub struct Materials {
 pub struct NoInfo {}
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WorldMachineInfo {
-    display: Option<String>,
+    pub display: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum BuiltInMachines {
     Iffy,
     Trace,
@@ -136,7 +136,7 @@ impl<K: Key, I: PartialEq> PartialEq for Tilemap<K, I> {
     // should return true if self and other are alpha-equivalent
     fn eq(&self, other: &Self) -> bool {
         // There's actually no reason that the two Tilemaps being compared need to have the same key type.
-        // That's not allowed by PartialEq, but we can write this interior function that doesn't have that restriction
+        // PartialEq requires they be, but we can write this interior function that doesn't have that restriction
         // and just call it. This prevents us from making bugs where we use the second tilemap key when we should have
         // used the first.
         fn e<Kp: Key, Kpp: Key, Ip: PartialEq>(
@@ -284,24 +284,26 @@ impl TilemapWorld {
         self.0.remove_tile(location);
     }
 
-    pub fn add_laser(&mut self, location: XYPair, d1: LaserDirData) {
+    pub fn add_laser(&mut self, location: XYPair, data: LaserDirData) {
         match self.get(location) {
             None => self.add_tile(
                 location,
                 TileWorld::Phys(TilePhysics::Laser(DirData::empty())),
             ),
             Some(TileWorld::Phys(TilePhysics::Laser(d2))) => {
-                if d1 != *d2 {
+                if data != *d2 {
                     let d2 = d2.clone();
                     self.set_tile(
                         location,
-                        TileWorld::Phys(TilePhysics::Laser(d1.combine(&d2))),
+                        TileWorld::Phys(TilePhysics::Laser(data.combine(&d2))),
                     )
                 }
             }
             _ => {}
         }
     }
+
+    pub fn update_machine_info(&mut self, location: XYPair, data: WorldMachineInfo) {}
 
     pub fn get(&self, location: XYPair) -> Option<&TileWorld> {
         self.0.get(location)
@@ -441,16 +443,28 @@ impl Dir {
     pub fn shift(&self, by: XYPair) -> XYPair {
         let (x, y) = by;
         let v = self.to_vector();
-        return (x.wrapping_sub(v.0 as usize), y.wrapping_sub(v.1 as usize));
+        return (x.wrapping_add(v.0 as usize), y.wrapping_add(v.1 as usize));
     }
+}
+impl Neg for Dir {
+    fn neg(self) -> Self::Output {
+        match self {
+            Self::North => Self::South,
+            Dir::East => Self::West,
+            Dir::South => Self::North,
+            Dir::West => Self::East,
+        }
+    }
+
+    type Output = Self;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DirData<V> {
-    north: V,
-    east: V,
-    south: V,
-    west: V,
+    pub north: V,
+    pub east: V,
+    pub south: V,
+    pub west: V,
 }
 impl<V> DirData<V> {
     pub fn get(&self, dir: &Dir) -> &V {

@@ -228,6 +228,16 @@ fn tile_text(
                     Some(TileWorld::Prog(TileProgramMachineInfo::LaserProducer(dir, data))) => {
                         format!("{} {}", dir.to_arrow(), data.show())
                     }
+                    Some(TileWorld::Prog(TileProgramMachineInfo::Machine(
+                        MachineInfo::BuiltIn(_, d),
+                    ))) => {
+                        if let Some(text) = d.display.clone() {
+                            text
+                        } else {
+                            "".to_string()
+                        }
+                        //format!("{} {}", dir.to_arrow(), data.show())
+                    }
                     _ => "".to_string(),
                 };
             }

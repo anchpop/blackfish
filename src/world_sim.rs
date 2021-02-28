@@ -1,4 +1,5 @@
 use crate::types::*;
+use bevy::ecs::Location;
 use frunk::monoid::Monoid;
 
 pub fn sim(prog: TilemapProgram) -> TilemapWorld {
@@ -34,7 +35,7 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                     // the subtraction here should behave correctly,
                     // see https://stackoverflow.com/questions/53453628/how-do-i-add-a-signed-integer-to-an-unsigned-integer-in-rust
                     // and https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=1448b2d8f02f844f72864e10dbe98049
-                    if let Some(adjacent) = world.get(dir.shift(location)) {
+                    if let Some(adjacent) = world.get((-*dir).shift(location)) {
                         match adjacent {
                             TileWorld::Prog(TileProgramMachineInfo::LaserProducer(
                                 laser_dir,
@@ -72,15 +73,37 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
         ))
     };
 
-    let handle_machines = |tile: Option<&TileWorld>, _: XYPair| -> Option<Edit> {
+    let handle_machines = |tile: Option<&TileWorld>, location: XYPair| -> Option<Edit> {
+        // this is getting ridiculous... I need lenses
         if let Some(tile) = tile {
             if let TileWorld::Prog(test) = tile {
-                if let TileProgramF::Machine(MachineInfo::BuiltIn(builtin_type, _)) = test {
+                if let TileProgramMachineInfo::Machine(MachineInfo::BuiltIn(builtin_type, _)) = test
+                {
                     match builtin_type {
                         BuiltInMachines::Iffy => {
-                            panic!("Haven't figured out how I'm gonna do this yet :/")
+                            todo!()
                         }
-                        BuiltInMachines::Trace => None,
+                        BuiltInMachines::Trace => Some(Edit::SetTile(
+                            location,
+                            TileWorld::Prog(TileProgramMachineInfo::Machine(MachineInfo::BuiltIn(
+                                *builtin_type,
+                                WorldMachineInfo {
+                                    display: Some({
+                                        if let Some(TileWorld::Phys(TilePhysics::Laser(dir_data))) =
+                                            world.get(Dir::South.shift(location))
+                                        {
+                                            if let Some(ref data) = dir_data.north {
+                                                data.show()
+                                            } else {
+                                                "".to_string()
+                                            }
+                                        } else {
+                                            "".to_string()
+                                        }
+                                    }),
+                                },
+                            ))),
+                        )),
                     }
                 } else {
                     None
