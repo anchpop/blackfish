@@ -39,7 +39,7 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
                 materials.add(Color::rgb(0.3, 0.3, 0.3).into()),
             ),
             (
-                TileWorld::Phys(TilePhysics::Laser(DirData::empty())).name(),
+                TileWorld::Phys(TilePhysics::Laser(DirMap::empty())).name(),
                 materials.add(Color::rgb(0.9, 0.3, 0.3).into()),
             ),
             (
@@ -62,6 +62,10 @@ fn create_map(commands: &mut Commands) {
     let north_laser = tiles.insert(TileProgram::LaserProducer(Dir::North, Data::Number(2)));
     let west_laser = tiles.insert(TileProgram::LaserProducer(Dir::West, Data::Number(2)));
     let west_laser_2 = tiles.insert(TileProgram::LaserProducer(Dir::West, Data::Number(2)));
+    let laser_machine_test = tiles.insert(TileProgram::Machine(MachineInfo::BuiltIn(
+        BuiltInMachines::Produce,
+        NoInfo::empty(),
+    )));
     let tracer = tiles.insert(TileProgram::Machine(MachineInfo::BuiltIn(
         BuiltInMachines::Trace,
         NoInfo::empty(),
@@ -71,7 +75,17 @@ fn create_map(commands: &mut Commands) {
         tiles,
         map: arr2(&[
             [None, None, None, None, None, None, None, None, None],
-            [None, None, None, None, None, None, None, None, None],
+            [
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(laser_machine_test),
+                None,
+                None,
+                None,
+            ],
             [
                 None,
                 None,

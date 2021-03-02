@@ -42,7 +42,7 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                                 if dir == laser_dir {
                                     Some(Edit::AddLaser(
                                         location,
-                                        DirData::empty().update(dir, Some(data.clone())),
+                                        DirMap::empty().update(dir, Some(data.clone())),
                                     ))
                                 } else {
                                     None
@@ -53,7 +53,7 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                                 if let Some(data) = dir_data.get(dir) {
                                     Some(Edit::AddLaser(
                                         location,
-                                        DirData::empty().update(dir, Some(data.clone())),
+                                        DirMap::empty().update(dir, Some(data.clone())),
                                     ))
                                 } else {
                                     None
@@ -102,6 +102,10 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                         },
                     ))),
                 )),
+
+                BuiltInMachines::Produce => {
+                    todo!()
+                }
             }
         } else {
             None

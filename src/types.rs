@@ -16,7 +16,7 @@ pub enum Edit {
     AddTile(XYPair, TileWorld),
     SetTile(XYPair, TileWorld),
     RemoveTile(XYPair),
-    AddLaser(XYPair, LaserDirData),
+    AddLaser(XYPair, DirData),
     Edits(Vec<Edit>),
 }
 
@@ -44,11 +44,12 @@ pub struct WorldMachineInfo {
     pub display: Option<String>,
 }
 
-// TODO: move the laserproducer into beind a built-in machine, then come up with two functions, one that lets you set a tile's inputs and one that lets you set its outputs. I'm not sure how the setting of its outputs will work - I think I'll modify WorldMachineInfo to include that sort of information and then the laser propagation code will look for it. Actually, it'd be useful if there was a function that took a coordinate and told you what it was outputting, and it worked for both lasers and machines.
+// TODO: move the laserproducer into beind a built-in machine, then come up with two functions, one that lets you set a tile's inputs and one that lets you set its outputs. I think I'll have a function that takes a coordinate and tells you what it's outputting. If it's a laser it just looks, and if it's a machine it just calculates the outputs based on the inputs.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum BuiltInMachines {
     Iffy,
     Trace,
+    Produce,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -65,7 +66,7 @@ pub type TileProgramMachineInfo = TileProgramF<WorldMachineInfo>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TilePhysics {
-    Laser(DirData<Option<Data>>),
+    Laser(DirMap<Option<Data>>),
 }
 
 impl<I> TileProgramF<I> {
@@ -74,6 +75,7 @@ impl<I> TileProgramF<I> {
             Self::LaserProducer(_, _) => "LaserProducer",
             Self::Machine(MachineInfo::BuiltIn(BuiltInMachines::Iffy, _)) => "Iffy",
             Self::Machine(MachineInfo::BuiltIn(BuiltInMachines::Trace, _)) => "Trace",
+            Self::Machine(MachineInfo::BuiltIn(BuiltInMachines::Produce, _)) => "ProducerPrime",
         }
     }
 }
@@ -105,6 +107,7 @@ impl TileWorld {
             Self::Prog(TileProgramMachineInfo::Machine(MachineInfo::BuiltIn(b, _))) => match b {
                 BuiltInMachines::Iffy => (1, 1),
                 BuiltInMachines::Trace => (1, 1),
+                BuiltInMachines::Produce => (1, 1),
             },
         }
     }
@@ -289,11 +292,11 @@ impl TilemapWorld {
         self.0.remove_tile(location);
     }
 
-    pub fn add_laser(&mut self, location: XYPair, data: LaserDirData) {
+    pub fn add_laser(&mut self, location: XYPair, data: DirData) {
         match self.get(location) {
             None => self.add_tile(
                 location,
-                TileWorld::Phys(TilePhysics::Laser(DirData::empty())),
+                TileWorld::Phys(TilePhysics::Laser(DirMap::empty())),
             ),
             Some(TileWorld::Phys(TilePhysics::Laser(d2))) => {
                 if data != *d2 {
@@ -308,7 +311,13 @@ impl TilemapWorld {
         }
     }
 
-    pub fn update_machine_info(&mut self, location: XYPair, data: WorldMachineInfo) {}
+    pub fn get_inputs(&self, location: XYPair, direction: Dir) -> Data {
+        todo!()
+    }
+
+    pub fn update_machine_info(&mut self, location: XYPair, data: WorldMachineInfo) {
+        todo!()
+    }
 
     pub fn get(&self, location: XYPair) -> Option<&TileWorld> {
         self.0.get(location)
@@ -366,6 +375,18 @@ impl TilemapWorld {
 }
 
 impl TilemapProgram {
+    pub fn set_tile(&mut self, location: XYPair, tile: TileProgram) {
+        self.0.set_tile(location, tile);
+    }
+
+    pub fn add_tile(&mut self, location: XYPair, tile: TileProgram) {
+        self.0.add_tile(location, tile)
+    }
+
+    pub fn remove_tile(&mut self, location: XYPair) {
+        self.0.remove_tile(location);
+    }
+
     #[allow(dead_code)]
     pub fn program(self) -> Array2<Option<KeyProgram>> {
         self.0.map
@@ -467,13 +488,13 @@ impl Neg for Dir {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct DirData<V> {
+pub struct DirMap<V> {
     pub north: V,
     pub east: V,
     pub south: V,
     pub west: V,
 }
-impl<V> DirData<V> {
+impl<V> DirMap<V> {
     pub fn get(&self, dir: &Dir) -> &V {
         match dir {
             Dir::North => &self.north,
@@ -491,11 +512,11 @@ impl<V> DirData<V> {
         }
     }
 }
-type LaserDirData = DirData<Option<Data>>;
+type DirData = DirMap<Option<Data>>;
 
-impl<V: Semigroup> Semigroup for DirData<V> {
+impl<V: Semigroup> Semigroup for DirMap<V> {
     fn combine(&self, other: &Self) -> Self {
-        DirData {
+        DirMap {
             north: self.north.combine(&other.north),
             east: self.east.combine(&other.east),
             south: self.south.combine(&other.south),
@@ -503,9 +524,9 @@ impl<V: Semigroup> Semigroup for DirData<V> {
         }
     }
 }
-impl<V: Monoid> Monoid for DirData<V> {
+impl<V: Monoid> Monoid for DirMap<V> {
     fn empty() -> Self {
-        DirData {
+        DirMap {
             north: V::empty(),
             east: V::empty(),
             south: V::empty(),
