@@ -25,8 +25,6 @@ fn simulate_until_stable(mut world: TilemapWorld) -> TilemapWorld {
 fn iterate(world: TilemapWorld) -> TilemapWorld {
     let mut new_world = world.clone();
 
-    let shape = new_world.world_dim();
-
     let propagate_lasers = |_tile: Option<&TileWorld>, location: XYPair| -> Option<Edit> {
         Some(Edit::Edits(
             [Dir::North, Dir::South, Dir::East, Dir::West]
