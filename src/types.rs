@@ -44,6 +44,7 @@ pub struct WorldMachineInfo {
     pub display: Option<String>,
 }
 
+// TODO: move the laserproducer into beind a built-in machine, then come up with two functions, one that lets you set a tile's inputs and one that lets you set its outputs. I'm not sure how the setting of its outputs will work - I think I'll modify WorldMachineInfo to include that sort of information and then the laser propagation code will look for it. Actually, it'd be useful if there was a function that took a coordinate and told you what it was outputting, and it worked for both lasers and machines.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum BuiltInMachines {
     Iffy,
