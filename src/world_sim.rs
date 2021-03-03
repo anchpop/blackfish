@@ -30,7 +30,7 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
             [Dir::North, Dir::South, Dir::East, Dir::West]
                 .iter()
                 .map(|direction| {
-                    if let Some(input) = world.get_inputs(location, *direction) {
+                    if let Some(input) = world.get_input(location, *direction) {
                         Some(Edit::AddLaser(
                             location,
                             DirMap::empty().update(direction, Some(input.clone())),
@@ -74,7 +74,7 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
 
     let handle_machines = |tile: Option<&TileWorld>, location: XYPair| -> Option<Edit> {
         if let Some(TileWorld::Prog(TileProgramMachineInfo::Machine(
-            direction,
+            orientation,
             MachineInfo::BuiltIn(builtin_type, _),
         ))) = tile
         {
@@ -85,19 +85,15 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                 BuiltInMachines::Trace => Some(Edit::SetTile(
                     location,
                     TileWorld::Prog(TileProgramMachineInfo::Machine(
-                        *direction,
+                        *orientation,
                         MachineInfo::BuiltIn(
                             *builtin_type,
                             WorldMachineInfo {
                                 display: Some({
-                                    if let Some(TileWorld::Phys(TilePhysics::Laser(dir_data))) =
-                                        world.get(Dir::South.shift(location))
+                                    if let Some(data) =
+                                        world.get_input(location, Dir::North.rotate(*orientation))
                                     {
-                                        if let Some(ref data) = dir_data.north {
-                                            data.show()
-                                        } else {
-                                            "".to_string()
-                                        }
+                                        data.show()
                                     } else {
                                         "".to_string()
                                     }

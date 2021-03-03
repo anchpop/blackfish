@@ -168,7 +168,7 @@ mod tests {
             };
 
             let world = world_sim::sim(map);
-            assert_eq!(world.get_inputs((3, 3), Dir::North).unwrap(), data);
+            assert_eq!(world.get_input((3, 3), Dir::North).unwrap(), data);
         }
     }
 }

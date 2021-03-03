@@ -306,7 +306,7 @@ impl TilemapWorld {
         }
     }
 
-    pub fn get_inputs(&self, location: XYPair, direction: Dir) -> Option<Data> {
+    pub fn get_input(&self, location: XYPair, direction: Dir) -> Option<Data> {
         // TODO: consider rotation
         if let Some(dir_data) = self.get_outputs((-direction).shift(location)) {
             dir_data.get(&direction).clone()
@@ -321,10 +321,11 @@ impl TilemapWorld {
             Some(match tile {
                 TileWorld::Phys(TilePhysics::Laser(dir_data)) => dir_data.clone(),
                 TileWorld::Prog(TileProgramF::Machine(
-                    _,
+                    direction,
                     MachineInfo::BuiltIn(BuiltInMachines::Produce, _info),
                 )) => {
-                    DirData::empty().update(&Dir::North, Some(Data::Number(2))) // TODO: Improve
+                    DirData::empty().update(&direction, Some(Data::Number(2)))
+                    // TODO: Improve
                 }
                 TileWorld::Prog(TileProgramF::Machine(_, MachineInfo::BuiltIn(_, _))) => {
                     DirData::empty()
@@ -497,6 +498,29 @@ impl Dir {
         // and https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=1448b2d8f02f844f72864e10dbe98049
         (x.wrapping_add(v.0 as usize), y.wrapping_add(v.1 as usize))
     }
+
+    fn to_num(&self) -> usize {
+        match self {
+            Self::North => 0,
+            Self::East => 1,
+            Self::South => 2,
+            Self::West => 3,
+        }
+    }
+
+    fn from_num(i: usize) -> Self {
+        match i {
+            0 => Self::North,
+            1 => Self::East,
+            2 => Self::South,
+            3 => Self::West,
+            _ => panic!("out of bounds"),
+        }
+    }
+
+    pub fn rotate(&self, by: Self) -> Self {
+        Self::from_num((self.to_num() + by.to_num()) % 4)
+    }
 }
 impl Neg for Dir {
     fn neg(self) -> Self::Output {
@@ -539,6 +563,28 @@ impl<V> DirMap<V> {
             Dir::East => Self { east: v, ..self },
             Dir::West => Self { west: v, ..self },
         }
+    }
+
+    pub fn itemize(self) -> [V; 4] {
+        let items = [self.north, self.east, self.south, self.west];
+        items
+    }
+    pub fn deitemize(items: [V; 4]) -> Self {
+        let [north, east, south, west] = items;
+        DirMap {
+            north,
+            east,
+            south,
+            west,
+        }
+    }
+
+    pub fn rotate(self, dir: &Dir) -> Self {
+        Self::deitemize({
+            let mut items = self.itemize();
+            items.rotate_right(dir.to_num());
+            items
+        })
     }
 }
 type DirData = DirMap<Option<Data>>;

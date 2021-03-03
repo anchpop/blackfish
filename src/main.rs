@@ -72,19 +72,23 @@ fn create_map(commands: &mut Commands) {
         MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
     ));
     let west_laser = tiles.insert(TileProgram::Machine(
-        Dir::default(),
+        Dir::West,
         MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
     ));
     let west_laser_2 = tiles.insert(TileProgram::Machine(
-        Dir::default(),
+        Dir::West,
         MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
     ));
     let laser_machine_test = tiles.insert(TileProgram::Machine(
-        Dir::default(),
+        Dir::East,
         MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
     ));
     let tracer = tiles.insert(TileProgram::Machine(
         Dir::default(),
+        MachineInfo::BuiltIn(BuiltInMachines::Trace, NoInfo::empty()),
+    ));
+    let tracer2 = tiles.insert(TileProgram::Machine(
+        Dir::West,
         MachineInfo::BuiltIn(BuiltInMachines::Trace, NoInfo::empty()),
     ));
 
@@ -119,7 +123,7 @@ fn create_map(commands: &mut Commands) {
             [None, None, None, None, None, None, None, None, None],
             [None, None, None, None, None, None, None, None, None],
             [
-                None,
+                Some(tracer2),
                 None,
                 None,
                 None,
