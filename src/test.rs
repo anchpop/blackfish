@@ -1,12 +1,24 @@
 use crate::types::*;
 
+use frunk::monoid::Monoid;
+use frunk::semigroup::Semigroup;
+
 use ndarray::arr2;
 
 fn default_map() -> TilemapProgram {
     let mut tiles = TilemapProgram::make_slotmap();
-    let north_laser = tiles.insert(TileProgram::LaserProducer(Dir::North, Data::Number(2)));
-    let west_laser = tiles.insert(TileProgram::LaserProducer(Dir::West, Data::Number(2)));
-    let west_laser_2 = tiles.insert(TileProgram::LaserProducer(Dir::West, Data::Number(2)));
+    let north_laser = tiles.insert(TileProgram::Machine(
+        Dir::default(),
+        MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+    ));
+    let west_laser = tiles.insert(TileProgram::Machine(
+        Dir::default(),
+        MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+    ));
+    let west_laser_2 = tiles.insert(TileProgram::Machine(
+        Dir::default(),
+        MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+    ));
 
     TilemapProgram(Tilemap {
         tiles,
@@ -97,8 +109,10 @@ mod tests {
         fn tilemap_equality_invariant_to_unreferenced_tiles() {
             let m1 = default_map();
             let mut m2 = m1.clone();
-            m2.0.tiles
-                .insert(TileProgram::LaserProducer(Dir::West, Data::Number(2)));
+            m2.0.tiles.insert(TileProgram::Machine(
+                Dir::default(),
+                MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+            ));
             assert_eq!(m1, m2);
         }
 
@@ -108,7 +122,10 @@ mod tests {
             let mut m2 = m1.clone();
             m2.0.set_tile(
                 (3, 2),
-                TileProgram::LaserProducer(Dir::North, Data::Number(2)),
+                TileProgram::Machine(
+                    Dir::default(),
+                    MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+                ),
             );
             assert_eq!(m1, m2);
         }
@@ -119,7 +136,10 @@ mod tests {
             let mut m2 = m1.clone();
             m2.0.set_tile(
                 (0, 0),
-                TileProgram::LaserProducer(Dir::North, Data::Number(2)),
+                TileProgram::Machine(
+                    Dir::North,
+                    MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+                ),
             );
             assert_ne!(m1, m2);
         }
@@ -139,10 +159,10 @@ mod tests {
                 let mut map = empty_map();
                 map.add_tile(
                     (3, 1),
-                    TileProgram::Machine(MachineInfo::BuiltIn(
-                        BuiltInMachines::Produce,
-                        NoInfo::empty(),
-                    )),
+                    TileProgram::Machine(
+                        Dir::North,
+                        MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+                    ),
                 );
                 map
             };

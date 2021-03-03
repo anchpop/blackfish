@@ -73,10 +73,10 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
     };
 
     let handle_machines = |tile: Option<&TileWorld>, location: XYPair| -> Option<Edit> {
-        if let Some(TileWorld::Prog(TileProgramMachineInfo::Machine(MachineInfo::BuiltIn(
-            builtin_type,
-            _,
-        )))) = tile
+        if let Some(TileWorld::Prog(TileProgramMachineInfo::Machine(
+            direction,
+            MachineInfo::BuiltIn(builtin_type, _),
+        ))) = tile
         {
             match builtin_type {
                 BuiltInMachines::Iffy => {
@@ -84,24 +84,27 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                 }
                 BuiltInMachines::Trace => Some(Edit::SetTile(
                     location,
-                    TileWorld::Prog(TileProgramMachineInfo::Machine(MachineInfo::BuiltIn(
-                        *builtin_type,
-                        WorldMachineInfo {
-                            display: Some({
-                                if let Some(TileWorld::Phys(TilePhysics::Laser(dir_data))) =
-                                    world.get(Dir::South.shift(location))
-                                {
-                                    if let Some(ref data) = dir_data.north {
-                                        data.show()
+                    TileWorld::Prog(TileProgramMachineInfo::Machine(
+                        *direction,
+                        MachineInfo::BuiltIn(
+                            *builtin_type,
+                            WorldMachineInfo {
+                                display: Some({
+                                    if let Some(TileWorld::Phys(TilePhysics::Laser(dir_data))) =
+                                        world.get(Dir::South.shift(location))
+                                    {
+                                        if let Some(ref data) = dir_data.north {
+                                            data.show()
+                                        } else {
+                                            "".to_string()
+                                        }
                                     } else {
                                         "".to_string()
                                     }
-                                } else {
-                                    "".to_string()
-                                }
-                            }),
-                        },
-                    ))),
+                                }),
+                            },
+                        ),
+                    )),
                 )),
 
                 BuiltInMachines::Produce => {

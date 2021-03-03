@@ -58,8 +58,7 @@ pub enum MachineInfo<I> {
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TileProgramF<I> {
-    LaserProducer(Dir, Data),
-    Machine(MachineInfo<I>),
+    Machine(Dir, MachineInfo<I>),
 }
 pub type TileProgram = TileProgramF<NoInfo>;
 pub type TileProgramMachineInfo = TileProgramF<WorldMachineInfo>;
@@ -72,10 +71,9 @@ pub enum TilePhysics {
 impl<I> TileProgramF<I> {
     pub fn name(&self) -> &'static str {
         match self {
-            Self::LaserProducer(_, _) => "LaserProducer",
-            Self::Machine(MachineInfo::BuiltIn(BuiltInMachines::Iffy, _)) => "Iffy",
-            Self::Machine(MachineInfo::BuiltIn(BuiltInMachines::Trace, _)) => "Trace",
-            Self::Machine(MachineInfo::BuiltIn(BuiltInMachines::Produce, _)) => "ProducerPrime",
+            Self::Machine(_, MachineInfo::BuiltIn(BuiltInMachines::Iffy, _)) => "Iffy",
+            Self::Machine(_, MachineInfo::BuiltIn(BuiltInMachines::Trace, _)) => "Trace",
+            Self::Machine(_, MachineInfo::BuiltIn(BuiltInMachines::Produce, _)) => "Producer",
         }
     }
 }
@@ -103,8 +101,7 @@ impl TileWorld {
     pub fn size(&self) -> XYPair {
         match self {
             Self::Phys(TilePhysics::Laser(_)) => (1, 1),
-            Self::Prog(TileProgramMachineInfo::LaserProducer(_, _)) => (1, 1),
-            Self::Prog(TileProgramMachineInfo::Machine(MachineInfo::BuiltIn(b, _))) => match b {
+            Self::Prog(TileProgramMachineInfo::Machine(_, MachineInfo::BuiltIn(b, _))) => match b {
                 BuiltInMachines::Iffy => (1, 1),
                 BuiltInMachines::Trace => (1, 1),
                 BuiltInMachines::Produce => (1, 1),
@@ -115,16 +112,14 @@ impl TileWorld {
 impl TileProgram {
     pub fn create_machine_info(self) -> TileProgramMachineInfo {
         match self {
-            TileProgram::LaserProducer(dir, data) => {
-                TileProgramMachineInfo::LaserProducer(dir, data)
-            }
-            TileProgram::Machine(machine_info) => {
-                TileProgramMachineInfo::Machine(match machine_info {
+            TileProgram::Machine(dir, machine_info) => TileProgramMachineInfo::Machine(
+                dir,
+                match machine_info {
                     MachineInfo::BuiltIn(machine_type, _) => {
                         MachineInfo::BuiltIn(machine_type, WorldMachineInfo::empty())
                     }
-                })
-            }
+                },
+            ),
         }
     }
 }
@@ -312,6 +307,7 @@ impl TilemapWorld {
     }
 
     pub fn get_inputs(&self, location: XYPair, direction: Dir) -> Option<Data> {
+        // TODO: consider rotation
         if let Some(dir_data) = self.get_outputs((-direction).shift(location)) {
             dir_data.get(&direction).clone()
         } else {
@@ -320,19 +316,17 @@ impl TilemapWorld {
     }
 
     pub fn get_outputs(&self, location: XYPair) -> Option<DirData> {
+        // TODO: consider rotation
         if let Some(tile) = self.get(location) {
             Some(match tile {
                 TileWorld::Phys(TilePhysics::Laser(dir_data)) => dir_data.clone(),
-                TileWorld::Prog(TileProgramF::LaserProducer(producer_dir, data)) => {
-                    DirData::empty().update(producer_dir, Some(data.clone()))
-                }
-                TileWorld::Prog(TileProgramF::Machine(MachineInfo::BuiltIn(
-                    BuiltInMachines::Produce,
-                    _info,
-                ))) => {
+                TileWorld::Prog(TileProgramF::Machine(
+                    _,
+                    MachineInfo::BuiltIn(BuiltInMachines::Produce, _info),
+                )) => {
                     DirData::empty().update(&Dir::North, Some(Data::Number(2))) // TODO: Improve
                 }
-                TileWorld::Prog(TileProgramF::Machine(MachineInfo::BuiltIn(_, _))) => {
+                TileWorld::Prog(TileProgramF::Machine(_, MachineInfo::BuiltIn(_, _))) => {
                     DirData::empty()
                 }
             })
@@ -515,6 +509,11 @@ impl Neg for Dir {
     }
 
     type Output = Self;
+}
+impl Default for Dir {
+    fn default() -> Self {
+        Dir::North
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

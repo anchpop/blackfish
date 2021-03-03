@@ -31,10 +31,10 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
         empty: materials.add(Color::rgb(0.1, 0.1, 0.1).into()),
         tiles: [
             (
-                TileWorld::Prog(TileProgramMachineInfo::LaserProducer(
-                    Dir::North,
-                    Data::Number(2),
-                ))
+                TileProgram::Machine(
+                    Dir::default(),
+                    MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+                )
                 .name(),
                 materials.add(Color::rgb(0.3, 0.3, 0.3).into()),
             ),
@@ -43,18 +43,18 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
                 materials.add(Color::rgb(0.9, 0.3, 0.3).into()),
             ),
             (
-                TileProgram::Machine(MachineInfo::BuiltIn(
-                    BuiltInMachines::Trace,
-                    NoInfo::empty(),
-                ))
+                TileProgram::Machine(
+                    Dir::default(),
+                    MachineInfo::BuiltIn(BuiltInMachines::Trace, NoInfo::empty()),
+                )
                 .name(),
                 materials.add(Color::rgb(0.5, 0.3, 0.5).into()),
             ),
             (
-                TileProgram::Machine(MachineInfo::BuiltIn(
-                    BuiltInMachines::Produce,
-                    NoInfo::empty(),
-                ))
+                TileProgram::Machine(
+                    Dir::default(),
+                    MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+                )
                 .name(),
                 materials.add(Color::rgb(0.3, 0.3, 0.3).into()),
             ),
@@ -67,17 +67,26 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
 
 fn create_map(commands: &mut Commands) {
     let mut tiles = TilemapProgram::make_slotmap();
-    let north_laser = tiles.insert(TileProgram::LaserProducer(Dir::North, Data::Number(2)));
-    let west_laser = tiles.insert(TileProgram::LaserProducer(Dir::West, Data::Number(2)));
-    let west_laser_2 = tiles.insert(TileProgram::LaserProducer(Dir::West, Data::Number(2)));
-    let laser_machine_test = tiles.insert(TileProgram::Machine(MachineInfo::BuiltIn(
-        BuiltInMachines::Produce,
-        NoInfo::empty(),
-    )));
-    let tracer = tiles.insert(TileProgram::Machine(MachineInfo::BuiltIn(
-        BuiltInMachines::Trace,
-        NoInfo::empty(),
-    )));
+    let north_laser = tiles.insert(TileProgram::Machine(
+        Dir::default(),
+        MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+    ));
+    let west_laser = tiles.insert(TileProgram::Machine(
+        Dir::default(),
+        MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+    ));
+    let west_laser_2 = tiles.insert(TileProgram::Machine(
+        Dir::default(),
+        MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+    ));
+    let laser_machine_test = tiles.insert(TileProgram::Machine(
+        Dir::default(),
+        MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+    ));
+    let tracer = tiles.insert(TileProgram::Machine(
+        Dir::default(),
+        MachineInfo::BuiltIn(BuiltInMachines::Trace, NoInfo::empty()),
+    ));
 
     let test_prog = TilemapProgram(Tilemap {
         tiles,
@@ -247,16 +256,17 @@ fn tile_text(
         for child in children.iter() {
             if let Ok(mut text) = text_q.get_mut(*child) {
                 text.sections[0].value = match tile {
-                    Some(TileWorld::Prog(TileProgramMachineInfo::LaserProducer(dir, data))) => {
+                    /*Some(TileWorld::Prog(TileProgramMachineInfo::LaserProducer(dir, data))) => {
                         format!("{} {}", dir.to_arrow(), data.show())
-                    }
+                    }*/
                     Some(TileWorld::Prog(TileProgramMachineInfo::Machine(
-                        MachineInfo::BuiltIn(_, d),
+                        dir,
+                        MachineInfo::BuiltIn(_, data),
                     ))) => {
-                        if let Some(text) = d.display.clone() {
-                            text
+                        if let Some(text) = data.display.clone() {
+                            format!("{} {}", dir.to_arrow(), text)
                         } else {
-                            "".to_string()
+                            format!("{}", dir.to_arrow())
                         }
                         //format!("{} {}", dir.to_arrow(), data.show())
                     }
