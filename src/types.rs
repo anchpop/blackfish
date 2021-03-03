@@ -311,8 +311,28 @@ impl TilemapWorld {
         }
     }
 
-    pub fn get_inputs(&self, location: XYPair, direction: Dir) -> Data {
-        todo!()
+    pub fn get_inputs(&self, location: XYPair, direction: Dir) -> Option<Data> {
+        if let Some(tile) = self.get((-direction).shift(location)) {
+            match tile {
+                TileWorld::Phys(TilePhysics::Laser(dir_data)) => dir_data.get(&direction).clone(),
+                TileWorld::Prog(TileProgramF::LaserProducer(producer_dir, data)) => {
+                    if *producer_dir == direction {
+                        Some(data.clone())
+                    } else {
+                        None
+                    }
+                }
+                TileWorld::Prog(TileProgramF::Machine(MachineInfo::BuiltIn(
+                    BuiltInMachines::Produce,
+                    _info,
+                ))) => {
+                    todo!()
+                }
+                TileWorld::Prog(TileProgramF::Machine(MachineInfo::BuiltIn(_, _))) => None,
+            }
+        } else {
+            None
+        }
     }
 
     pub fn update_machine_info(&mut self, location: XYPair, data: WorldMachineInfo) {
