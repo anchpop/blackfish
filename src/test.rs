@@ -127,6 +127,8 @@ mod tests {
 
     #[cfg(test)]
     mod input_output {
+        use frunk::Monoid;
+
         use super::*;
         use crate::world_sim;
 
@@ -135,7 +137,13 @@ mod tests {
             let data = Data::Number(2);
             let map = {
                 let mut map = empty_map();
-                map.add_tile((3, 1), TileProgram::LaserProducer(Dir::North, data.clone()));
+                map.add_tile(
+                    (3, 1),
+                    TileProgram::Machine(MachineInfo::BuiltIn(
+                        BuiltInMachines::Produce,
+                        NoInfo::empty(),
+                    )),
+                );
                 map
             };
 

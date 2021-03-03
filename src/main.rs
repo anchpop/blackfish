@@ -50,6 +50,14 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
                 .name(),
                 materials.add(Color::rgb(0.5, 0.3, 0.5).into()),
             ),
+            (
+                TileProgram::Machine(MachineInfo::BuiltIn(
+                    BuiltInMachines::Produce,
+                    NoInfo::empty(),
+                ))
+                .name(),
+                materials.add(Color::rgb(0.3, 0.3, 0.3).into()),
+            ),
         ]
         .iter()
         .cloned()
@@ -81,9 +89,9 @@ fn create_map(commands: &mut Commands) {
                 None,
                 None,
                 None,
+                None,
+                None,
                 Some(laser_machine_test),
-                None,
-                None,
                 None,
             ],
             [

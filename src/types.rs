@@ -312,24 +312,30 @@ impl TilemapWorld {
     }
 
     pub fn get_inputs(&self, location: XYPair, direction: Dir) -> Option<Data> {
-        if let Some(tile) = self.get((-direction).shift(location)) {
-            match tile {
-                TileWorld::Phys(TilePhysics::Laser(dir_data)) => dir_data.get(&direction).clone(),
+        if let Some(dir_data) = self.get_outputs((-direction).shift(location)) {
+            dir_data.get(&direction).clone()
+        } else {
+            None
+        }
+    }
+
+    pub fn get_outputs(&self, location: XYPair) -> Option<DirData> {
+        if let Some(tile) = self.get(location) {
+            Some(match tile {
+                TileWorld::Phys(TilePhysics::Laser(dir_data)) => dir_data.clone(),
                 TileWorld::Prog(TileProgramF::LaserProducer(producer_dir, data)) => {
-                    if *producer_dir == direction {
-                        Some(data.clone())
-                    } else {
-                        None
-                    }
+                    DirData::empty().update(producer_dir, Some(data.clone()))
                 }
                 TileWorld::Prog(TileProgramF::Machine(MachineInfo::BuiltIn(
                     BuiltInMachines::Produce,
                     _info,
                 ))) => {
-                    todo!()
+                    DirData::empty().update(&Dir::North, Some(Data::Number(2))) // TODO: Improve
                 }
-                TileWorld::Prog(TileProgramF::Machine(MachineInfo::BuiltIn(_, _))) => None,
-            }
+                TileWorld::Prog(TileProgramF::Machine(MachineInfo::BuiltIn(_, _))) => {
+                    DirData::empty()
+                }
+            })
         } else {
             None
         }
@@ -491,6 +497,10 @@ impl Dir {
     pub fn shift(&self, by: XYPair) -> XYPair {
         let (x, y) = by;
         let v = self.to_vector();
+
+        // the addition here should behave correctly,
+        // see https://stackoverflow.com/questions/53453628/how-do-i-add-a-signed-integer-to-an-unsigned-integer-in-rust
+        // and https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=1448b2d8f02f844f72864e10dbe98049
         (x.wrapping_add(v.0 as usize), y.wrapping_add(v.1 as usize))
     }
 }
@@ -534,6 +544,22 @@ impl<V> DirMap<V> {
 }
 type DirData = DirMap<Option<Data>>;
 
+impl<V> IntoIterator for DirMap<V> {
+    type Item = (Dir, V);
+
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        vec![
+            (Dir::North, self.north),
+            (Dir::East, self.east),
+            (Dir::South, self.south),
+            (Dir::West, self.west),
+        ]
+        .into_iter()
+    }
+}
+
 impl<V: Semigroup> Semigroup for DirMap<V> {
     fn combine(&self, other: &Self) -> Self {
         DirMap {
@@ -576,9 +602,11 @@ impl Monoid for NoInfo {
 }
 impl Semigroup for WorldMachineInfo {
     fn combine(&self, other: &Self) -> Self {
+        // todo: improve, bc this is not a valid monoid
         other.clone()
     }
 }
+
 impl Monoid for WorldMachineInfo {
     fn empty() -> Self {
         WorldMachineInfo {

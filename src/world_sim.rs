@@ -29,42 +29,43 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
         Some(Edit::Edits(
             [Dir::North, Dir::South, Dir::East, Dir::West]
                 .iter()
-                .map(|dir| {
-                    // the subtraction here should behave correctly,
-                    // see https://stackoverflow.com/questions/53453628/how-do-i-add-a-signed-integer-to-an-unsigned-integer-in-rust
-                    // and https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=1448b2d8f02f844f72864e10dbe98049
-                    if let Some(adjacent) = world.get((-*dir).shift(location)) {
-                        match adjacent {
-                            TileWorld::Prog(TileProgramMachineInfo::LaserProducer(
-                                laser_dir,
-                                data,
-                            )) => {
-                                if dir == laser_dir {
-                                    Some(Edit::AddLaser(
-                                        location,
-                                        DirMap::empty().update(dir, Some(data.clone())),
-                                    ))
-                                } else {
-                                    None
-                                }
-                            }
-
-                            TileWorld::Phys(TilePhysics::Laser(dir_data)) => {
-                                if let Some(data) = dir_data.get(dir) {
-                                    Some(Edit::AddLaser(
-                                        location,
-                                        DirMap::empty().update(dir, Some(data.clone())),
-                                    ))
-                                } else {
-                                    None
-                                }
-                            }
-
-                            _ => None,
-                        }
+                .map(|direction| {
+                    if let Some(input) = world.get_inputs(location, *direction) {
+                        Some(Edit::AddLaser(
+                            location,
+                            DirMap::empty().update(direction, Some(input.clone())),
+                        ))
                     } else {
                         None
-                    }
+                    } /*
+                      if let Some(adjacent) = world.get((-*dir).shift(location)) {
+                          match adjacent {
+                              TileWorld::Prog(TileProgramMachineInfo::LaserProducer(
+                                  laser_dir,
+                                  data,
+                              )) => {
+                                  if dir == laser_dir {
+                                  } else {
+                                      None
+                                  }
+                              }
+
+                              TileWorld::Phys(TilePhysics::Laser(dir_data)) => {
+                                  if let Some(data) = dir_data.get(dir) {
+                                      Some(Edit::AddLaser(
+                                          location,
+                                          DirMap::empty().update(dir, Some(data.clone())),
+                                      ))
+                                  } else {
+                                      None
+                                  }
+                              }
+
+                              _ => None,
+                          }
+                      } else {
+                          None
+                      }*/
                 })
                 .flatten()
                 .collect(),
@@ -104,7 +105,8 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                 )),
 
                 BuiltInMachines::Produce => {
-                    todo!()
+                    // I don't actually think there's anything to do here
+                    None
                 }
             }
         } else {
