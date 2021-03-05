@@ -37,35 +37,7 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                         ))
                     } else {
                         None
-                    } /*
-                      if let Some(adjacent) = world.get((-*dir).shift(location)) {
-                          match adjacent {
-                              TileWorld::Prog(TileProgramMachineInfo::LaserProducer(
-                                  laser_dir,
-                                  data,
-                              )) => {
-                                  if dir == laser_dir {
-                                  } else {
-                                      None
-                                  }
-                              }
-
-                              TileWorld::Phys(TilePhysics::Laser(dir_data)) => {
-                                  if let Some(data) = dir_data.get(dir) {
-                                      Some(Edit::AddLaser(
-                                          location,
-                                          DirMap::empty().update(dir, Some(data.clone())),
-                                      ))
-                                  } else {
-                                      None
-                                  }
-                              }
-
-                              _ => None,
-                          }
-                      } else {
-                          None
-                      }*/
+                    }
                 })
                 .flatten()
                 .collect(),
