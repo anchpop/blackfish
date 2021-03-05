@@ -3,7 +3,7 @@ mod types;
 mod world_sim;
 
 use types::*;
-use world_sim::sim;
+use world_sim::{sim, simulate_until_stable};
 
 use bevy::prelude::*;
 
@@ -12,20 +12,37 @@ use slotmap::{new_key_type, Key, SlotMap};
 
 use frunk::monoid::Monoid;
 
+use std::time::Duration;
+
+#[derive(Debug, Clone)]
+struct ClockIncrementTimer(Timer);
+impl Default for ClockIncrementTimer {
+    fn default() -> Self {
+        Self(Timer::new(Duration::from_millis(1000), true))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct CurrentClock(i32);
+
 fn main() {
     App::build()
         .add_startup_system(setup.system())
         .add_startup_system(create_map.system())
         .add_startup_stage("game_setup", SystemStage::single(spawn_main_tile.system())) // Adding a stage lets us access resources (in this case, materials) created in the previous stage
         .add_plugins(DefaultPlugins)
+        .add_system(clock_increment.system())
         .add_system(size_scaling.system())
         .add_system(positioning.system())
         .add_system(tile_appearance.system())
         .add_system(tile_text.system())
+        .add_system(update_master_input.system())
         .run();
 }
 
 fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+    commands.insert_resource(CurrentClock(0));
+
     commands.spawn(OrthographicCameraBundle::new_2d());
     commands.insert_resource(Materials {
         empty: materials.add(Color::rgb(0.1, 0.1, 0.1).into()),
@@ -190,6 +207,23 @@ fn spawn_main_tile(
     }
 }
 
+fn update_master_input(
+    clock: Res<CurrentClock>,
+    mut tilemap_world: ResMut<TilemapWorld>,
+    tilemap_program: Res<TilemapProgram>,
+) {
+    let new_prog = tilemap_program.clone();
+    let mut new_world = new_prog.into_world();
+    new_world.set_tile(
+        (0, 0),
+        TileWorld::Prog(TileProgramMachineInfo::Machine(
+            Dir::East,
+            MachineInfo::BuiltIn(BuiltInMachines::Produce, WorldMachineInfo::empty()),
+        )),
+    );
+    *tilemap_world = simulate_until_stable(new_world);
+}
+
 fn size_scaling(
     windows: Res<Windows>,
     mut q: Query<(&TileSize, &mut Sprite)>,
@@ -278,5 +312,15 @@ fn tile_text(
                 };
             }
         }
+    }
+}
+
+fn clock_increment(
+    time: Res<Time>,
+    mut timer: Local<ClockIncrementTimer>,
+    mut clock: ResMut<CurrentClock>,
+) {
+    if timer.0.tick(time.delta_seconds()).finished() {
+        *clock = CurrentClock(clock.0 + 1);
     }
 }

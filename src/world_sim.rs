@@ -6,7 +6,7 @@ pub fn sim(prog: TilemapProgram) -> TilemapWorld {
     simulate_until_stable(prog.into_world())
 }
 
-fn simulate_until_stable(mut world: TilemapWorld) -> TilemapWorld {
+pub fn simulate_until_stable(mut world: TilemapWorld) -> TilemapWorld {
     let mut count = 0;
     loop {
         if count > 4096 {
