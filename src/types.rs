@@ -15,6 +15,8 @@ use frunk::semigroup::Semigroup;
 
 pub type XYPair = (usize, usize);
 
+use velcro::btree_map;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Edit {
     AddTile(XYPair, TileWorld),
@@ -43,7 +45,7 @@ pub struct Materials {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ProgramInfo {
-    pub user_inputs: BTreeMap<String, Data>,
+    pub hardcoded_inputs: BTreeMap<String, Data>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WorldMachineInfo {
@@ -57,6 +59,26 @@ pub enum BuiltInMachines {
     Iffy,
     Trace,
     Produce,
+}
+
+impl BuiltInMachines {
+    pub fn inputs(&self) -> BTreeMap<Dir, String> {
+        match self {
+            BuiltInMachines::Iffy => {
+                todo!()
+            }
+            BuiltInMachines::Trace => {
+                btree_map! {
+                    Dir::South: "observe".to_string()
+                }
+            }
+            BuiltInMachines::Produce => {
+                btree_map! {
+                    Dir::South: "product".to_string()
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -317,8 +339,48 @@ impl TilemapWorld {
         }
     }
 
-    pub fn get_input(&self, location: XYPair, direction: Dir) -> Option<Data> {
-        // TODO: consider rotation
+    // TODO: write a `get_output` function that internally calls `get_input`. This function will be used in world_sim's `propagate_lasers`. Also rewrite BuiltInMachine's `inputs` function to be called `get_io` and return a BTreeMap where the values are some enum indicating input or output and storing the label of that io thingy.
+    pub fn get_input(&self, location: XYPair) -> Option<BTreeMap<String, Data>> {
+        if let Some(TileWorld::Prog(TileProgramMachineInfo::Machine(orientation, machine))) =
+            self.get(location)
+        {
+            match machine {
+                MachineInfo::BuiltIn(
+                    machine,
+                    WorldMachineInfo {
+                        program_info: ProgramInfo { hardcoded_inputs },
+                        display: _,
+                    },
+                ) => {
+                    let inputs = machine.inputs();
+                    inputs
+                        .into_iter()
+                        .map(|(dir, input_name)| {
+                            let rotated_dir = dir.rotate(*orientation);
+                            let inp = self.get_input_to_coordinate(location, -rotated_dir);
+                            (input_name, inp)
+                        })
+                        .map(|(input_name, inp)| {
+                            if let Some(inp) = inp {
+                                Some((input_name, inp))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Option<Vec<(String, Data)>>>()
+                        .map(|a| {
+                            a.into_iter()
+                                .chain(hardcoded_inputs.clone())
+                                .collect::<BTreeMap<String, Data>>()
+                        })
+                }
+            }
+        } else {
+            todo!()
+        }
+    }
+
+    pub fn get_input_to_coordinate(&self, location: XYPair, direction: Dir) -> Option<Data> {
         if let Some(dir_data) = self.get_outputs((-direction).shift(location)) {
             dir_data.get(&direction).clone()
         } else {
@@ -337,7 +399,7 @@ impl TilemapWorld {
                 )) => {
                     DirData::empty().update(
                         &direction,
-                        Some(info.program_info.user_inputs["product"].clone()),
+                        Some(info.program_info.hardcoded_inputs["product"].clone()),
                     )
                     // TODO: Improve
                 }
@@ -477,7 +539,7 @@ impl Data {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, Ord, PartialOrd)]
 pub enum Dir {
     North,
     East,
@@ -554,7 +616,7 @@ impl Default for Dir {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct DirMap<V> {
     pub north: V,
     pub east: V,
@@ -657,7 +719,7 @@ impl Semigroup for ProgramInfo {
 impl Monoid for ProgramInfo {
     fn empty() -> Self {
         ProgramInfo {
-            user_inputs: BTreeMap::new(),
+            hardcoded_inputs: BTreeMap::new(),
         }
     }
 }

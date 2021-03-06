@@ -14,7 +14,7 @@ fn default_map() -> TilemapProgram {
         MachineInfo::BuiltIn(
             BuiltInMachines::Produce,
             ProgramInfo {
-                user_inputs: btree_map! {
+                hardcoded_inputs: btree_map! {
                     "product".to_string(): Data::Number(3)
                 },
                 ..ProgramInfo::empty()
@@ -26,7 +26,7 @@ fn default_map() -> TilemapProgram {
         MachineInfo::BuiltIn(
             BuiltInMachines::Produce,
             ProgramInfo {
-                user_inputs: btree_map! {
+                hardcoded_inputs: btree_map! {
                     "product".to_string(): Data::Number(3)
                 },
                 ..ProgramInfo::empty()
@@ -38,7 +38,7 @@ fn default_map() -> TilemapProgram {
         MachineInfo::BuiltIn(
             BuiltInMachines::Produce,
             ProgramInfo {
-                user_inputs: btree_map! {
+                hardcoded_inputs: btree_map! {
                     "product".to_string(): Data::Number(3)
                 },
                 ..ProgramInfo::empty()
@@ -140,7 +140,7 @@ mod tests {
                 MachineInfo::BuiltIn(
                     BuiltInMachines::Produce,
                     ProgramInfo {
-                        user_inputs: btree_map! {
+                        hardcoded_inputs: btree_map! {
                             "product".to_string(): Data::Number(3)
                         },
                         ..ProgramInfo::empty()
@@ -161,7 +161,7 @@ mod tests {
                     MachineInfo::BuiltIn(
                         BuiltInMachines::Produce,
                         ProgramInfo {
-                            user_inputs: btree_map! {
+                            hardcoded_inputs: btree_map! {
                                 "product".to_string(): Data::Number(3)
                             },
                             ..ProgramInfo::empty()
@@ -183,7 +183,7 @@ mod tests {
                     MachineInfo::BuiltIn(
                         BuiltInMachines::Produce,
                         ProgramInfo {
-                            user_inputs: btree_map! {
+                            hardcoded_inputs: btree_map! {
                                 "product".to_string(): Data::Number(3)
                             },
                             ..ProgramInfo::empty()
@@ -216,7 +216,7 @@ mod tests {
                         MachineInfo::BuiltIn(
                             BuiltInMachines::Produce,
                             ProgramInfo {
-                                user_inputs: btree_map! {
+                                hardcoded_inputs: btree_map! {
                                     "product".to_string(): data.clone()
                                 },
                                 ..ProgramInfo::empty()
@@ -228,7 +228,10 @@ mod tests {
             };
 
             let world = world_sim::sim(map);
-            assert_eq!(world.get_input((3, 3), Dir::North).unwrap(), data);
+            assert_eq!(
+                world.get_input_to_coordinate((3, 3), Dir::North).unwrap(),
+                data
+            );
         }
     }
 }

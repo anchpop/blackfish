@@ -55,7 +55,7 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
                     MachineInfo::BuiltIn(
                         BuiltInMachines::Produce,
                         ProgramInfo {
-                            user_inputs: btree_map! {
+                            hardcoded_inputs: btree_map! {
                                 "product".to_string(): Data::Number(3)
                             },
                             ..ProgramInfo::empty()
@@ -75,7 +75,7 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
                     MachineInfo::BuiltIn(
                         BuiltInMachines::Trace,
                         ProgramInfo {
-                            user_inputs: btree_map! {
+                            hardcoded_inputs: btree_map! {
                                 "product".to_string(): Data::Number(3)
                             },
                             ..ProgramInfo::empty()
@@ -91,7 +91,7 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
                     MachineInfo::BuiltIn(
                         BuiltInMachines::Produce,
                         ProgramInfo {
-                            user_inputs: btree_map! {
+                            hardcoded_inputs: btree_map! {
                                 "product".to_string(): Data::Number(3)
                             },
                             ..ProgramInfo::empty()
@@ -115,7 +115,7 @@ fn create_map(commands: &mut Commands) {
         MachineInfo::BuiltIn(
             BuiltInMachines::Produce,
             ProgramInfo {
-                user_inputs: btree_map! {
+                hardcoded_inputs: btree_map! {
                     "product".to_string(): Data::Number(3)
                 },
                 ..ProgramInfo::empty()
@@ -127,7 +127,7 @@ fn create_map(commands: &mut Commands) {
         MachineInfo::BuiltIn(
             BuiltInMachines::Produce,
             ProgramInfo {
-                user_inputs: btree_map! {
+                hardcoded_inputs: btree_map! {
                     "product".to_string(): Data::Number(3)
                 },
                 ..ProgramInfo::empty()
@@ -139,7 +139,7 @@ fn create_map(commands: &mut Commands) {
         MachineInfo::BuiltIn(
             BuiltInMachines::Produce,
             ProgramInfo {
-                user_inputs: btree_map! {
+                hardcoded_inputs: btree_map! {
                     "product".to_string(): Data::Number(3)
                 },
                 ..ProgramInfo::empty()
@@ -151,7 +151,7 @@ fn create_map(commands: &mut Commands) {
         MachineInfo::BuiltIn(
             BuiltInMachines::Produce,
             ProgramInfo {
-                user_inputs: btree_map! {
+                hardcoded_inputs: btree_map! {
                     "product".to_string(): Data::Number(3)
                 },
                 ..ProgramInfo::empty()
@@ -159,7 +159,7 @@ fn create_map(commands: &mut Commands) {
         ),
     ));
     let tracer = tiles.insert(TileProgram::Machine(
-        Dir::default(),
+        Dir::East,
         MachineInfo::BuiltIn(BuiltInMachines::Trace, ProgramInfo::empty()),
     ));
     let tracer2 = tiles.insert(TileProgram::Machine(
@@ -170,7 +170,7 @@ fn create_map(commands: &mut Commands) {
     let test_prog = TilemapProgram(Tilemap {
         tiles,
         map: arr2(&[
-            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, Some(tracer)],
             [
                 None,
                 None,
@@ -209,7 +209,7 @@ fn create_map(commands: &mut Commands) {
                 None,
             ],
             [None, None, None, None, None, None, None, None, None],
-            [None, None, None, Some(tracer), None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
         ]),
     });
 
@@ -280,8 +280,8 @@ fn update_master_input(
                 BuiltInMachines::Produce,
                 WorldMachineInfo {
                     program_info: ProgramInfo {
-                        user_inputs: btree_map! {
-                            "product".to_string(): Data::Number(3)
+                        hardcoded_inputs: btree_map! {
+                            "product".to_string(): Data::Number(clock.0)
                         },
                         ..ProgramInfo::empty()
                     },

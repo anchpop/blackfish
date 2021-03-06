@@ -30,7 +30,7 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
             [Dir::North, Dir::South, Dir::East, Dir::West]
                 .iter()
                 .map(|direction| {
-                    if let Some(input) = world.get_input(location, *direction) {
+                    if let Some(input) = world.get_input_to_coordinate(location, *direction) {
                         Some(Edit::AddLaser(
                             location,
                             DirMap::empty().update(direction, Some(input)),
@@ -62,9 +62,10 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                             *builtin_type,
                             WorldMachineInfo {
                                 display: Some({
-                                    if let Some(data) =
-                                        world.get_input(location, Dir::North.rotate(*orientation))
-                                    {
+                                    if let Some(data) = world.get_input_to_coordinate(
+                                        location,
+                                        Dir::North.rotate(*orientation),
+                                    ) {
                                         data.show()
                                     } else {
                                         "".to_string()
@@ -92,40 +93,13 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                 TileWorld::Phys(_) => {}
                 TileWorld::Prog(tile) => match tile {
                     TileProgramF::Machine(_, machine_info) => match machine_info {
-                        MachineInfo::BuiltIn(machine_type, machine_info) => match machine_type {
-                            BuiltInMachines::Iffy => {
-                                assert_eq!(
-                                    machine_info.program_info.user_inputs.len(),
-                                    0,
-                                    "{:?}",
-                                    location,
-                                )
+                        MachineInfo::BuiltIn(machine_type, machine_info) => {
+                            let inputs: Vec<String> =
+                                machine_type.inputs().values().cloned().collect();
+                            for (k) in machine_info.program_info.hardcoded_inputs.keys() {
+                                assert!(inputs.contains(k))
                             }
-                            BuiltInMachines::Trace => {
-                                assert_eq!(
-                                    machine_info.program_info.user_inputs.len(),
-                                    0,
-                                    "{:?}",
-                                    location,
-                                )
-                            }
-                            BuiltInMachines::Produce => {
-                                assert_eq!(
-                                    machine_info.program_info.user_inputs.len(),
-                                    1,
-                                    "{:?}",
-                                    location,
-                                );
-                                assert!(
-                                    machine_info
-                                        .program_info
-                                        .user_inputs
-                                        .contains_key(&"product".to_string()),
-                                    "{:?}",
-                                    location,
-                                )
-                            }
-                        },
+                        }
                     },
                 },
             }
