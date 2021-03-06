@@ -14,6 +14,8 @@ use frunk::monoid::Monoid;
 
 use std::time::Duration;
 
+use velcro::btree_map;
+
 #[derive(Debug, Clone)]
 struct ClockIncrementTimer(Timer);
 impl Default for ClockIncrementTimer {
@@ -50,7 +52,15 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
             (
                 TileProgram::Machine(
                     Dir::default(),
-                    MachineInfo::BuiltIn(BuiltInMachines::Produce, ProgramInfo::empty()),
+                    MachineInfo::BuiltIn(
+                        BuiltInMachines::Produce,
+                        ProgramInfo {
+                            user_inputs: btree_map! {
+                                "product".to_string(): Data::Number(3)
+                            },
+                            ..ProgramInfo::empty()
+                        },
+                    ),
                 )
                 .name(),
                 materials.add(Color::rgb(0.3, 0.3, 0.3).into()),
@@ -62,7 +72,15 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
             (
                 TileProgram::Machine(
                     Dir::default(),
-                    MachineInfo::BuiltIn(BuiltInMachines::Trace, ProgramInfo::empty()),
+                    MachineInfo::BuiltIn(
+                        BuiltInMachines::Trace,
+                        ProgramInfo {
+                            user_inputs: btree_map! {
+                                "product".to_string(): Data::Number(3)
+                            },
+                            ..ProgramInfo::empty()
+                        },
+                    ),
                 )
                 .name(),
                 materials.add(Color::rgb(0.5, 0.3, 0.5).into()),
@@ -70,7 +88,15 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
             (
                 TileProgram::Machine(
                     Dir::default(),
-                    MachineInfo::BuiltIn(BuiltInMachines::Produce, ProgramInfo::empty()),
+                    MachineInfo::BuiltIn(
+                        BuiltInMachines::Produce,
+                        ProgramInfo {
+                            user_inputs: btree_map! {
+                                "product".to_string(): Data::Number(3)
+                            },
+                            ..ProgramInfo::empty()
+                        },
+                    ),
                 )
                 .name(),
                 materials.add(Color::rgb(0.3, 0.3, 0.3).into()),
@@ -86,19 +112,51 @@ fn create_map(commands: &mut Commands) {
     let mut tiles = TilemapProgram::make_slotmap();
     let north_laser = tiles.insert(TileProgram::Machine(
         Dir::default(),
-        MachineInfo::BuiltIn(BuiltInMachines::Produce, ProgramInfo::empty()),
+        MachineInfo::BuiltIn(
+            BuiltInMachines::Produce,
+            ProgramInfo {
+                user_inputs: btree_map! {
+                    "product".to_string(): Data::Number(3)
+                },
+                ..ProgramInfo::empty()
+            },
+        ),
     ));
     let west_laser = tiles.insert(TileProgram::Machine(
         Dir::West,
-        MachineInfo::BuiltIn(BuiltInMachines::Produce, ProgramInfo::empty()),
+        MachineInfo::BuiltIn(
+            BuiltInMachines::Produce,
+            ProgramInfo {
+                user_inputs: btree_map! {
+                    "product".to_string(): Data::Number(3)
+                },
+                ..ProgramInfo::empty()
+            },
+        ),
     ));
     let west_laser_2 = tiles.insert(TileProgram::Machine(
         Dir::West,
-        MachineInfo::BuiltIn(BuiltInMachines::Produce, ProgramInfo::empty()),
+        MachineInfo::BuiltIn(
+            BuiltInMachines::Produce,
+            ProgramInfo {
+                user_inputs: btree_map! {
+                    "product".to_string(): Data::Number(3)
+                },
+                ..ProgramInfo::empty()
+            },
+        ),
     ));
     let laser_machine_test = tiles.insert(TileProgram::Machine(
         Dir::East,
-        MachineInfo::BuiltIn(BuiltInMachines::Produce, ProgramInfo::empty()),
+        MachineInfo::BuiltIn(
+            BuiltInMachines::Produce,
+            ProgramInfo {
+                user_inputs: btree_map! {
+                    "product".to_string(): Data::Number(3)
+                },
+                ..ProgramInfo::empty()
+            },
+        ),
     ));
     let tracer = tiles.insert(TileProgram::Machine(
         Dir::default(),
@@ -218,7 +276,18 @@ fn update_master_input(
         (0, 0),
         TileWorld::Prog(TileProgramMachineInfo::Machine(
             Dir::East,
-            MachineInfo::BuiltIn(BuiltInMachines::Produce, WorldMachineInfo::empty()),
+            MachineInfo::BuiltIn(
+                BuiltInMachines::Produce,
+                WorldMachineInfo {
+                    program_info: ProgramInfo {
+                        user_inputs: btree_map! {
+                            "product".to_string(): Data::Number(3)
+                        },
+                        ..ProgramInfo::empty()
+                    },
+                    ..WorldMachineInfo::empty()
+                },
+            ),
         )),
     );
     *tilemap_world = simulate_until_stable(new_world);

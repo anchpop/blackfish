@@ -86,7 +86,7 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
         }
     };
 
-    let validate_stuff = |tile: Option<&TileWorld>, _: XYPair| -> Option<Edit> {
+    let validate_stuff = |tile: Option<&TileWorld>, location: XYPair| -> Option<Edit> {
         if let Some(tile) = tile {
             match tile {
                 TileWorld::Phys(_) => {}
@@ -94,17 +94,36 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                     TileProgramF::Machine(_, machine_info) => match machine_info {
                         MachineInfo::BuiltIn(machine_type, machine_info) => match machine_type {
                             BuiltInMachines::Iffy => {
-                                assert_eq!(machine_info.program_info.user_inputs.len(), 0)
+                                assert_eq!(
+                                    machine_info.program_info.user_inputs.len(),
+                                    0,
+                                    "{:?}",
+                                    location,
+                                )
                             }
                             BuiltInMachines::Trace => {
-                                assert_eq!(machine_info.program_info.user_inputs.len(), 0)
+                                assert_eq!(
+                                    machine_info.program_info.user_inputs.len(),
+                                    0,
+                                    "{:?}",
+                                    location,
+                                )
                             }
                             BuiltInMachines::Produce => {
-                                assert_eq!(machine_info.program_info.user_inputs.len(), 1);
-                                assert!(machine_info
-                                    .program_info
-                                    .user_inputs
-                                    .contains_key(&"product".to_string()))
+                                assert_eq!(
+                                    machine_info.program_info.user_inputs.len(),
+                                    1,
+                                    "{:?}",
+                                    location,
+                                );
+                                assert!(
+                                    machine_info
+                                        .program_info
+                                        .user_inputs
+                                        .contains_key(&"product".to_string()),
+                                    "{:?}",
+                                    location,
+                                )
                             }
                         },
                     },

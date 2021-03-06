@@ -582,6 +582,7 @@ impl<V> DirMap<V> {
     pub fn itemize(self) -> [V; 4] {
         [self.north, self.east, self.south, self.west]
     }
+
     pub fn deitemize(items: [V; 4]) -> Self {
         let [north, east, south, west] = items;
         DirMap {
