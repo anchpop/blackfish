@@ -33,7 +33,7 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                     if let Some(input) = world.get_input(location, *direction) {
                         Some(Edit::AddLaser(
                             location,
-                            DirMap::empty().update(direction, Some(input.clone())),
+                            DirMap::empty().update(direction, Some(input)),
                         ))
                     } else {
                         None

@@ -304,7 +304,7 @@ fn tile_text(
                         if let Some(text) = data.display.clone() {
                             format!("{} {}", dir.to_arrow(), text)
                         } else {
-                            format!("{}", dir.to_arrow())
+                            dir.to_arrow().to_string()
                         }
                         //format!("{} {}", dir.to_arrow(), data.show())
                     }
