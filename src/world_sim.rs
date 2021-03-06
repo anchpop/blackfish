@@ -47,7 +47,7 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
     let handle_machines = |tile: Option<&TileWorld>, location: XYPair| -> Option<Edit> {
         if let Some(TileWorld::Prog(TileProgramMachineInfo::Machine(
             orientation,
-            MachineInfo::BuiltIn(builtin_type, _),
+            MachineInfo::BuiltIn(builtin_type, info),
         ))) = tile
         {
             match builtin_type {
@@ -70,6 +70,7 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                                         "".to_string()
                                     }
                                 }),
+                                program_info: info.program_info.clone(),
                             },
                         ),
                     )),
@@ -85,6 +86,35 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
         }
     };
 
+    let validate_stuff = |tile: Option<&TileWorld>, _: XYPair| -> Option<Edit> {
+        if let Some(tile) = tile {
+            match tile {
+                TileWorld::Phys(_) => {}
+                TileWorld::Prog(tile) => match tile {
+                    TileProgramF::Machine(_, machine_info) => match machine_info {
+                        MachineInfo::BuiltIn(machine_type, machine_info) => match machine_type {
+                            BuiltInMachines::Iffy => {
+                                assert_eq!(machine_info.program_info.user_inputs.len(), 0)
+                            }
+                            BuiltInMachines::Trace => {
+                                assert_eq!(machine_info.program_info.user_inputs.len(), 0)
+                            }
+                            BuiltInMachines::Produce => {
+                                assert_eq!(machine_info.program_info.user_inputs.len(), 1);
+                                assert!(machine_info
+                                    .program_info
+                                    .user_inputs
+                                    .contains_key(&"product".to_string()))
+                            }
+                        },
+                    },
+                },
+            }
+        };
+        None
+    };
+
+    new_world.apply_transformation(&world, validate_stuff);
     new_world.apply_transformation(&world, propagate_lasers);
     new_world.apply_transformation(&world, handle_machines);
 

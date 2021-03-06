@@ -5,19 +5,45 @@ use frunk::semigroup::Semigroup;
 
 use ndarray::arr2;
 
+use velcro::btree_map;
+
 fn default_map() -> TilemapProgram {
     let mut tiles = TilemapProgram::make_slotmap();
     let north_laser = tiles.insert(TileProgram::Machine(
         Dir::default(),
-        MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+        MachineInfo::BuiltIn(
+            BuiltInMachines::Produce,
+            ProgramInfo {
+                user_inputs: btree_map! {
+                    "product".to_string(): Data::Number(3)
+                },
+                ..ProgramInfo::empty()
+            },
+        ),
     ));
     let west_laser = tiles.insert(TileProgram::Machine(
         Dir::default(),
-        MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+        MachineInfo::BuiltIn(
+            BuiltInMachines::Produce,
+            ProgramInfo {
+                user_inputs: btree_map! {
+                    "product".to_string(): Data::Number(3)
+                },
+                ..ProgramInfo::empty()
+            },
+        ),
     ));
     let west_laser_2 = tiles.insert(TileProgram::Machine(
         Dir::default(),
-        MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+        MachineInfo::BuiltIn(
+            BuiltInMachines::Produce,
+            ProgramInfo {
+                user_inputs: btree_map! {
+                    "product".to_string(): Data::Number(3)
+                },
+                ..ProgramInfo::empty()
+            },
+        ),
     ));
 
     TilemapProgram(Tilemap {
@@ -111,7 +137,15 @@ mod tests {
             let mut m2 = m1.clone();
             m2.0.tiles.insert(TileProgram::Machine(
                 Dir::default(),
-                MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+                MachineInfo::BuiltIn(
+                    BuiltInMachines::Produce,
+                    ProgramInfo {
+                        user_inputs: btree_map! {
+                            "product".to_string(): Data::Number(3)
+                        },
+                        ..ProgramInfo::empty()
+                    },
+                ),
             ));
             assert_eq!(m1, m2);
         }
@@ -124,7 +158,15 @@ mod tests {
                 (3, 2),
                 TileProgram::Machine(
                     Dir::default(),
-                    MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+                    MachineInfo::BuiltIn(
+                        BuiltInMachines::Produce,
+                        ProgramInfo {
+                            user_inputs: btree_map! {
+                                "product".to_string(): Data::Number(3)
+                            },
+                            ..ProgramInfo::empty()
+                        },
+                    ),
                 ),
             );
             assert_eq!(m1, m2);
@@ -138,7 +180,15 @@ mod tests {
                 (0, 0),
                 TileProgram::Machine(
                     Dir::North,
-                    MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+                    MachineInfo::BuiltIn(
+                        BuiltInMachines::Produce,
+                        ProgramInfo {
+                            user_inputs: btree_map! {
+                                "product".to_string(): Data::Number(3)
+                            },
+                            ..ProgramInfo::empty()
+                        },
+                    ),
                 ),
             );
             assert_ne!(m1, m2);
@@ -147,6 +197,8 @@ mod tests {
 
     #[cfg(test)]
     mod input_output {
+        use std::collections::BTreeMap;
+
         use frunk::Monoid;
 
         use super::*;
@@ -161,7 +213,15 @@ mod tests {
                     (3, 1),
                     TileProgram::Machine(
                         Dir::North,
-                        MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+                        MachineInfo::BuiltIn(
+                            BuiltInMachines::Produce,
+                            ProgramInfo {
+                                user_inputs: btree_map! {
+                                    "product".to_string(): data.clone()
+                                },
+                                ..ProgramInfo::empty()
+                            },
+                        ),
                     ),
                 );
                 map

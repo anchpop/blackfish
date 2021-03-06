@@ -1,4 +1,8 @@
-use std::{collections::HashMap, iter, num::NonZeroUsize};
+use std::{
+    collections::{BTreeMap, HashMap},
+    iter,
+    num::NonZeroUsize,
+};
 use std::{fmt::Debug, ops::Neg};
 
 use bevy::prelude::*;
@@ -38,9 +42,12 @@ pub struct Materials {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct NoInfo {}
+pub struct ProgramInfo {
+    pub user_inputs: BTreeMap<String, Data>,
+}
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WorldMachineInfo {
+    pub program_info: ProgramInfo,
     pub display: Option<String>,
 }
 
@@ -60,7 +67,7 @@ pub enum MachineInfo<I> {
 pub enum TileProgramF<I> {
     Machine(Dir, MachineInfo<I>),
 }
-pub type TileProgram = TileProgramF<NoInfo>;
+pub type TileProgram = TileProgramF<ProgramInfo>;
 pub type TileProgramMachineInfo = TileProgramF<WorldMachineInfo>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -115,9 +122,13 @@ impl TileProgram {
             TileProgram::Machine(dir, machine_info) => TileProgramMachineInfo::Machine(
                 dir,
                 match machine_info {
-                    MachineInfo::BuiltIn(machine_type, _) => {
-                        MachineInfo::BuiltIn(machine_type, WorldMachineInfo::empty())
-                    }
+                    MachineInfo::BuiltIn(machine_type, info) => MachineInfo::BuiltIn(
+                        machine_type,
+                        WorldMachineInfo {
+                            program_info: info,
+                            ..WorldMachineInfo::empty()
+                        },
+                    ),
                 },
             ),
         }
@@ -322,9 +333,12 @@ impl TilemapWorld {
                 TileWorld::Phys(TilePhysics::Laser(dir_data)) => dir_data.clone(),
                 TileWorld::Prog(TileProgramF::Machine(
                     direction,
-                    MachineInfo::BuiltIn(BuiltInMachines::Produce, _info),
+                    MachineInfo::BuiltIn(BuiltInMachines::Produce, info),
                 )) => {
-                    DirData::empty().update(&direction, Some(Data::Number(2)))
+                    DirData::empty().update(
+                        &direction,
+                        Some(info.program_info.user_inputs["product"].clone()),
+                    )
                     // TODO: Improve
                 }
                 TileWorld::Prog(TileProgramF::Machine(_, MachineInfo::BuiltIn(_, _))) => {
@@ -635,26 +649,31 @@ impl Semigroup for Void {
     }
 }
 
-impl Semigroup for NoInfo {
+impl Semigroup for ProgramInfo {
     fn combine(&self, other: &Self) -> Self {
         other.clone()
     }
 }
-impl Monoid for NoInfo {
+impl Monoid for ProgramInfo {
     fn empty() -> Self {
-        NoInfo {}
+        ProgramInfo {
+            user_inputs: BTreeMap::new(),
+        }
     }
 }
 impl Semigroup for WorldMachineInfo {
     fn combine(&self, other: &Self) -> Self {
-        // todo: improve, bc this is not a valid monoid
-        other.clone()
+        WorldMachineInfo {
+            program_info: self.program_info.combine(&other.program_info),
+            display: self.display.combine(&other.display),
+        }
     }
 }
 
 impl Monoid for WorldMachineInfo {
     fn empty() -> Self {
         WorldMachineInfo {
+            program_info: ProgramInfo::empty(),
             display: Option::empty(),
         }
     }

@@ -50,7 +50,7 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
             (
                 TileProgram::Machine(
                     Dir::default(),
-                    MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+                    MachineInfo::BuiltIn(BuiltInMachines::Produce, ProgramInfo::empty()),
                 )
                 .name(),
                 materials.add(Color::rgb(0.3, 0.3, 0.3).into()),
@@ -62,7 +62,7 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
             (
                 TileProgram::Machine(
                     Dir::default(),
-                    MachineInfo::BuiltIn(BuiltInMachines::Trace, NoInfo::empty()),
+                    MachineInfo::BuiltIn(BuiltInMachines::Trace, ProgramInfo::empty()),
                 )
                 .name(),
                 materials.add(Color::rgb(0.5, 0.3, 0.5).into()),
@@ -70,7 +70,7 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
             (
                 TileProgram::Machine(
                     Dir::default(),
-                    MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+                    MachineInfo::BuiltIn(BuiltInMachines::Produce, ProgramInfo::empty()),
                 )
                 .name(),
                 materials.add(Color::rgb(0.3, 0.3, 0.3).into()),
@@ -86,27 +86,27 @@ fn create_map(commands: &mut Commands) {
     let mut tiles = TilemapProgram::make_slotmap();
     let north_laser = tiles.insert(TileProgram::Machine(
         Dir::default(),
-        MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+        MachineInfo::BuiltIn(BuiltInMachines::Produce, ProgramInfo::empty()),
     ));
     let west_laser = tiles.insert(TileProgram::Machine(
         Dir::West,
-        MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+        MachineInfo::BuiltIn(BuiltInMachines::Produce, ProgramInfo::empty()),
     ));
     let west_laser_2 = tiles.insert(TileProgram::Machine(
         Dir::West,
-        MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+        MachineInfo::BuiltIn(BuiltInMachines::Produce, ProgramInfo::empty()),
     ));
     let laser_machine_test = tiles.insert(TileProgram::Machine(
         Dir::East,
-        MachineInfo::BuiltIn(BuiltInMachines::Produce, NoInfo::empty()),
+        MachineInfo::BuiltIn(BuiltInMachines::Produce, ProgramInfo::empty()),
     ));
     let tracer = tiles.insert(TileProgram::Machine(
         Dir::default(),
-        MachineInfo::BuiltIn(BuiltInMachines::Trace, NoInfo::empty()),
+        MachineInfo::BuiltIn(BuiltInMachines::Trace, ProgramInfo::empty()),
     ));
     let tracer2 = tiles.insert(TileProgram::Machine(
         Dir::West,
-        MachineInfo::BuiltIn(BuiltInMachines::Trace, NoInfo::empty()),
+        MachineInfo::BuiltIn(BuiltInMachines::Trace, ProgramInfo::empty()),
     ));
 
     let test_prog = TilemapProgram(Tilemap {
