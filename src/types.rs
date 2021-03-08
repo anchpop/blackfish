@@ -67,7 +67,7 @@ pub enum IOType {
 }
 
 impl BuiltInMachines {
-    pub fn inputs(&self) -> BTreeMap<Dir, IOType> {
+    pub fn io(&self) -> BTreeMap<Dir, IOType> {
         match self {
             BuiltInMachines::Iffy => {
                 todo!()
@@ -83,6 +83,32 @@ impl BuiltInMachines {
                 }
             }
         }
+    }
+
+    pub fn inputs(&self) -> BTreeMap<Dir, String> {
+        self.io()
+            .into_iter()
+            .filter_map(|(dir, iotype)| {
+                if let IOType::In(io) = iotype {
+                    Some((dir, io))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    pub fn outputs(&self) -> BTreeMap<Dir, String> {
+        self.io()
+            .into_iter()
+            .filter_map(|(dir, iotype)| {
+                if let IOType::Out(io) = iotype {
+                    Some((dir, io))
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 
@@ -354,7 +380,7 @@ impl TilemapWorld {
                     direction,
                     MachineInfo::BuiltIn(machine_type, info),
                 )) => {
-                    let input = self.get_input(location);
+                    let input = self.get_inputs(location);
                     if let Some(input) = input {
                         match machine_type {
                             BuiltInMachines::Produce => {
@@ -375,8 +401,7 @@ impl TilemapWorld {
         }
     }
 
-    // TODO: write a `get_output` function that internally calls `get_input`. This function will be used in world_sim's `propagate_lasers`. Also rewrite BuiltInMachine's `inputs` function to be called `get_io` and return a BTreeMap where the values are some enum indicating input or output and storing the label of that io thingy.
-    pub fn get_input(&self, location: XYPair) -> Option<BTreeMap<String, Data>> {
+    pub fn get_inputs(&self, location: XYPair) -> Option<BTreeMap<String, Data>> {
         if let Some(TileWorld::Prog(TileProgramMachineInfo::Machine(orientation, machine))) =
             self.get(location)
         {
@@ -391,17 +416,9 @@ impl TilemapWorld {
                     let inputs = machine.inputs();
                     inputs
                         .into_iter()
-                        .filter_map(|elem| {
-                            if let (dir, IOType::In(label)) = elem {
-                                Some((dir, label))
-                            } else {
-                                None
-                            }
-                        })
                         .map(|(dir, label)| {
                             let rotated_dir = dir.rotate(*orientation);
                             let inp = self.get_input_to_coordinate(location, -rotated_dir);
-                            println!("{:?}, {:?}", label, inp);
                             (label, inp)
                         })
                         .map(|(label, data)| {

@@ -95,7 +95,7 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                     TileProgramF::Machine(_, machine_info) => match machine_info {
                         MachineInfo::BuiltIn(machine_type, machine_info) => {
                             let inputs: Vec<String> = machine_type
-                                .inputs()
+                                .io()
                                 .values()
                                 .filter_map(|io| {
                                     if let IOType::In(s) = io {

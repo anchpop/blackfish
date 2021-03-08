@@ -260,7 +260,10 @@ mod tests {
                 map
             };
 
-            assert_eq!(map.into_world().get_input(location), Some(hardcoded_inputs));
+            assert_eq!(
+                map.into_world().get_inputs(location),
+                Some(hardcoded_inputs)
+            );
         }
 
         #[test]
@@ -286,7 +289,7 @@ mod tests {
                 map
             };
 
-            assert_eq!(map.into_world().get_input(location), None);
+            assert_eq!(map.into_world().get_inputs(location), None);
         }
 
         #[test]
@@ -327,7 +330,57 @@ mod tests {
                 map
             };
 
-            assert_eq!(world_sim::sim(map).get_input(location), Some(passed_inputs));
+            assert_eq!(
+                world_sim::sim(map).get_inputs(location),
+                Some(passed_inputs)
+            );
+        }
+
+        // this causes an infinite loop even though it doesn't strictly need to in the current setup.
+        // get_input_to_coordinate just needs to check the contents of the tile it's accessing, and
+        // only actually attempt to compute it if it can possibly output anything in the direction
+        // that's being asked about
+        // However, some infinite loops are inevitable, and since I'm eventaully going to rearch
+        // everything anyway I don't feel like bothering to fix this when it'll just have to be
+        // redone once I switch to lazy evaluation (or pull-based instead of push-based).
+        #[test]
+        #[ignore]
+        fn unecessary_infinite_loop() {
+            let data = Data::Number(2);
+            let location = (3, 3);
+
+            let map = {
+                let mut map = empty_map();
+                map.add_tile(
+                    location,
+                    TileProgram::Machine(
+                        Dir::North,
+                        MachineInfo::BuiltIn(
+                            BuiltInMachines::Produce,
+                            ProgramInfo {
+                                hardcoded_inputs: btree_map! {},
+                                ..ProgramInfo::empty()
+                            },
+                        ),
+                    ),
+                );
+                map.add_tile(
+                    (location.0, location.1 - 1),
+                    TileProgram::Machine(
+                        Dir::South,
+                        MachineInfo::BuiltIn(
+                            BuiltInMachines::Produce,
+                            ProgramInfo {
+                                hardcoded_inputs: btree_map! {},
+                                ..ProgramInfo::empty()
+                            },
+                        ),
+                    ),
+                );
+                map
+            };
+
+            world_sim::sim(map).get_inputs(location);
         }
     }
 }
