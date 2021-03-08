@@ -54,7 +54,6 @@ pub struct WorldMachineInfo {
     pub display: Option<String>,
 }
 
-// TODO: move the laserproducer into beind a built-in machine, then come up with two functions, one that lets you set a tile's inputs and one that lets you set its outputs. I think I'll have a function that takes a coordinate and tells you what it's outputting. If it's a laser it just looks, and if it's a machine it just calculates the outputs based on the inputs.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum BuiltInMachines {
     Iffy,
@@ -165,6 +164,8 @@ impl TileProgram {
 
 new_key_type! { pub struct KeyProgram; }
 new_key_type! { pub struct KeyWorld; }
+
+// brain blast: all tilemaps have inputs and outputs. it doesn't need to be in the actual tile array though - that can be a consequence of rendering. instead, the TilemapProgram struct should contain information describing its inputs and outputs and have an impl function that takes some inputs, converts it into a TilemapWorld, simulates it, then returns what it outputs (along with possibly the TilemapWorld for display)
 
 // There's no reason a tilemap couldn't be a functor and an applicative - actually, it'd be cool if it were.
 // I suspect it would be useful for the same reason that making tiles applicatives was useful for the
