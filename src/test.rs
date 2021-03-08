@@ -205,7 +205,7 @@ mod tests {
         use crate::world_sim;
 
         #[test]
-        fn get_inputs() {
+        fn get_inputs_to_coordinate() {
             let data = Data::Number(2);
             let map = {
                 let mut map = empty_map();
@@ -232,6 +232,102 @@ mod tests {
                 world.get_input_to_coordinate((3, 3), Dir::North).unwrap(),
                 data
             );
+        }
+
+        #[test]
+        fn get_input_hardcoded() {
+            let data = Data::Number(2);
+            let hardcoded_inputs = btree_map! {
+                "product".to_string(): data.clone()
+            };
+            let location = (3, 1);
+
+            let map = {
+                let mut map = empty_map();
+                map.add_tile(
+                    location,
+                    TileProgram::Machine(
+                        Dir::North,
+                        MachineInfo::BuiltIn(
+                            BuiltInMachines::Produce,
+                            ProgramInfo {
+                                hardcoded_inputs: hardcoded_inputs.clone(),
+                                ..ProgramInfo::empty()
+                            },
+                        ),
+                    ),
+                );
+                map
+            };
+
+            assert_eq!(map.into_world().get_input(location), Some(hardcoded_inputs));
+        }
+
+        #[test]
+        fn test_no_inputs() {
+            let hardcoded_inputs = btree_map! {};
+            let location = (3, 1);
+
+            let map = {
+                let mut map = empty_map();
+                map.add_tile(
+                    location,
+                    TileProgram::Machine(
+                        Dir::North,
+                        MachineInfo::BuiltIn(
+                            BuiltInMachines::Produce,
+                            ProgramInfo {
+                                hardcoded_inputs: hardcoded_inputs.clone(),
+                                ..ProgramInfo::empty()
+                            },
+                        ),
+                    ),
+                );
+                map
+            };
+
+            assert_eq!(map.into_world().get_input(location), None);
+        }
+
+        #[test]
+        fn test_passed_inputs() {
+            let data = Data::Number(2);
+            let passed_inputs = btree_map! {
+                "product".to_string(): data.clone()
+            };
+            let location = (3, 3);
+
+            let map = {
+                let mut map = empty_map();
+                map.add_tile(
+                    location,
+                    TileProgram::Machine(
+                        Dir::North,
+                        MachineInfo::BuiltIn(
+                            BuiltInMachines::Produce,
+                            ProgramInfo {
+                                hardcoded_inputs: btree_map! {},
+                                ..ProgramInfo::empty()
+                            },
+                        ),
+                    ),
+                );
+                map.add_tile(
+                    (location.0, location.1 - 2),
+                    TileProgram::Machine(
+                        Dir::default(),
+                        MachineInfo::BuiltIn(
+                            BuiltInMachines::Produce,
+                            ProgramInfo {
+                                hardcoded_inputs: passed_inputs.clone(),
+                            },
+                        ),
+                    ),
+                );
+                map
+            };
+
+            assert_eq!(world_sim::sim(map).get_input(location), Some(passed_inputs));
         }
     }
 }

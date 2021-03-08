@@ -94,9 +94,19 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
                 TileWorld::Prog(tile) => match tile {
                     TileProgramF::Machine(_, machine_info) => match machine_info {
                         MachineInfo::BuiltIn(machine_type, machine_info) => {
-                            let inputs: Vec<String> =
-                                machine_type.inputs().values().cloned().collect();
-                            for (k) in machine_info.program_info.hardcoded_inputs.keys() {
+                            let inputs: Vec<String> = machine_type
+                                .inputs()
+                                .values()
+                                .filter_map(|io| {
+                                    if let IOType::In(s) = io {
+                                        Some(s)
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .cloned()
+                                .collect();
+                            for k in machine_info.program_info.hardcoded_inputs.keys() {
                                 assert!(inputs.contains(k))
                             }
                         }

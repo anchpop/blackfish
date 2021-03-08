@@ -15,6 +15,7 @@ use frunk::semigroup::Semigroup;
 
 pub type XYPair = (usize, usize);
 
+use std::collections::btree_map::Entry;
 use velcro::btree_map;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -60,21 +61,26 @@ pub enum BuiltInMachines {
     Trace,
     Produce,
 }
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
+pub enum IOType {
+    In(String),
+    Out(String),
+}
 
 impl BuiltInMachines {
-    pub fn inputs(&self) -> BTreeMap<Dir, String> {
+    pub fn inputs(&self) -> BTreeMap<Dir, IOType> {
         match self {
             BuiltInMachines::Iffy => {
                 todo!()
             }
             BuiltInMachines::Trace => {
                 btree_map! {
-                    Dir::South: "observe".to_string()
+                    Dir::South: IOType::In("observe".to_string())
                 }
             }
             BuiltInMachines::Produce => {
                 btree_map! {
-                    Dir::South: "product".to_string()
+                    Dir::South: IOType::In("product".to_string())
                 }
             }
         }
@@ -339,6 +345,35 @@ impl TilemapWorld {
         }
     }
 
+    pub fn get_outputs(&self, location: XYPair) -> Option<DirData> {
+        if let Some(tile) = self.get(location) {
+            Some(match tile {
+                TileWorld::Phys(TilePhysics::Laser(dir_data)) => dir_data.clone(),
+                TileWorld::Prog(TileProgramF::Machine(
+                    direction,
+                    MachineInfo::BuiltIn(machine_type, info),
+                )) => {
+                    let input = self.get_input(location);
+                    if let Some(input) = input {
+                        match machine_type {
+                            BuiltInMachines::Produce => {
+                                DirData::empty().update(&direction, Some(input["product"].clone()))
+                            }
+                            _ => DirData::empty(),
+                        }
+                    } else {
+                        DirData::empty()
+                    }
+                }
+                TileWorld::Prog(TileProgramF::Machine(_, MachineInfo::BuiltIn(_, _))) => {
+                    DirData::empty()
+                }
+            })
+        } else {
+            None
+        }
+    }
+
     // TODO: write a `get_output` function that internally calls `get_input`. This function will be used in world_sim's `propagate_lasers`. Also rewrite BuiltInMachine's `inputs` function to be called `get_io` and return a BTreeMap where the values are some enum indicating input or output and storing the label of that io thingy.
     pub fn get_input(&self, location: XYPair) -> Option<BTreeMap<String, Data>> {
         if let Some(TileWorld::Prog(TileProgramMachineInfo::Machine(orientation, machine))) =
@@ -355,24 +390,32 @@ impl TilemapWorld {
                     let inputs = machine.inputs();
                     inputs
                         .into_iter()
-                        .map(|(dir, input_name)| {
+                        .filter_map(|elem| {
+                            if let (dir, IOType::In(label)) = elem {
+                                Some((dir, label))
+                            } else {
+                                None
+                            }
+                        })
+                        .map(|(dir, label)| {
                             let rotated_dir = dir.rotate(*orientation);
                             let inp = self.get_input_to_coordinate(location, -rotated_dir);
-                            (input_name, inp)
+                            println!("{:?}, {:?}", label, inp);
+                            (label, inp)
                         })
-                        .map(|(input_name, inp)| {
-                            if let Some(inp) = inp {
-                                Some((input_name, inp))
+                        .map(|(label, data)| {
+                            let hardcoded = hardcoded_inputs.get(&label).cloned();
+                            (label, hardcoded.or(data))
+                        })
+                        .map(|(label, data)| {
+                            if let Some(data) = data {
+                                Some((label, data))
                             } else {
                                 None
                             }
                         })
                         .collect::<Option<Vec<(String, Data)>>>()
-                        .map(|a| {
-                            a.into_iter()
-                                .chain(hardcoded_inputs.clone())
-                                .collect::<BTreeMap<String, Data>>()
-                        })
+                        .map(|a| a.into_iter().collect::<BTreeMap<String, Data>>())
                 }
             }
         } else {
@@ -383,30 +426,6 @@ impl TilemapWorld {
     pub fn get_input_to_coordinate(&self, location: XYPair, direction: Dir) -> Option<Data> {
         if let Some(dir_data) = self.get_outputs((-direction).shift(location)) {
             dir_data.get(&direction).clone()
-        } else {
-            None
-        }
-    }
-
-    pub fn get_outputs(&self, location: XYPair) -> Option<DirData> {
-        // TODO: consider rotation
-        if let Some(tile) = self.get(location) {
-            Some(match tile {
-                TileWorld::Phys(TilePhysics::Laser(dir_data)) => dir_data.clone(),
-                TileWorld::Prog(TileProgramF::Machine(
-                    direction,
-                    MachineInfo::BuiltIn(BuiltInMachines::Produce, info),
-                )) => {
-                    DirData::empty().update(
-                        &direction,
-                        Some(info.program_info.hardcoded_inputs["product"].clone()),
-                    )
-                    // TODO: Improve
-                }
-                TileWorld::Prog(TileProgramF::Machine(_, MachineInfo::BuiltIn(_, _))) => {
-                    DirData::empty()
-                }
-            })
         } else {
             None
         }
