@@ -224,44 +224,65 @@ fn spawn_main_tile(
     tilemap: Res<TilemapWorld>,
     asset_server: Res<AssetServer>,
 ) {
-    for (index, _) in tilemap.0.map.indexed_iter() {
-        let pos = TilePosition {
-            x: index.1 as usize,
-            y: index.0 as usize,
-        };
-        let size = TileSize {
-            width: 1,
-            height: 1,
-        };
-        commands
-            .spawn(SpriteBundle {
-                sprite: Sprite::new(Vec2::new(10., 10.)),
-                ..Default::default()
-            })
-            .with(pos)
-            .with(size)
-            .with_children(|parent| {
-                parent.spawn(Text2dBundle {
-                    text: Text::with_section(
-                        format!("{}, {}", index.1, index.0),
-                        TextStyle {
-                            font: asset_server.load("fonts/FiraSans/FiraSans-Light.ttf"),
-                            font_size: 60.0,
-                            color: Color::WHITE,
-                        },
-                        TextAlignment {
-                            vertical: VerticalAlign::Center,
-                            horizontal: HorizontalAlign::Center,
-                        },
-                    ),
-                    transform: Transform {
-                        translation: Vec3::new(0., 0., 2.),
-                        rotation: Quat::identity(),
-                        scale: Vec3::new(0., 0., 0.),
-                    },
+    enum TileType {
+        Real,
+        Borderland,
+    }
+    for location in tilemap
+        .0
+        .map
+        .indexed_iter()
+        .map(|(index, _)| (TileType::Real, (index.1, index.0)))
+        .chain((0..tilemap.0.map.dim().1).map(|x| (TileType::Borderland, (x, 0))))
+        .chain(
+            (0..tilemap.0.map.dim().1)
+                .map(|x| (TileType::Borderland, (x, tilemap.0.map.dim().0 - 1))),
+        )
+        .chain((0..tilemap.0.map.dim().0).map(|y| (TileType::Borderland, (0, y))))
+        .chain(
+            (0..tilemap.0.map.dim().0)
+                .map(|y| (TileType::Borderland, (tilemap.0.map.dim().1 - 1, y))),
+        )
+    {
+        if let (TileType::Real, location) = location {
+            let pos = TilePosition {
+                x: location.0,
+                y: location.1,
+            };
+            let size = TileSize {
+                width: 1,
+                height: 1,
+            };
+            commands
+                .spawn(SpriteBundle {
+                    sprite: Sprite::new(Vec2::new(10., 10.)),
                     ..Default::default()
+                })
+                .with(pos)
+                .with(size)
+                .with_children(|parent| {
+                    parent.spawn(Text2dBundle {
+                        text: Text::with_section(
+                            format!("{}, {}", location.0, location.1),
+                            TextStyle {
+                                font: asset_server.load("fonts/FiraSans/FiraSans-Light.ttf"),
+                                font_size: 60.0,
+                                color: Color::WHITE,
+                            },
+                            TextAlignment {
+                                vertical: VerticalAlign::Center,
+                                horizontal: HorizontalAlign::Center,
+                            },
+                        ),
+                        transform: Transform {
+                            translation: Vec3::new(0., 0., 2.),
+                            rotation: Quat::identity(),
+                            scale: Vec3::new(0., 0., 0.),
+                        },
+                        ..Default::default()
+                    });
                 });
-            });
+        }
     }
 }
 
@@ -299,6 +320,7 @@ fn size_scaling(
     tilemap: Res<TilemapWorld>,
 ) {
     let (arena_tiles_wide, arena_tiles_tall) = tilemap.world_dim();
+    let (arena_tiles_wide, arena_tiles_tall) = (arena_tiles_wide + 2, arena_tiles_tall + 2);
     let window = windows.get_primary().unwrap();
 
     for (sprite_size, mut sprite) in q.iter_mut() {
@@ -315,21 +337,18 @@ fn positioning(
     tilemap: Res<TilemapWorld>,
 ) {
     let (arena_tiles_wide, arena_tiles_tall) = tilemap.world_dim();
+    let (arena_tiles_wide, arena_tiles_tall) = (arena_tiles_wide + 2, arena_tiles_tall + 2);
     let window = windows.get_primary().unwrap();
 
-    fn convert(pos: f32, bound_window: f32, bound_game: f32) -> f32 {
+    fn convert(pos: usize, bound_window: f32, bound_game: f32) -> f32 {
         let tile_size = bound_window / bound_game;
-        pos / bound_game * bound_window - (bound_window / 2.) + (tile_size / 2.)
+        ((pos + 1) as f32) / bound_game * bound_window - (bound_window / 2.) + (tile_size / 2.)
     }
 
     for (pos, mut transform) in q.iter_mut() {
         transform.translation = Vec3::new(
-            convert(pos.x as f32, window.width() as f32, arena_tiles_wide as f32),
-            convert(
-                pos.y as f32,
-                window.height() as f32,
-                arena_tiles_tall as f32,
-            ),
+            convert(pos.x, window.width() as f32, arena_tiles_wide as f32),
+            convert(pos.y, window.height() as f32, arena_tiles_tall as f32),
             0.0,
         );
     }
