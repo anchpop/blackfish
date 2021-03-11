@@ -15,6 +15,7 @@ use frunk::monoid::Monoid;
 use std::time::Duration;
 
 use velcro::btree_map;
+use velcro::hash_map;
 
 #[derive(Debug, Clone)]
 struct ClockIncrementTimer(Timer);
@@ -213,7 +214,7 @@ fn create_map(commands: &mut Commands) {
         ]),
     });
 
-    let test_world = sim(test_prog.clone());
+    let test_world = sim(test_prog.clone(), hash_map! {});
 
     commands.insert_resource(test_prog);
     commands.insert_resource(test_world);
@@ -229,19 +230,19 @@ fn spawn_main_tile(
         Borderland,
     }
     for location in tilemap
-        .0
+        .data
         .map
         .indexed_iter()
         .map(|(index, _)| (TileType::Real, (index.1, index.0)))
-        .chain((0..tilemap.0.map.dim().1).map(|x| (TileType::Borderland, (x, 0))))
+        .chain((0..tilemap.data.map.dim().1).map(|x| (TileType::Borderland, (x, 0))))
         .chain(
-            (0..tilemap.0.map.dim().1)
-                .map(|x| (TileType::Borderland, (x, tilemap.0.map.dim().0 - 1))),
+            (0..tilemap.data.map.dim().1)
+                .map(|x| (TileType::Borderland, (x, tilemap.data.map.dim().0 - 1))),
         )
-        .chain((0..tilemap.0.map.dim().0).map(|y| (TileType::Borderland, (0, y))))
+        .chain((1..tilemap.data.map.dim().0 - 1).map(|y| (TileType::Borderland, (0, y))))
         .chain(
-            (0..tilemap.0.map.dim().0)
-                .map(|y| (TileType::Borderland, (tilemap.0.map.dim().1 - 1, y))),
+            (1..tilemap.data.map.dim().0 - 1)
+                .map(|y| (TileType::Borderland, (tilemap.data.map.dim().1 - 1, y))),
         )
     {
         if let (TileType::Real, location) = location {

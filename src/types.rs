@@ -331,34 +331,37 @@ impl<K: Key, I> Tilemap<K, I> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TilemapProgram {
     pub spec: Tilemap<KeyProgram, TileProgram>,
-    pub inputs: Vec<uuid::Uuid>,
-    pub outputs: Vec<uuid::Uuid>,
+    pub inputs: Vec<(uuid::Uuid, String)>,
+    pub outputs: Vec<(uuid::Uuid, String)>,
     //pub functions: SlotMap<KeyFunction, TilemapProgram>, // need to make this work with alpha-equivalence
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TilemapWorld(pub Tilemap<KeyWorld, TileWorld>);
+pub struct TilemapWorld {
+    pub data: Tilemap<KeyWorld, TileWorld>,
+    pub inputs: Vec<Data>,
+}
 
 impl TilemapWorld {
     #[allow(dead_code)]
     pub fn world(self) -> Array2<Option<KeyWorld>> {
-        self.0.map
+        self.data.map
     }
     pub fn world_dim(&self) -> XYPair {
-        let dim = self.0.map.dim();
+        let dim = self.data.map.dim();
         (dim.1, dim.0)
     }
 
     pub fn set_tile(&mut self, location: XYPair, tile: TileWorld) {
-        self.0.set_tile(location, tile);
+        self.data.set_tile(location, tile);
     }
 
     pub fn add_tile(&mut self, location: XYPair, tile: TileWorld) {
-        self.0.add_tile(location, tile)
+        self.data.add_tile(location, tile)
     }
 
     pub fn remove_tile(&mut self, location: XYPair) {
-        self.0.remove_tile(location);
+        self.data.remove_tile(location);
     }
 
     pub fn add_laser(&mut self, location: XYPair, data: DirData) {
@@ -462,22 +465,22 @@ impl TilemapWorld {
     }
 
     pub fn get(&self, location: XYPair) -> Option<&TileWorld> {
-        self.0.get(location)
+        self.data.get(location)
     }
 
     #[allow(dead_code)]
     pub fn getu(&self, location: XYPair) -> &TileWorld {
-        self.0.get_unchecked(location)
+        self.data.get_unchecked(location)
     }
 
     #[allow(dead_code)]
     pub fn get_mut(&mut self, location: XYPair) -> Option<&mut TileWorld> {
-        self.0.get_mut(location)
+        self.data.get_mut(location)
     }
 
     #[allow(dead_code)]
     pub fn getu_mut(&mut self, location: XYPair) -> &mut TileWorld {
-        self.0.get_unchecked_mut(location)
+        self.data.get_unchecked_mut(location)
     }
 
     pub fn apply_edit(&mut self, edit: Edit) {
@@ -496,10 +499,10 @@ impl TilemapWorld {
         transformation: F,
     ) {
         // Before applying any edits, I actually would like to create one big megalist of edits, and then search for incompatibilities (conflicting instructions on whether to update or remove a tile for instance)
-        from.0.map.indexed_iter().for_each(|(index, world_key)| {
+        from.data.map.indexed_iter().for_each(|(index, world_key)| {
             if let Some(edit) = transformation(
                 world_key.map(|key| {
-                    from.0
+                    from.data
                         .tiles
                         .get(key)
                         .expect("referenced key not found in world!")
@@ -563,10 +566,13 @@ impl TilemapProgram {
             }
             _ => None,
         });
-        TilemapWorld(Tilemap {
-            tiles: world_tiles,
-            map: world_map,
-        })
+        TilemapWorld {
+            data: Tilemap {
+                tiles: world_tiles,
+                map: world_map,
+            },
+            inputs: vec![],
+        }
     }
 
     pub fn make_slotmap() -> SlotMap<KeyProgram, TileProgram> {

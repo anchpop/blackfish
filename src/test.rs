@@ -6,6 +6,7 @@ use frunk::semigroup::Semigroup;
 use ndarray::arr2;
 
 use velcro::btree_map;
+use velcro::hash_map;
 
 fn default_map() -> TilemapProgram {
     let mut tiles = TilemapProgram::make_slotmap();
@@ -227,7 +228,7 @@ mod tests {
                 map
             };
 
-            let world = world_sim::sim(map);
+            let world = world_sim::sim(map, hash_map! {});
             assert_eq!(
                 world.get_input_to_coordinate((3, 3), Dir::North).unwrap(),
                 data
@@ -331,7 +332,7 @@ mod tests {
             };
 
             assert_eq!(
-                world_sim::sim(map).get_inputs(location),
+                world_sim::sim(map, hash_map! {}).get_inputs(location),
                 Some(passed_inputs)
             );
         }
@@ -380,7 +381,7 @@ mod tests {
                 map
             };
 
-            world_sim::sim(map).get_inputs(location);
+            world_sim::sim(map, hash_map! {}).get_inputs(location);
         }
     }
 }

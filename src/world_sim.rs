@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+
 use crate::types::*;
 use bevy::ecs::Location;
 use frunk::monoid::Monoid;
 
-pub fn sim(prog: TilemapProgram) -> TilemapWorld {
+pub fn sim(prog: TilemapProgram, inputs: HashMap<uuid::Uuid, Data>) -> TilemapWorld {
     simulate_until_stable(prog.into_world())
 }
 
