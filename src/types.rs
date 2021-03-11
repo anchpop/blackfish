@@ -6,12 +6,13 @@ use std::{
 use std::{fmt::Debug, ops::Neg};
 
 use bevy::prelude::*;
-use ndarray::{Array, Array2};
+use ndarray::{arr2, Array2};
 
 use slotmap::{new_key_type, Key, SlotMap};
 
 use frunk::monoid::Monoid;
 use frunk::semigroup::Semigroup;
+use uuid::Uuid;
 
 pub type XYPair = (usize, usize);
 
@@ -190,6 +191,7 @@ impl TileProgram {
 
 new_key_type! { pub struct KeyProgram; }
 new_key_type! { pub struct KeyWorld; }
+new_key_type! { pub struct KeyFunction; }
 
 // brain blast: all tilemaps have inputs and outputs. it doesn't need to be in the actual tile array though - that can be a consequence of rendering. instead, the TilemapProgram struct should contain information describing its inputs and outputs and have an impl function that takes some inputs, converts it into a TilemapWorld, simulates it, then returns what it outputs (along with possibly the TilemapWorld for display)
 
@@ -327,7 +329,13 @@ impl<K: Key, I> Tilemap<K, I> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TilemapProgram(pub Tilemap<KeyProgram, TileProgram>);
+pub struct TilemapProgram {
+    pub spec: Tilemap<KeyProgram, TileProgram>,
+    pub inputs: Vec<uuid::Uuid>,
+    pub outputs: Vec<uuid::Uuid>,
+    //pub functions: SlotMap<KeyFunction, TilemapProgram>, // need to make this work with alpha-equivalence
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TilemapWorld(pub Tilemap<KeyWorld, TileWorld>);
 
@@ -509,30 +517,37 @@ impl TilemapWorld {
 }
 
 impl TilemapProgram {
+    pub fn new(tilemap: Tilemap<KeyProgram, TileProgram>) -> Self {
+        Self {
+            spec: tilemap,
+            inputs: vec![],
+            outputs: vec![],
+        }
+    }
     pub fn set_tile(&mut self, location: XYPair, tile: TileProgram) {
-        self.0.set_tile(location, tile);
+        self.spec.set_tile(location, tile);
     }
 
     pub fn add_tile(&mut self, location: XYPair, tile: TileProgram) {
-        self.0.add_tile(location, tile)
+        self.spec.add_tile(location, tile)
     }
 
     pub fn remove_tile(&mut self, location: XYPair) {
-        self.0.remove_tile(location);
+        self.spec.remove_tile(location);
     }
 
     #[allow(dead_code)]
     pub fn program(self) -> Array2<Option<KeyProgram>> {
-        self.0.map
+        self.spec.map
     }
     #[allow(dead_code)]
     pub fn program_dim(&self) -> XYPair {
-        let dim = self.0.map.dim();
+        let dim = self.spec.map.dim();
         (dim.1, dim.0)
     }
     pub fn into_world(self) -> TilemapWorld {
-        let map = self.0.map;
-        let mut tiles = self.0.tiles;
+        let map = self.spec.map;
+        let mut tiles = self.spec.tiles;
 
         let mut world_tiles: SlotMap<KeyWorld, TileWorld> = TilemapWorld::make_slotmap();
 

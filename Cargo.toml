@@ -14,3 +14,4 @@ frunk = "0.3.1"
 slotmap = "1.0"
 proptest = "1.0"
 velcro = "0.5.3"
+uuid = { version = "0.8", features = ["serde", "v4"] }

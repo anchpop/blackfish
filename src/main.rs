@@ -167,7 +167,7 @@ fn create_map(commands: &mut Commands) {
         MachineInfo::BuiltIn(BuiltInMachines::Trace, ProgramInfo::empty()),
     ));
 
-    let test_prog = TilemapProgram(Tilemap {
+    let test_prog = TilemapProgram::new(Tilemap {
         tiles,
         map: arr2(&[
             [None, None, None, None, None, None, None, None, Some(tracer)],

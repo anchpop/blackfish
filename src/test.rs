@@ -46,7 +46,7 @@ fn default_map() -> TilemapProgram {
         ),
     ));
 
-    TilemapProgram(Tilemap {
+    TilemapProgram::new(Tilemap {
         tiles,
         map: arr2(&[
             [None, None, None, None, None, None, None, None, None],
@@ -86,7 +86,7 @@ fn default_map() -> TilemapProgram {
 fn empty_map() -> TilemapProgram {
     let tiles = TilemapProgram::make_slotmap();
 
-    TilemapProgram(Tilemap {
+    TilemapProgram::new(Tilemap {
         tiles,
         map: arr2(&[
             [None, None, None, None, None, None, None, None, None],
@@ -135,7 +135,7 @@ mod tests {
         fn tilemap_equality_invariant_to_unreferenced_tiles() {
             let m1 = default_map();
             let mut m2 = m1.clone();
-            m2.0.tiles.insert(TileProgram::Machine(
+            m2.spec.tiles.insert(TileProgram::Machine(
                 Dir::default(),
                 MachineInfo::BuiltIn(
                     BuiltInMachines::Produce,
@@ -154,7 +154,7 @@ mod tests {
         fn tilemap_equality_alpha_equivalence() {
             let m1 = default_map();
             let mut m2 = m1.clone();
-            m2.0.set_tile(
+            m2.spec.set_tile(
                 (3, 2),
                 TileProgram::Machine(
                     Dir::default(),
@@ -176,7 +176,7 @@ mod tests {
         fn tilemap_inequality() {
             let m1 = default_map();
             let mut m2 = m1.clone();
-            m2.0.set_tile(
+            m2.spec.set_tile(
                 (0, 0),
                 TileProgram::Machine(
                     Dir::North,

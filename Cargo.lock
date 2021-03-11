@@ -784,6 +784,7 @@ dependencies = [
  "proptest",
  "rand 0.7.3",
  "slotmap 1.0.2",
+ "uuid",
  "velcro",
 ]
 
