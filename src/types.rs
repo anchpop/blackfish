@@ -453,10 +453,15 @@ impl TilemapWorld {
     }
 
     pub fn get_input_to_coordinate(&self, location: XYPair, direction: Dir) -> Option<Data> {
-        if let Some(dir_data) = self.get_outputs((-direction).shift(location)) {
-            dir_data.get(&direction).clone()
-        } else {
-            None
+        match (location.0 == 0, direction, self.inputs.get(location.1)) {
+            (true, Dir::East, Some(data)) => Some(data.clone()),
+            _ => {
+                if let Some(dir_data) = self.get_outputs((-direction).shift(location)) {
+                    dir_data.get(&direction).clone()
+                } else {
+                    None
+                }
+            }
         }
     }
 
@@ -548,7 +553,7 @@ impl TilemapProgram {
         let dim = self.spec.map.dim();
         (dim.1, dim.0)
     }
-    pub fn into_world(self) -> TilemapWorld {
+    pub fn into_world(self, inputs: HashMap<uuid::Uuid, Data>) -> TilemapWorld {
         let map = self.spec.map;
         let mut tiles = self.spec.tiles;
 
@@ -571,7 +576,11 @@ impl TilemapProgram {
                 tiles: world_tiles,
                 map: world_map,
             },
-            inputs: vec![],
+            inputs: self
+                .inputs
+                .iter()
+                .map(|(uuid, _)| inputs[uuid].clone())
+                .collect(),
         }
     }
 

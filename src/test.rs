@@ -129,7 +129,10 @@ mod tests {
 
         #[test]
         fn tilemap_world_equality() {
-            assert_eq!(default_map().into_world(), default_map().into_world());
+            assert_eq!(
+                default_map().into_world(hash_map! {}),
+                default_map().into_world(hash_map! {})
+            );
         }
 
         #[test]
@@ -262,7 +265,7 @@ mod tests {
             };
 
             assert_eq!(
-                map.into_world().get_inputs(location),
+                map.into_world(hash_map! {}).get_inputs(location),
                 Some(hardcoded_inputs)
             );
         }
@@ -290,7 +293,7 @@ mod tests {
                 map
             };
 
-            assert_eq!(map.into_world().get_inputs(location), None);
+            assert_eq!(map.into_world(hash_map! {}).get_inputs(location), None);
         }
 
         #[test]

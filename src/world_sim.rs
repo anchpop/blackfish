@@ -5,7 +5,7 @@ use bevy::ecs::Location;
 use frunk::monoid::Monoid;
 
 pub fn sim(prog: TilemapProgram, inputs: HashMap<uuid::Uuid, Data>) -> TilemapWorld {
-    simulate_until_stable(prog.into_world())
+    simulate_until_stable(prog.into_world(inputs))
 }
 
 pub fn simulate_until_stable(mut world: TilemapWorld) -> TilemapWorld {

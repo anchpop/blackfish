@@ -168,53 +168,59 @@ fn create_map(commands: &mut Commands) {
         MachineInfo::BuiltIn(BuiltInMachines::Trace, ProgramInfo::empty()),
     ));
 
-    let test_prog = TilemapProgram::new(Tilemap {
-        tiles,
-        map: arr2(&[
-            [None, None, None, None, None, None, None, None, Some(tracer)],
-            [
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                Some(laser_machine_test),
-                None,
-            ],
-            [
-                None,
-                None,
-                None,
-                Some(north_laser),
-                None,
-                Some(west_laser),
-                None,
-                None,
-                None,
-            ],
-            [None, None, None, None, None, None, None, None, None],
-            [None, None, None, None, None, None, None, None, None],
-            [None, None, None, None, None, None, None, None, None],
-            [None, None, None, None, None, None, None, None, None],
-            [
-                Some(tracer2),
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                Some(west_laser_2),
-                None,
-            ],
-            [None, None, None, None, None, None, None, None, None],
-            [None, None, None, None, None, None, None, None, None],
-        ]),
-    });
+    let clock_uuid = uuid::Uuid::new_v4();
 
-    let test_world = sim(test_prog.clone(), hash_map! {});
+    let test_prog = TilemapProgram {
+        spec: Tilemap {
+            tiles,
+            map: arr2(&[
+                [None, None, None, None, None, None, None, None, Some(tracer)],
+                [
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some(laser_machine_test),
+                    None,
+                ],
+                [
+                    None,
+                    None,
+                    None,
+                    Some(north_laser),
+                    None,
+                    Some(west_laser),
+                    None,
+                    None,
+                    None,
+                ],
+                [None, None, None, None, None, None, None, None, None],
+                [None, None, None, None, None, None, None, None, None],
+                [None, None, None, None, None, None, None, None, None],
+                [None, None, None, None, None, None, None, None, None],
+                [
+                    Some(tracer2),
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some(west_laser_2),
+                    None,
+                ],
+                [None, None, None, None, None, None, None, None, None],
+                [None, None, None, None, None, None, None, None, None],
+            ]),
+        },
+        inputs: vec![(clock_uuid, "clock".to_owned())],
+        outputs: vec![],
+    };
+
+    let test_world = sim(test_prog.clone(), hash_map! {clock_uuid: Data::Number(0)});
 
     commands.insert_resource(test_prog);
     commands.insert_resource(test_world);
@@ -293,25 +299,8 @@ fn update_master_input(
     tilemap_program: Res<TilemapProgram>,
 ) {
     let new_prog = tilemap_program.clone();
-    let mut new_world = new_prog.into_world();
-    new_world.set_tile(
-        (0, 0),
-        TileWorld::Prog(TileProgramMachineInfo::Machine(
-            Dir::East,
-            MachineInfo::BuiltIn(
-                BuiltInMachines::Produce,
-                WorldMachineInfo {
-                    program_info: ProgramInfo {
-                        hardcoded_inputs: btree_map! {
-                            "product".to_string(): Data::Number(clock.0)
-                        },
-                        ..ProgramInfo::empty()
-                    },
-                    ..WorldMachineInfo::empty()
-                },
-            ),
-        )),
-    );
+    let clock_uuid = new_prog.inputs.get(0).unwrap().0;
+    let new_world = sim(new_prog, hash_map! {clock_uuid: Data::Number(clock.0)});
     *tilemap_world = simulate_until_stable(new_world);
 }
 
