@@ -4,8 +4,22 @@ use crate::types::*;
 use bevy::ecs::Location;
 use frunk::monoid::Monoid;
 
-pub fn sim(prog: TilemapProgram, inputs: HashMap<uuid::Uuid, Data>) -> TilemapWorld {
-    simulate_until_stable(prog.into_world(inputs))
+pub fn sim(
+    prog: TilemapProgram,
+    inputs: HashMap<uuid::Uuid, Data>,
+) -> (TilemapWorld, HashMap<uuid::Uuid, Data>) {
+    let (width, _) = prog.program_dim();
+    let outputs_spec = prog.outputs.clone();
+
+    let simmed = simulate_until_stable(prog.into_world(inputs));
+    let mut output_map: HashMap<uuid::Uuid, Data> = HashMap::new();
+    for (index, (uuid, _)) in outputs_spec.iter().enumerate() {
+        let location = (width - 1, index);
+        if let Some(data) = simmed.get_outputs(location).and_then(|dirmap| dirmap.east) {
+            output_map.insert(uuid.clone(), data);
+        }
+    }
+    (simmed, output_map)
 }
 
 pub fn simulate_until_stable(mut world: TilemapWorld) -> TilemapWorld {

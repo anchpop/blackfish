@@ -159,22 +159,41 @@ fn create_map(commands: &mut Commands) {
             },
         ),
     ));
-    let tracer = tiles.insert(TileProgram::Machine(
+
+    let id_laser_test = tiles.insert(TileProgram::Machine(
         Dir::East,
-        MachineInfo::BuiltIn(BuiltInMachines::Trace, ProgramInfo::empty()),
+        MachineInfo::BuiltIn(
+            BuiltInMachines::Produce,
+            ProgramInfo {
+                hardcoded_inputs: btree_map! {},
+                ..ProgramInfo::empty()
+            },
+        ),
     ));
+
     let tracer2 = tiles.insert(TileProgram::Machine(
         Dir::West,
         MachineInfo::BuiltIn(BuiltInMachines::Trace, ProgramInfo::empty()),
     ));
 
     let clock_uuid = uuid::Uuid::new_v4();
+    let audio_uuid = uuid::Uuid::new_v4();
 
     let test_prog = TilemapProgram {
         spec: Tilemap {
             tiles,
             map: arr2(&[
-                [None, None, None, None, None, None, None, None, Some(tracer)],
+                [
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some(id_laser_test),
+                    None,
+                    None,
+                    None,
+                    None,
+                ],
                 [
                     None,
                     None,
@@ -217,10 +236,10 @@ fn create_map(commands: &mut Commands) {
             ]),
         },
         inputs: vec![(clock_uuid, "clock".to_owned())],
-        outputs: vec![],
+        outputs: vec![(audio_uuid, "audio".to_owned())],
     };
 
-    let test_world = sim(test_prog.clone(), hash_map! {clock_uuid: Data::Number(0)});
+    let test_world = sim(test_prog.clone(), hash_map! {clock_uuid: Data::Number(0)}).0;
 
     commands.insert_resource(test_prog);
     commands.insert_resource(test_world);
@@ -273,7 +292,7 @@ fn spawn_main_tile(
                             format!("{}, {}", location.0, location.1),
                             TextStyle {
                                 font: asset_server.load("fonts/FiraCode/FiraCode-Light.ttf"),
-                                font_size: 50.0,
+                                font_size: 45.0,
                                 color: Color::WHITE,
                             },
                             TextAlignment {
@@ -300,7 +319,8 @@ fn update_master_input(
 ) {
     let new_prog = tilemap_program.clone();
     let clock_uuid = new_prog.inputs.get(0).unwrap().0;
-    let new_world = sim(new_prog, hash_map! {clock_uuid: Data::Number(clock.0)});
+    let (new_world, output) = sim(new_prog, hash_map! {clock_uuid: Data::Number(clock.0)});
+    println!("{:?}", output);
     *tilemap_world = simulate_until_stable(new_world);
 }
 
