@@ -272,8 +272,8 @@ fn spawn_main_tile(
                         text: Text::with_section(
                             format!("{}, {}", location.0, location.1),
                             TextStyle {
-                                font: asset_server.load("fonts/FiraSans/FiraSans-Light.ttf"),
-                                font_size: 60.0,
+                                font: asset_server.load("fonts/FiraCode/FiraCode-Light.ttf"),
+                                font_size: 50.0,
                                 color: Color::WHITE,
                             },
                             TextAlignment {
