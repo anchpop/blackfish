@@ -39,7 +39,6 @@ fn main() {
         .add_system(positioning.system())
         .add_system(tile_appearance.system())
         .add_system(tile_text.system())
-        .add_system(update_master_input.system())
         .run();
 }
 
@@ -235,8 +234,8 @@ fn create_map(commands: &mut Commands) {
                 [None, None, None, None, None, None, None, None, None],
             ]),
         },
-        inputs: vec![(clock_uuid, "clock".to_owned())],
-        outputs: vec![(audio_uuid, "audio".to_owned())],
+        inputs: vec![(clock_uuid, "clock".to_owned(), DataType::Number)],
+        outputs: vec![(audio_uuid, "audio".to_owned(), DataType::Number)],
     };
 
     let test_world = sim(test_prog.clone(), hash_map! {clock_uuid: Data::Number(0)}).0;
@@ -310,18 +309,6 @@ fn spawn_main_tile(
                 });
         }
     }
-}
-
-fn update_master_input(
-    clock: Res<CurrentClock>,
-    mut tilemap_world: ResMut<TilemapWorld>,
-    tilemap_program: Res<TilemapProgram>,
-) {
-    let new_prog = tilemap_program.clone();
-    let clock_uuid = new_prog.inputs.get(0).unwrap().0;
-    let (new_world, output) = sim(new_prog, hash_map! {clock_uuid: Data::Number(clock.0)});
-    println!("{:?}", output);
-    *tilemap_world = simulate_until_stable(new_world);
 }
 
 fn size_scaling(
@@ -417,8 +404,17 @@ fn clock_increment(
     time: Res<Time>,
     mut timer: Local<ClockIncrementTimer>,
     mut clock: ResMut<CurrentClock>,
+
+    mut tilemap_world: ResMut<TilemapWorld>,
+    tilemap_program: Res<TilemapProgram>,
 ) {
     if timer.0.tick(time.delta_seconds()).finished() {
         *clock = CurrentClock(clock.0 + 1);
+
+        let new_prog = tilemap_program.clone();
+        let clock_uuid = new_prog.inputs.get(0).unwrap().0;
+        let (new_world, output) = sim(new_prog, hash_map! {clock_uuid: Data::Number(clock.0)});
+        println!("{:?}", output);
+        *tilemap_world = simulate_until_stable(new_world);
     }
 }

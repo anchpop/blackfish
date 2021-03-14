@@ -331,8 +331,8 @@ impl<K: Key, I> Tilemap<K, I> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TilemapProgram {
     pub spec: Tilemap<KeyProgram, TileProgram>,
-    pub inputs: Vec<(uuid::Uuid, String)>,
-    pub outputs: Vec<(uuid::Uuid, String)>,
+    pub inputs: Vec<(uuid::Uuid, String, DataType)>,
+    pub outputs: Vec<(uuid::Uuid, String, DataType)>,
     //pub functions: SlotMap<KeyFunction, TilemapProgram>, // need to make this work with alpha-equivalence
 }
 
@@ -579,7 +579,11 @@ impl TilemapProgram {
             inputs: self
                 .inputs
                 .iter()
-                .map(|(uuid, _)| inputs[uuid].clone())
+                .map(|(uuid, _, data_type)| {
+                    let input = inputs[uuid].clone();
+                    assert!(input.check_types(data_type));
+                    input
+                })
                 .collect(),
         }
     }
@@ -589,6 +593,10 @@ impl TilemapProgram {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum DataType {
+    Number,
+}
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Data {
     Number(i32),
@@ -602,6 +610,11 @@ impl Data {
     pub fn show(&self) -> String {
         match self {
             Data::Number(num) => format!("{}", num),
+        }
+    }
+    pub fn check_types(&self, t: &DataType) -> bool {
+        match (self, t) {
+            (Data::Number(_), DataType::Number) => true,
         }
     }
 }

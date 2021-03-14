@@ -13,10 +13,12 @@ pub fn sim(
 
     let simmed = simulate_until_stable(prog.into_world(inputs));
     let mut output_map: HashMap<uuid::Uuid, Data> = HashMap::new();
-    for (index, (uuid, _)) in outputs_spec.iter().enumerate() {
+    for (index, (uuid, _, data_type)) in outputs_spec.iter().enumerate() {
         let location = (width - 1, index);
         if let Some(data) = simmed.get_outputs(location).and_then(|dirmap| dirmap.east) {
-            output_map.insert(uuid.clone(), data);
+            if data.check_types(data_type) {
+                output_map.insert(uuid.clone(), data);
+            }
         }
     }
     (simmed, output_map)
