@@ -23,7 +23,15 @@ use std::thread::sleep;
 
 use midir::{MidiOutput, MidiOutputConnection, MidiOutputPort};
 
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
+
+const NOTE_ON_MSG: u8 = 0x90;
+const NOTE_OFF_MSG: u8 = 0x80;
+const VELOCITY: u8 = 0x64;
+
+const BEATS_PER_NOTE: u64 = 4;
+const BEATS_PER_SECOND: u64 = 120;
+
 /*
 fn run() -> Result<(), Box<dyn Error>> {
 
@@ -41,6 +49,9 @@ impl Default for ClockIncrementTimer {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct CurrentClock(i32);
 
+#[derive(Debug, Clone)]
+struct NotesToEnd(Vec<(Timer, u8, u8)>);
+
 fn main() {
     App::build()
         .add_startup_system(get_midi_ports.system())
@@ -54,6 +65,7 @@ fn main() {
         )
         .add_plugins(DefaultPlugins)
         .add_system(clock_increment.system())
+        .add_system(end_started_notes.system())
         .add_system(size_scaling.system())
         .add_system(positioning.system())
         .add_system(tile_appearance.system())
@@ -157,12 +169,14 @@ fn get_midi_ports(commands: &mut Commands) {
             }
         };
         println!("\nOpening connection");
-        let mut conn_out = midi_out.connect(out_port, "midir-test")?;
+        let conn_out = midi_out.connect(out_port, "blackfish-con")?;
 
         commands.insert_resource(Mutex::new(conn_out));
 
         Ok(())
     }
+
+    commands.insert_resource(NotesToEnd(vec![]));
 
     match run(commands) {
         Ok(_) => (),
@@ -170,7 +184,7 @@ fn get_midi_ports(commands: &mut Commands) {
     }
 }
 
-fn play_notes_test(commands: &mut Commands, mut conn_out: Res<Mutex<midir::MidiOutputConnection>>) {
+fn play_notes_test(conn_out: Res<Mutex<midir::MidiOutputConnection>>) {
     let mut conn_out = conn_out.lock().unwrap();
     println!("Connection open. Listen!");
     {
@@ -507,4 +521,49 @@ fn clock_increment(
         println!("{:?}", output);
         *tilemap_world = simulate_until_stable(new_world);
     }
+}
+
+fn end_started_notes(
+    conn_out: Res<Mutex<midir::MidiOutputConnection>>,
+    time: Res<Time>,
+    mut notes_to_end: ResMut<NotesToEnd>,
+) {
+    let mut conn_out = conn_out.lock().unwrap();
+
+    *notes_to_end = NotesToEnd(
+        notes_to_end
+            .clone()
+            .0
+            .into_iter()
+            .filter_map(|(mut timer, note, velocity)| {
+                if timer.tick(time.delta_seconds()).finished() {
+                    end_note(&mut conn_out, note, velocity);
+                    None
+                } else {
+                    Some((timer, note, velocity))
+                }
+            })
+            .collect(),
+    );
+}
+
+fn start_note(
+    conn_out: &mut MutexGuard<midir::MidiOutputConnection>,
+    notes_to_end_queue: &mut NotesToEnd,
+    duration: u64,
+    note: u8,
+    velocity: u8,
+) {
+    // We're ignoring errors in here
+    let _ = conn_out.send(&[NOTE_OFF_MSG, note, velocity]);
+    notes_to_end_queue.0.push((
+        Timer::new(Duration::from_millis(todo!()), false),
+        note,
+        velocity,
+    ))
+}
+
+fn end_note(conn_out: &mut MutexGuard<midir::MidiOutputConnection>, note: u8, velocity: u8) {
+    // We're ignoring errors in here
+    let _ = conn_out.send(&[NOTE_OFF_MSG, note, velocity]);
 }
