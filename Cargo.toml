@@ -15,3 +15,4 @@ slotmap = "1.0"
 proptest = "1.0"
 velcro = "0.5.3"
 uuid = { version = "0.8", features = ["serde", "v4"] }
+midir = "0.7.0"

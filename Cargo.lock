@@ -780,6 +780,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "frunk",
+ "midir",
  "ndarray",
  "proptest",
  "rand 0.7.3",
@@ -996,7 +997,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "784ad0fbab4f3e9cef09f20e0aea6000ae08d2cb98ac4c0abc53df18803d702f"
 dependencies = [
  "percent-encoding",
- "time",
+ "time 0.2.25",
  "version_check",
 ]
 
@@ -1012,7 +1013,7 @@ dependencies = [
  "publicsuffix",
  "serde",
  "serde_json",
- "time",
+ "time 0.2.25",
  "url",
 ]
 
@@ -1021,6 +1022,16 @@ name = "copyless"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2df960f5d869b2dd8532793fde43eb5427cceb126c929747a26823ab0eeb536"
+
+[[package]]
+name = "core-foundation"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25bfd746d203017f7d5cbd31ee5d8e17f94b6521c7af77ece6c9e4b2d4b16c67"
+dependencies = [
+ "core-foundation-sys 0.2.3",
+ "libc",
+]
 
 [[package]]
 name = "core-foundation"
@@ -1049,6 +1060,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0a89e2ae426ea83155dccf10c0fa6b1463ef6d5fcb44cee0b224a408fa640a62"
 dependencies = [
  "core-foundation-sys 0.8.2",
+ "libc",
+]
+
+[[package]]
+name = "core-foundation-sys"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "065a5d7ffdcbc8fa145d6f0746f3555025b9097a9e9cda59f7467abae670c78d"
+dependencies = [
  "libc",
 ]
 
@@ -1137,6 +1157,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b7e3347be6a09b46aba228d6608386739fb70beff4f61e07422da87b0bb31fa"
 dependencies = [
  "bindgen",
+]
+
+[[package]]
+name = "coremidi"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99f92de5534f182bad5f91cad85611ab222cb6e237a0555e06c65a24936c3173"
+dependencies = [
+ "core-foundation 0.2.3",
+ "core-foundation-sys 0.2.3",
+ "coremidi-sys",
+ "time 0.1.43",
+]
+
+[[package]]
+name = "coremidi-sys"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07f05827cebb30dcd539ff1ac9bf6764f574a15fa147f8572f99d7617142f95e"
+dependencies = [
+ "core-foundation-sys 0.2.3",
 ]
 
 [[package]]
@@ -2273,6 +2314,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
 
 [[package]]
+name = "memalloc"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df39d232f5c40b0891c10216992c2f250c054105cb1e56f0fc9032db6203ecc1"
+
+[[package]]
 name = "memchr"
 version = "2.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2290,6 +2337,24 @@ dependencies = [
  "foreign-types",
  "log",
  "objc",
+]
+
+[[package]]
+name = "midir"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25df1e7836ca65078a121efed77049084a434838562b9892d0401bdfb59244cc"
+dependencies = [
+ "alsa",
+ "bitflags",
+ "coremidi",
+ "js-sys",
+ "libc",
+ "memalloc",
+ "nix 0.15.0",
+ "wasm-bindgen",
+ "web-sys",
+ "winapi 0.3.9",
 ]
 
 [[package]]
@@ -3559,6 +3624,16 @@ name = "thunderdome"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7572415bd688d401c52f6e36f4c8e805b9ae1622619303b9fa835d531db0acae"
+
+[[package]]
+name = "time"
+version = "0.1.43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca8a50ef2360fbd1eeb0ecd46795a87a19024eb4b53c5dc916ca1fd95fe62438"
+dependencies = [
+ "libc",
+ "winapi 0.3.9",
+]
 
 [[package]]
 name = "time"
