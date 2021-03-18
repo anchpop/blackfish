@@ -35,7 +35,7 @@ const NOTE_ON_MSG: u8 = 0x90;
 const NOTE_OFF_MSG: u8 = 0x80;
 const VELOCITY: u8 = 0x64;
 
-const BEATS_PER_SECOND: u64 = 120;
+const BEATS_PER_SECOND: u64 = 1;
 
 /*
 fn run() -> Result<(), Box<dyn Error>> {
@@ -570,15 +570,11 @@ fn start_note(
     velocity: u8,
 ) {
     // We're ignoring errors in here
-    println!("Playing note");
+    let duration = (1000.0 as f64 * duration.get::<beat>() / (BEATS_PER_SECOND as f64)) as u64;
+    println!("Playing note for {}ms", duration);
     let _ = conn_out.send(&[NOTE_ON_MSG, pitch, velocity]);
     notes_to_end_queue.0.push((
-        Timer::new(
-            Duration::from_millis(
-                (1000.0 * duration.get::<beat>() / (BEATS_PER_SECOND as f64)) as u64,
-            ),
-            false,
-        ),
+        Timer::new(Duration::from_millis(duration), false),
         pitch,
         velocity,
     ))
