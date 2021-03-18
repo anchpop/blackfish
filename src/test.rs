@@ -231,7 +231,7 @@ mod tests {
                 map
             };
 
-            let world = world_sim::sim(map, hash_map! {});
+            let world = world_sim::sim(map, hash_map! {}).0;
             assert_eq!(
                 world.get_input_to_coordinate((3, 3), Dir::North).unwrap(),
                 data
@@ -335,7 +335,7 @@ mod tests {
             };
 
             assert_eq!(
-                world_sim::sim(map, hash_map! {}).get_inputs(location),
+                world_sim::sim(map, hash_map! {}).0.get_inputs(location),
                 Some(passed_inputs)
             );
         }
@@ -384,7 +384,7 @@ mod tests {
                 map
             };
 
-            world_sim::sim(map, hash_map! {}).get_inputs(location);
+            world_sim::sim(map, hash_map! {}).0.get_inputs(location);
         }
     }
 }

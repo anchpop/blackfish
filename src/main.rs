@@ -37,12 +37,6 @@ const VELOCITY: u8 = 0x64;
 
 const BEATS_PER_SECOND: u64 = 1;
 
-/*
-fn run() -> Result<(), Box<dyn Error>> {
-
-    Ok(())
-}*/
-
 #[derive(Debug, Clone)]
 struct ClockIncrementTimer(Timer);
 impl Default for ClockIncrementTimer {
