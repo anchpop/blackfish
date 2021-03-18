@@ -1,6 +1,9 @@
 mod test;
 mod types;
+mod units;
 mod world_sim;
+#[macro_use]
+extern crate uom;
 
 use types::*;
 use world_sim::{sim, simulate_until_stable};
@@ -25,11 +28,13 @@ use midir::{MidiOutput, MidiOutputConnection, MidiOutputPort};
 
 use std::sync::{Mutex, MutexGuard};
 
+use units::f64::*;
+use units::music_time::{bang, beat, note};
+
 const NOTE_ON_MSG: u8 = 0x90;
 const NOTE_OFF_MSG: u8 = 0x80;
 const VELOCITY: u8 = 0x64;
 
-const BEATS_PER_NOTE: u64 = 4;
 const BEATS_PER_SECOND: u64 = 120;
 
 /*
@@ -59,10 +64,10 @@ fn main() {
         .add_startup_system(create_map.system())
         // Adding a stage lets us access resources (in this case, materials) created in the previous stage
         .add_startup_stage("game_setup", SystemStage::single(spawn_main_tile.system()))
-        .add_startup_stage(
+        /* .add_startup_stage(
             "play_notes_test",
             SystemStage::single(play_notes_test.system()),
-        )
+        )*/
         .add_plugins(DefaultPlugins)
         .add_system(clock_increment.system())
         .add_system(end_started_notes.system())
@@ -189,14 +194,14 @@ fn play_notes_test(conn_out: Res<Mutex<midir::MidiOutputConnection>>) {
     println!("Connection open. Listen!");
     {
         // Define a new scope in which the closure `play_note` borrows conn_out, so it can be called easily
-        let mut play_note = |note: u8, duration: u64| {
+        let mut play_note = |pitch: u8, duration: u64| {
             const NOTE_ON_MSG: u8 = 0x90;
             const NOTE_OFF_MSG: u8 = 0x80;
             const VELOCITY: u8 = 0x64;
             // We're ignoring errors in here
-            let _ = conn_out.send(&[NOTE_ON_MSG, note, VELOCITY]);
+            let _ = conn_out.send(&[NOTE_ON_MSG, pitch, VELOCITY]);
             sleep(Duration::from_millis(duration * 150));
-            let _ = conn_out.send(&[NOTE_OFF_MSG, note, VELOCITY]);
+            let _ = conn_out.send(&[NOTE_OFF_MSG, pitch, VELOCITY]);
         };
 
         sleep(Duration::from_millis(4 * 150));
@@ -511,14 +516,24 @@ fn clock_increment(
 
     mut tilemap_world: ResMut<TilemapWorld>,
     tilemap_program: Res<TilemapProgram>,
+    conn_out: Res<Mutex<midir::MidiOutputConnection>>,
+    mut notes_to_end_queue: ResMut<NotesToEnd>,
 ) {
     if timer.0.tick(time.delta_seconds()).finished() {
+        let mut conn_out = conn_out.lock().unwrap();
         *clock = CurrentClock(clock.0 + 1);
 
         let new_prog = tilemap_program.clone();
         let clock_uuid = new_prog.inputs.get(0).unwrap().0;
         let (new_world, output) = sim(new_prog, hash_map! {clock_uuid: Data::Number(clock.0)});
-        println!("{:?}", output);
+
+        start_note(
+            &mut conn_out,
+            &mut notes_to_end_queue,
+            MusicTime::new::<beat>(1.0),
+            66,
+            0x64,
+        );
         *tilemap_world = simulate_until_stable(new_world);
     }
 }
@@ -535,12 +550,12 @@ fn end_started_notes(
             .clone()
             .0
             .into_iter()
-            .filter_map(|(mut timer, note, velocity)| {
+            .filter_map(|(mut timer, pitch, velocity)| {
                 if timer.tick(time.delta_seconds()).finished() {
-                    end_note(&mut conn_out, note, velocity);
+                    end_note(&mut conn_out, pitch, velocity);
                     None
                 } else {
-                    Some((timer, note, velocity))
+                    Some((timer, pitch, velocity))
                 }
             })
             .collect(),
@@ -550,20 +565,26 @@ fn end_started_notes(
 fn start_note(
     conn_out: &mut MutexGuard<midir::MidiOutputConnection>,
     notes_to_end_queue: &mut NotesToEnd,
-    duration: u64,
-    note: u8,
+    duration: MusicTime,
+    pitch: u8,
     velocity: u8,
 ) {
     // We're ignoring errors in here
-    let _ = conn_out.send(&[NOTE_OFF_MSG, note, velocity]);
+    println!("Playing note");
+    let _ = conn_out.send(&[NOTE_ON_MSG, pitch, velocity]);
     notes_to_end_queue.0.push((
-        Timer::new(Duration::from_millis(todo!()), false),
-        note,
+        Timer::new(
+            Duration::from_millis(
+                (1000.0 * duration.get::<beat>() / (BEATS_PER_SECOND as f64)) as u64,
+            ),
+            false,
+        ),
+        pitch,
         velocity,
     ))
 }
 
-fn end_note(conn_out: &mut MutexGuard<midir::MidiOutputConnection>, note: u8, velocity: u8) {
+fn end_note(conn_out: &mut MutexGuard<midir::MidiOutputConnection>, pitch: u8, velocity: u8) {
     // We're ignoring errors in here
-    let _ = conn_out.send(&[NOTE_OFF_MSG, note, velocity]);
+    let _ = conn_out.send(&[NOTE_OFF_MSG, pitch, velocity]);
 }
