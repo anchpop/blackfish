@@ -1,3 +1,4 @@
+use crate::geom::Dir;
 use crate::geom::Extent2;
 use crate::geom::Vec2;
 use crate::types::data::*;

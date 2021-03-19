@@ -6,6 +6,7 @@ mod world_sim;
 #[macro_use]
 extern crate uom;
 
+use geom::Dir;
 use geom::Extent2;
 use geom::Vec2;
 use types::data::*;
