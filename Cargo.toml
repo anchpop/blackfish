@@ -17,3 +17,5 @@ velcro = "0.5.3"
 uuid = { version = "0.8", features = ["serde", "v4"] }
 midir = "0.7.0"
 uom = "0.31.1"
+vek = "0.15.0"
+nonempty = "0.6.0"

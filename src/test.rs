@@ -1,3 +1,5 @@
+use crate::geom::Extent2;
+use crate::geom::Vec2;
 use crate::types::data::*;
 use crate::types::tilemaps::*;
 use crate::types::tiles::*;
@@ -162,7 +164,7 @@ mod tests {
             let m1 = default_map();
             let mut m2 = m1.clone();
             m2.spec.set_tile(
-                (3, 2),
+                Vec2::new(3, 2),
                 TileProgram::Machine(
                     Dir::default(),
                     MachineInfo::BuiltIn(
@@ -184,7 +186,7 @@ mod tests {
             let m1 = default_map();
             let mut m2 = m1.clone();
             m2.spec.set_tile(
-                (0, 0),
+                Vec2::new(0, 0),
                 TileProgram::Machine(
                     Dir::North,
                     MachineInfo::BuiltIn(
@@ -217,7 +219,7 @@ mod tests {
             let map = {
                 let mut map = empty_map();
                 map.add_tile(
-                    (3, 1),
+                    Vec2::new(3, 1),
                     TileProgram::Machine(
                         Dir::North,
                         MachineInfo::BuiltIn(
@@ -236,7 +238,9 @@ mod tests {
 
             let world = world_sim::sim(map, hash_map! {}).0;
             assert_eq!(
-                world.get_input_to_coordinate((3, 3), Dir::North).unwrap(),
+                world
+                    .get_input_to_coordinate(Vec2::new(3, 3), Dir::North)
+                    .unwrap(),
                 data
             );
         }
@@ -247,7 +251,7 @@ mod tests {
             let hardcoded_inputs = btree_map! {
                 "product".to_string(): data.clone()
             };
-            let location = (3, 1);
+            let location = Vec2::new(3, 1);
 
             let map = {
                 let mut map = empty_map();
@@ -276,7 +280,7 @@ mod tests {
         #[test]
         fn test_no_inputs() {
             let hardcoded_inputs = btree_map! {};
-            let location = (3, 1);
+            let location = Vec2::new(3, 1);
 
             let map = {
                 let mut map = empty_map();
@@ -305,7 +309,7 @@ mod tests {
             let passed_inputs = btree_map! {
                 "product".to_string(): data.clone()
             };
-            let location = (3, 3);
+            let location = Vec2::new(3, 3);
 
             let map = {
                 let mut map = empty_map();
@@ -323,7 +327,7 @@ mod tests {
                     ),
                 );
                 map.add_tile(
-                    (location.0, location.1 - 2),
+                    location - Vec2::new(0, 2),
                     TileProgram::Machine(
                         Dir::default(),
                         MachineInfo::BuiltIn(
@@ -354,7 +358,7 @@ mod tests {
         #[ignore]
         fn unecessary_infinite_loop() {
             let data = Data::Number(2);
-            let location = (3, 3);
+            let location = Vec2::new(3, 3);
 
             let map = {
                 let mut map = empty_map();
@@ -372,7 +376,7 @@ mod tests {
                     ),
                 );
                 map.add_tile(
-                    (location.0, location.1 - 1),
+                    location - Vec2::new(0, 1),
                     TileProgram::Machine(
                         Dir::South,
                         MachineInfo::BuiltIn(

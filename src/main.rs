@@ -1,3 +1,4 @@
+mod geom;
 mod test;
 mod types;
 mod units;
@@ -5,6 +6,8 @@ mod world_sim;
 #[macro_use]
 extern crate uom;
 
+use geom::Extent2;
+use geom::Vec2;
 use types::data::*;
 use types::tilemaps::*;
 use types::tiles::*;
@@ -386,7 +389,7 @@ fn spawn_main_tile(
             };
             commands
                 .spawn(SpriteBundle {
-                    sprite: Sprite::new(Vec2::new(10., 10.)),
+                    sprite: Sprite::new(bevy::prelude::Vec2::new(10., 10.)),
                     ..Default::default()
                 })
                 .with(pos)
@@ -422,14 +425,14 @@ fn size_scaling(
     mut q: Query<(&TileSize, &mut Sprite)>,
     tilemap: Res<TilemapWorld>,
 ) {
-    let (arena_tiles_wide, arena_tiles_tall) = tilemap.world_dim();
-    let (arena_tiles_wide, arena_tiles_tall) = (arena_tiles_wide + 2, arena_tiles_tall + 2);
+    let world_extent = tilemap.world_dim();
+    let world_extent = world_extent + Extent2::new(2, 2);
     let window = windows.get_primary().unwrap();
 
     for (sprite_size, mut sprite) in q.iter_mut() {
-        sprite.size = Vec2::new(
-            sprite_size.width as f32 / arena_tiles_wide as f32 * window.width() as f32,
-            sprite_size.height as f32 / arena_tiles_tall as f32 * window.height() as f32,
+        sprite.size = bevy::prelude::Vec2::new(
+            sprite_size.width as f32 / world_extent.w as f32 * window.width() as f32,
+            sprite_size.height as f32 / world_extent.h as f32 * window.height() as f32,
         );
     }
 }
@@ -439,8 +442,8 @@ fn positioning(
     mut q: Query<(&TilePosition, &mut Transform)>,
     tilemap: Res<TilemapWorld>,
 ) {
-    let (arena_tiles_wide, arena_tiles_tall) = tilemap.world_dim();
-    let (arena_tiles_wide, arena_tiles_tall) = (arena_tiles_wide + 2, arena_tiles_tall + 2);
+    let arena_extent = tilemap.world_dim();
+    let arena_extent = arena_extent + Extent2::new(2, 2);
     let window = windows.get_primary().unwrap();
 
     fn convert(pos: usize, bound_window: f32, bound_game: f32) -> f32 {
@@ -449,9 +452,9 @@ fn positioning(
     }
 
     for (pos, mut transform) in q.iter_mut() {
-        transform.translation = Vec3::new(
-            convert(pos.x, window.width() as f32, arena_tiles_wide as f32),
-            convert(pos.y, window.height() as f32, arena_tiles_tall as f32),
+        transform.translation = bevy::prelude::Vec3::new(
+            convert(pos.x, window.width() as f32, arena_extent.w as f32),
+            convert(pos.y, window.height() as f32, arena_extent.h as f32),
             0.0,
         );
     }
@@ -470,7 +473,7 @@ fn tile_appearance(
     tilemap: Res<TilemapWorld>,
 ) {
     for (tile_position, mut color_mat_handle) in q.iter_mut() {
-        let tile = tilemap.get((tile_position.x, tile_position.y));
+        let tile = tilemap.get(Vec2::new(tile_position.x, tile_position.y));
         *color_mat_handle = get_tile_material(&tile, &materials);
     }
 }
@@ -481,7 +484,7 @@ fn tile_text(
     tilemap: Res<TilemapWorld>,
 ) {
     for (tile_position, children) in q.iter_mut() {
-        let tile = tilemap.get((tile_position.x, tile_position.y));
+        let tile = tilemap.get(Vec2::new(tile_position.x, tile_position.y));
         for child in children.iter() {
             if let Ok(mut text) = text_q.get_mut(*child) {
                 text.sections[0].value = match tile {

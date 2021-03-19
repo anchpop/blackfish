@@ -5,7 +5,9 @@ use std::{
 };
 use std::{fmt::Debug, ops::Neg};
 
-use bevy::prelude::*;
+use crate::geom::*;
+
+use bevy::prelude::{ColorMaterial, Handle};
 use ndarray::{arr2, Array2};
 
 use slotmap::{new_key_type, Key, SlotMap};
@@ -16,8 +18,6 @@ use uuid::Uuid;
 
 use std::collections::btree_map::Entry;
 use velcro::btree_map;
-
-pub type XYPair = (usize, usize);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TilePosition {
@@ -37,8 +37,8 @@ pub struct Materials {
 }
 
 pub mod tiles {
-    use super::*;
     use super::data::*;
+    use super::*;
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub struct ProgramInfo {
@@ -184,14 +184,14 @@ pub mod tiles {
         }
 
         #[allow(dead_code)]
-        pub fn size(&self) -> XYPair {
+        pub fn size(&self) -> Vec2 {
             match self {
-                Self::Phys(TilePhysics::Laser(_)) => (1, 1),
+                Self::Phys(TilePhysics::Laser(_)) => Vec2::new(1, 1),
                 Self::Prog(TileProgramMachineInfo::Machine(_, MachineInfo::BuiltIn(b, _))) => {
                     match b {
-                        BuiltInMachines::Iffy => (1, 1),
-                        BuiltInMachines::Trace => (1, 1),
-                        BuiltInMachines::Produce => (1, 1),
+                        BuiltInMachines::Iffy => Vec2::new(1, 1),
+                        BuiltInMachines::Trace => Vec2::new(1, 1),
+                        BuiltInMachines::Produce => Vec2::new(1, 1),
                     }
                 }
             }
@@ -224,10 +224,10 @@ pub mod tilemaps {
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum Edit {
-        AddTile(XYPair, TileWorld),
-        SetTile(XYPair, TileWorld),
-        RemoveTile(XYPair),
-        AddLaser(XYPair, DirData),
+        AddTile(Vec2, TileWorld),
+        SetTile(Vec2, TileWorld),
+        RemoveTile(Vec2),
+        AddLaser(Vec2, DirData),
         Edits(Vec<Edit>),
     }
 
@@ -300,49 +300,49 @@ pub mod tilemaps {
     }
     impl<K: Key, I: Eq> Eq for Tilemap<K, I> {}
     impl<K: Key, I> Tilemap<K, I> {
-        pub fn get(&self, location: XYPair) -> Option<&I> {
-            if let Some(Some(tile_key)) = self.map.get([location.1, location.0]) {
+        pub fn get(&self, location: Vec2) -> Option<&I> {
+            if let Some(Some(tile_key)) = self.map.get([location.y, location.x]) {
                 self.tiles.get(*tile_key)
             } else {
                 None
             }
         }
 
-        pub fn get_unchecked(&self, location: XYPair) -> &I {
+        pub fn get_unchecked(&self, location: Vec2) -> &I {
             self.get(location).unwrap_or_else(|| {
                 panic!(
             "Attempted to access a tile at ({}, {}) but it was not present (out of bounds or None)",
-            location.0, location.1
+            location.x, location.y
         )
             })
         }
 
-        pub fn get_mut(&mut self, location: XYPair) -> Option<&mut I> {
-            if let Some(Some(tile_key)) = self.map.get([location.1, location.0]) {
+        pub fn get_mut(&mut self, location: Vec2) -> Option<&mut I> {
+            if let Some(Some(tile_key)) = self.map.get([location.y, location.x]) {
                 self.tiles.get_mut(*tile_key)
             } else {
                 None
             }
         }
-        pub fn get_unchecked_mut(&mut self, location: XYPair) -> &mut I {
+        pub fn get_unchecked_mut(&mut self, location: Vec2) -> &mut I {
             self.get_mut(location).unwrap_or_else(|| {
                 panic!(
             "Attempted to access a tile at ({}, {}) but it was not present (out of bounds or None)",
-            location.0, location.1
+            location.x, location.y
         )
             })
         }
 
-        pub fn add_tile(&mut self, location: XYPair, tile: I) {
+        pub fn add_tile(&mut self, location: Vec2, tile: I) {
             if self.get(location).is_none() {
                 let tile_key = self.tiles.insert(tile);
-                self.map[[location.1, location.0]] = Some(tile_key);
+                self.map[[location.y, location.x]] = Some(tile_key);
             } else {
                 panic!("Tried to add a tile where one already exists!")
             }
         }
-        pub fn set_tile(&mut self, location: XYPair, tile: I) {
-            let tile_key = &mut self.map[[location.1, location.0]];
+        pub fn set_tile(&mut self, location: Vec2, tile: I) {
+            let tile_key = &mut self.map[[location.y, location.x]];
             if let Some(tile_key) = tile_key {
                 if let Some(tile_to_update) = self.tiles.get_mut(*tile_key) {
                     *tile_to_update = tile;
@@ -351,15 +351,15 @@ pub mod tilemaps {
                 }
             } else {
                 let tile_key = self.tiles.insert(tile);
-                self.map[[location.1, location.0]] = Some(tile_key);
+                self.map[[location.y, location.x]] = Some(tile_key);
             }
         }
-        pub fn remove_tile(&mut self, location: XYPair) {
-            match self.map[[location.1, location.0]] {
+        pub fn remove_tile(&mut self, location: Vec2) {
+            match self.map[[location.y, location.x]] {
                 None => { /* Nothing to do, no tile at location */ }
                 Some(tile_key) => {
                     self.tiles.remove(tile_key);
-                    self.map[[location.1, location.0]] = None;
+                    self.map[[location.y, location.x]] = None;
                 }
             }
         }
@@ -389,31 +389,31 @@ pub mod tilemaps {
         pub fn world(self) -> Array2<Option<KeyWorld>> {
             self.data.map
         }
-        pub fn world_dim(&self) -> XYPair {
+        pub fn world_dim(&self) -> Extent2 {
             let dim = self.data.map.dim();
-            (dim.1, dim.0)
+            Extent2::new(dim.1, dim.0)
         }
 
-        pub fn set_tile(&mut self, location: XYPair, tile: TileWorld) {
+        pub fn set_tile(&mut self, location: Vec2, tile: TileWorld) {
             self.data.set_tile(location, tile);
         }
 
-        pub fn add_tile(&mut self, location: XYPair, tile: TileWorld) {
+        pub fn add_tile(&mut self, location: Vec2, tile: TileWorld) {
             self.data.add_tile(location, tile)
         }
 
-        pub fn remove_tile(&mut self, location: XYPair) {
+        pub fn remove_tile(&mut self, location: Vec2) {
             self.data.remove_tile(location);
         }
 
-        pub fn add_laser(&mut self, location: XYPair, data: DirData) {
+        pub fn add_laser(&mut self, location: Vec2, data: DirData) {
             match self.get(location) {
                 None => self.add_tile(
                     location,
                     TileWorld::Phys(TilePhysics::Laser(DirMap::empty())),
                 ),
                 Some(TileWorld::Phys(TilePhysics::Laser(d2))) => {
-                    if data != *d2 {
+                    if data != d2.clone() {
                         let d2 = d2.clone();
                         self.set_tile(
                             location,
@@ -425,7 +425,7 @@ pub mod tilemaps {
             }
         }
 
-        pub fn get_outputs(&self, location: XYPair) -> Option<DirData> {
+        pub fn get_outputs(&self, location: Vec2) -> Option<DirData> {
             if let Some(tile) = self.get(location) {
                 Some(match tile {
                     TileWorld::Phys(TilePhysics::Laser(dir_data)) => dir_data.clone(),
@@ -453,7 +453,7 @@ pub mod tilemaps {
             }
         }
 
-        pub fn get_inputs(&self, location: XYPair) -> Option<BTreeMap<String, Data>> {
+        pub fn get_inputs(&self, location: Vec2) -> Option<BTreeMap<String, Data>> {
             if let Some(TileWorld::Prog(TileProgramMachineInfo::Machine(orientation, machine))) =
                 self.get(location)
             {
@@ -493,8 +493,8 @@ pub mod tilemaps {
             }
         }
 
-        pub fn get_input_to_coordinate(&self, location: XYPair, direction: Dir) -> Option<Data> {
-            match (location.0 == 0, direction, self.inputs.get(location.1)) {
+        pub fn get_input_to_coordinate(&self, location: Vec2, direction: Dir) -> Option<Data> {
+            match (location.x == 0, direction, self.inputs.get(location.y)) {
                 (true, Dir::East, Some(data)) => Some(data.clone()),
                 _ => {
                     if let Some(dir_data) = self.get_outputs((-direction).shift(location)) {
@@ -506,26 +506,26 @@ pub mod tilemaps {
             }
         }
 
-        pub fn update_machine_info(&mut self, location: XYPair, data: WorldMachineInfo) {
+        pub fn update_machine_info(&mut self, location: Vec2, data: WorldMachineInfo) {
             todo!()
         }
 
-        pub fn get(&self, location: XYPair) -> Option<&TileWorld> {
+        pub fn get(&self, location: Vec2) -> Option<&TileWorld> {
             self.data.get(location)
         }
 
         #[allow(dead_code)]
-        pub fn getu(&self, location: XYPair) -> &TileWorld {
+        pub fn getu(&self, location: Vec2) -> &TileWorld {
             self.data.get_unchecked(location)
         }
 
         #[allow(dead_code)]
-        pub fn get_mut(&mut self, location: XYPair) -> Option<&mut TileWorld> {
+        pub fn get_mut(&mut self, location: Vec2) -> Option<&mut TileWorld> {
             self.data.get_mut(location)
         }
 
         #[allow(dead_code)]
-        pub fn getu_mut(&mut self, location: XYPair) -> &mut TileWorld {
+        pub fn getu_mut(&mut self, location: Vec2) -> &mut TileWorld {
             self.data.get_unchecked_mut(location)
         }
 
@@ -539,7 +539,7 @@ pub mod tilemaps {
             }
         }
 
-        pub fn apply_transformation<F: Fn(Option<&TileWorld>, XYPair) -> Option<Edit>>(
+        pub fn apply_transformation<F: Fn(Option<&TileWorld>, Vec2) -> Option<Edit>>(
             &mut self,
             from: &Self,
             transformation: F,
@@ -553,7 +553,7 @@ pub mod tilemaps {
                             .get(key)
                             .expect("referenced key not found in world!")
                     }),
-                    (index.1, index.0),
+                    Vec2::new(index.1, index.0),
                 ) {
                     self.apply_edit(edit)
                 }
@@ -573,15 +573,15 @@ pub mod tilemaps {
                 outputs: vec![],
             }
         }
-        pub fn set_tile(&mut self, location: XYPair, tile: TileProgram) {
+        pub fn set_tile(&mut self, location: Vec2, tile: TileProgram) {
             self.spec.set_tile(location, tile);
         }
 
-        pub fn add_tile(&mut self, location: XYPair, tile: TileProgram) {
+        pub fn add_tile(&mut self, location: Vec2, tile: TileProgram) {
             self.spec.add_tile(location, tile)
         }
 
-        pub fn remove_tile(&mut self, location: XYPair) {
+        pub fn remove_tile(&mut self, location: Vec2) {
             self.spec.remove_tile(location);
         }
 
@@ -590,9 +590,9 @@ pub mod tilemaps {
             self.spec.map
         }
         #[allow(dead_code)]
-        pub fn program_dim(&self) -> XYPair {
+        pub fn program_dim(&self) -> Extent2 {
             let dim = self.spec.map.dim();
-            (dim.1, dim.0)
+            Extent2::new(dim.1, dim.0)
         }
         pub fn into_world(self, inputs: HashMap<uuid::Uuid, Data>) -> TilemapWorld {
             let map = self.spec.map;
@@ -695,12 +695,12 @@ pub mod data {
         West,
     }
     impl Dir {
-        pub fn to_vector(&self) -> (i64, i64) {
+        pub fn to_vector(&self) -> vek::vec::Vec2<i64> {
             match self {
-                Self::North => (0, 1),
-                Self::East => (1, 0),
-                Self::South => (0, -1),
-                Self::West => (-1, 0),
+                Self::North => vek::vec::Vec2::new(0, 1),
+                Self::East => vek::vec::Vec2::new(1, 0),
+                Self::South => vek::vec::Vec2::new(0, -1),
+                Self::West => vek::vec::Vec2::new(-1, 0),
             }
         }
 
@@ -713,14 +713,14 @@ pub mod data {
             }
         }
 
-        pub fn shift(&self, by: XYPair) -> XYPair {
-            let (x, y) = by;
+        pub fn shift(&self, by: Vec2) -> Vec2 {
+            let (x, y) = (by.x, by.y);
             let v = self.to_vector();
 
             // the addition here should behave correctly,
             // see https://stackoverflow.com/questions/53453628/how-do-i-add-a-signed-integer-to-an-unsigned-integer-in-rust
             // and https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=1448b2d8f02f844f72864e10dbe98049
-            (x.wrapping_add(v.0 as usize), y.wrapping_add(v.1 as usize))
+            Vec2::new(x.wrapping_add(v.x as usize), y.wrapping_add(v.y as usize))
         }
 
         fn to_num(&self) -> usize {

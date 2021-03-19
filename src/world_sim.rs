@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::geom::*;
 use crate::types::data::*;
 use crate::types::tilemaps::*;
 use crate::types::tiles::*;
@@ -11,13 +12,13 @@ pub fn sim(
     prog: TilemapProgram,
     inputs: HashMap<uuid::Uuid, Data>,
 ) -> (TilemapWorld, HashMap<uuid::Uuid, Data>) {
-    let (width, _) = prog.program_dim();
+    let width = prog.program_dim().w;
     let outputs_spec = prog.outputs.clone();
 
     let simmed = simulate_until_stable(prog.into_world(inputs));
     let mut output_map: HashMap<uuid::Uuid, Data> = HashMap::new();
     for (index, (uuid, _, data_type)) in outputs_spec.iter().enumerate() {
-        let location = (width - 1, index);
+        let location = Vec2::new(width - 1, index);
         if let Some(data) = simmed.get_outputs(location).and_then(|dirmap| dirmap.east) {
             if data.check_types(data_type) {
                 output_map.insert(uuid.clone(), data);
@@ -46,7 +47,7 @@ pub fn simulate_until_stable(mut world: TilemapWorld) -> TilemapWorld {
 fn iterate(world: TilemapWorld) -> TilemapWorld {
     let mut new_world = world.clone();
 
-    let propagate_lasers = |_tile: Option<&TileWorld>, location: XYPair| -> Option<Edit> {
+    let propagate_lasers = |_tile: Option<&TileWorld>, location: Vec2| -> Option<Edit> {
         Some(Edit::Edits(
             [Dir::North, Dir::South, Dir::East, Dir::West]
                 .iter()
@@ -65,7 +66,7 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
         ))
     };
 
-    let handle_machines = |tile: Option<&TileWorld>, location: XYPair| -> Option<Edit> {
+    let handle_machines = |tile: Option<&TileWorld>, location: Vec2| -> Option<Edit> {
         if let Some(TileWorld::Prog(TileProgramMachineInfo::Machine(
             orientation,
             MachineInfo::BuiltIn(builtin_type, info),
@@ -108,7 +109,7 @@ fn iterate(world: TilemapWorld) -> TilemapWorld {
         }
     };
 
-    let validate_stuff = |tile: Option<&TileWorld>, location: XYPair| -> Option<Edit> {
+    let validate_stuff = |tile: Option<&TileWorld>, location: Vec2| -> Option<Edit> {
         if let Some(tile) = tile {
             match tile {
                 TileWorld::Phys(_) => {}

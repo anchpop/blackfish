@@ -1,13 +1,8 @@
-use uom::fmt::DisplayStyle::*;
-use uom::si::length::meter;
-
 #[macro_use]
 pub mod music_time {
     quantity! {
-        /// Time (base unit second, s).
         quantity: MusicTime; "music time";
-        /// Time dimension, s.
-        dimension: Q<P1>; // time
+        dimension: Q<P1>;
         units {
             @demisemihemidemisemiquaver: 1.0; "d", "demisemihemidemisemiquaver", "demisemihemidemisemiquavers";
             @bang: 8.0; "ba", "bang", "bangs";
