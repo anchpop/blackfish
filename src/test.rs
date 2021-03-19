@@ -1,3 +1,6 @@
+use crate::types::data::*;
+use crate::types::tilemaps::*;
+use crate::types::tiles::*;
 use crate::types::*;
 
 use frunk::monoid::Monoid;

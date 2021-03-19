@@ -5,6 +5,9 @@ mod world_sim;
 #[macro_use]
 extern crate uom;
 
+use types::data::*;
+use types::tilemaps::*;
+use types::tiles::*;
 use types::*;
 use world_sim::{sim, simulate_until_stable};
 

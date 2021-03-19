@@ -1,5 +1,8 @@
 use std::collections::HashMap;
 
+use crate::types::data::*;
+use crate::types::tilemaps::*;
+use crate::types::tiles::*;
 use crate::types::*;
 use bevy::ecs::Location;
 use frunk::monoid::Monoid;
