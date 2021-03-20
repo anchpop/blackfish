@@ -101,15 +101,17 @@ pub mod tilemap {
     use super::{Dir, Extent2};
     use ndarray::{arr2, Array2};
     use nonempty::NonEmpty;
+    use proptest::collection::hash_set;
     use slotmap::{new_key_type, Key, SlotMap};
     use std::{
-        collections::{BTreeMap, HashMap},
+        collections::{HashMap, HashSet},
         iter,
         num::NonZeroUsize,
     };
     pub trait Shaped {
         fn shape(&self) -> NonEmpty<Vec2i>;
     }
+    #[derive(Debug, Clone)]
     pub struct Tilemap<K: Key, I: Shaped> {
         pub tiles: SlotMap<K, (Vec2, Dir, I)>,
         pub map: Array2<Option<K>>,
@@ -201,6 +203,47 @@ pub mod tilemap {
             }
         }
 
+        pub fn update<F: Fn(Option<&(Vec2, Dir, I)>) -> Option<(Vec2, Dir, I)>>(
+            self,
+            location: Vec2,
+            f: F,
+        ) -> Result<Self, Self> {
+            let old_tile = self.get(location);
+
+            let new_tile = f(old_tile);
+            if let Some(new_tile) = new_tile {
+                if let Some(new_tile_positions) =
+                    self.get_tile_positions(&new_tile.0, &new_tile.1, &new_tile.2)
+                {
+                    let new_tile_positions: HashSet<Vec2> =
+                        new_tile_positions.into_iter().collect();
+
+                    let old_tile_positions: HashSet<Vec2> = old_tile
+                        .and_then(|old_tile| {
+                            self.get_tile_positions(&old_tile.0, &old_tile.1, &old_tile.2)
+                        })
+                        .map(|positions| positions.into_iter().collect::<HashSet<Vec2>>())
+                        .unwrap_or(HashSet::new());
+
+                    let changed_tiles = new_tile_positions.difference(&old_tile_positions);
+                    if changed_tiles
+                        .clone()
+                        .into_iter()
+                        .all(|location| self.check_empty(location.clone()))
+                    {
+                        self.remove(location)
+                            .add(new_tile.0, new_tile.1, new_tile.2)
+                    } else {
+                        Err(self)
+                    }
+                } else {
+                    Err(self)
+                }
+            } else {
+                Err(self)
+            }
+        }
+
         pub fn remove(mut self, location: Vec2) -> Self {
             if let Some((location, orientation, tile)) = self.get(location) {
                 let to_remove = self
@@ -269,4 +312,26 @@ pub mod tilemap {
             e(self, other)
         }
     }
+
+    /*
+    struct IterTilemap<'a, K: 'a + Key, I: 'a + Shaped> {
+        inner: &'a Tilemap<K, I>,
+        // And there is a position used to know where you are in your iteration.
+        pos: usize,
+    }
+    impl<'a, K: 'a + Key, I: 'a + Shaped> Iterator for IterTilemap<'a, K, I> {
+        type Item = &'a (Vec2, Dir, I);
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.pos >= self.inner.0.len() {
+                // Obviously, there isn't any more data to read so let's stop here.
+                None
+            } else {
+                // We increment the position of our iterator.
+                self.pos += 1;
+                // We return the current value pointed by our iterator.
+                self.inner.0.get(self.pos - 1)
+            }
+        }
+    } */
 }
