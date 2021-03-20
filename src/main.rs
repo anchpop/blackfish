@@ -1,11 +1,12 @@
+mod evaluation;
 mod geom;
 mod test;
 mod types;
 mod units;
-mod world_sim;
 #[macro_use]
 extern crate uom;
 
+use evaluation::{evaluate, simulate_until_stable};
 use geom::Dir;
 use geom::Extent2;
 use geom::Vec2;
@@ -13,7 +14,6 @@ use types::data::*;
 use types::tilemaps::*;
 use types::tiles::*;
 use types::*;
-use world_sim::{sim, simulate_until_stable};
 
 use bevy::prelude::*;
 
@@ -175,7 +175,7 @@ fn get_midi_ports(commands: &mut Commands) {
             }
         };
         println!("\nOpening connection");
-        let conn_out = midi_out.connect(out_port, "blackfish-con")?;
+        let conn_out = midi_out.connect(out_port, "blackfish-con-1")?;
 
         commands.insert_resource(Mutex::new(conn_out));
 
@@ -348,7 +348,7 @@ fn create_map(commands: &mut Commands) {
         outputs: vec![(audio_uuid, "audio".to_owned(), DataType::Number)],
     };
 
-    let test_world = sim(test_prog.clone(), hash_map! {clock_uuid: Data::Number(0)}).0;
+    let test_world = evaluate(test_prog.clone(), hash_map! {clock_uuid: Data::Number(0)}).0;
 
     commands.insert_resource(test_prog);
     commands.insert_resource(test_world);
@@ -526,7 +526,7 @@ fn clock_increment(
 
         let new_prog = tilemap_program.clone();
         let clock_uuid = new_prog.inputs.get(0).unwrap().0;
-        let (new_world, output) = sim(new_prog, hash_map! {clock_uuid: Data::Number(clock.0)});
+        let (new_world, output) = evaluate(new_prog, hash_map! {clock_uuid: Data::Number(clock.0)});
 
         start_note(
             &mut conn_out,

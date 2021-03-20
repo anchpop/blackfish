@@ -167,18 +167,7 @@ pub mod tilemap {
                 let location: Vec2i = Vec2i::new(location.x as i64, location.y as i64);
                 location + v
             });
-            let positions = positions.map(|location| {
-                if !location.is_any_negative() {
-                    let location = Vec2::new(location.x as usize, location.y as usize);
-                    if Vec2::partial_min(location, self.extents()) != location {
-                        Some(location)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            });
+            let positions = positions.map(|location| self.check_in_bounds_i(location));
             let positions: Option<Vec<Vec2>> = positions.collect();
             positions
         }
@@ -255,6 +244,41 @@ pub mod tilemap {
                 todo!()
             } else {
                 self
+            }
+        }
+
+        pub fn raycast(&self, location: Vec2, direction: Dir) -> (Vec2, Option<&(Vec2, Dir, I)>) {
+            assert!(self.check_in_bounds(location), "raycast out of bounds");
+            let new_loc = direction.shift(location);
+            if self.check_in_bounds(new_loc) {
+                (location, None)
+            } else {
+                if let Some(hit) = self.get(new_loc) {
+                    (location, Some(hit))
+                } else {
+                    self.raycast(new_loc, direction)
+                }
+            }
+        }
+
+        pub fn check_in_bounds(&self, location: Vec2) -> bool {
+            let location = Vec2::new(location.x as usize, location.y as usize);
+            if Vec2::partial_min(location, self.extents()) != location {
+                true
+            } else {
+                false
+            }
+        }
+        pub fn check_in_bounds_i(&self, location: Vec2i) -> Option<Vec2> {
+            if !location.is_any_negative() {
+                let location = Vec2::new(location.x as usize, location.y as usize);
+                if Vec2::partial_min(location, self.extents()) != location {
+                    Some(location)
+                } else {
+                    None
+                }
+            } else {
+                None
             }
         }
     }

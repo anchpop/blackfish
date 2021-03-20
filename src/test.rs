@@ -212,7 +212,7 @@ mod tests {
         use frunk::Monoid;
 
         use super::*;
-        use crate::world_sim;
+        use crate::evaluation;
 
         #[test]
         fn get_inputs_to_coordinate() {
@@ -237,7 +237,7 @@ mod tests {
                 map
             };
 
-            let world = world_sim::sim(map, hash_map! {}).0;
+            let world = evaluation::evaluate(map, hash_map! {}).0;
             assert_eq!(
                 world
                     .get_input_to_coordinate(Vec2::new(3, 3), Dir::North)
@@ -343,7 +343,9 @@ mod tests {
             };
 
             assert_eq!(
-                world_sim::sim(map, hash_map! {}).0.get_inputs(location),
+                evaluation::evaluate(map, hash_map! {})
+                    .0
+                    .get_inputs(location),
                 Some(passed_inputs)
             );
         }
@@ -392,7 +394,9 @@ mod tests {
                 map
             };
 
-            world_sim::sim(map, hash_map! {}).0.get_inputs(location);
+            evaluation::evaluate(map, hash_map! {})
+                .0
+                .get_inputs(location);
         }
     }
 }

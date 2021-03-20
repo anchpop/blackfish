@@ -8,7 +8,7 @@ use crate::types::*;
 use bevy::ecs::Location;
 use frunk::monoid::Monoid;
 
-pub fn sim(
+pub fn evaluate(
     prog: TilemapProgram,
     inputs: HashMap<uuid::Uuid, Data>,
 ) -> (TilemapWorld, HashMap<uuid::Uuid, Data>) {
