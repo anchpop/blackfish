@@ -336,6 +336,7 @@ pub mod tilemap {
             e(self, other)
         }
     }
+    impl<K: Key, I: Eq + Shaped> Eq for Tilemap<K, I> {}
 
     /*
     struct IterTilemap<'a, K: 'a + Key, I: 'a + Shaped> {

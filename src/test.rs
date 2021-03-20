@@ -13,7 +13,7 @@ use ndarray::arr2;
 
 use velcro::btree_map;
 use velcro::hash_map;
-
+/*
 fn default_map() -> TilemapProgram {
     let mut tiles = TilemapProgram::make_slotmap();
     let north_laser = tiles.insert(TileProgram::Machine(
@@ -400,3 +400,4 @@ mod tests {
         }
     }
 }
+ */

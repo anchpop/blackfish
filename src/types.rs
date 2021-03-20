@@ -37,6 +37,8 @@ pub struct Materials {
 }
 
 pub mod tiles {
+    use crate::geom::tilemap::Shaped;
+
     use super::data::*;
     use super::*;
 
@@ -215,6 +217,27 @@ pub mod tiles {
             }
         }
     }
+
+    impl<T> tilemap::Shaped for TileProgramF<T> {
+        fn shape(&self) -> nonempty::NonEmpty<Vec2i> {
+            todo!()
+        }
+    }
+
+    impl tilemap::Shaped for TilePhysics {
+        fn shape(&self) -> nonempty::NonEmpty<Vec2i> {
+            todo!()
+        }
+    }
+
+    impl tilemap::Shaped for TileWorld {
+        fn shape(&self) -> nonempty::NonEmpty<Vec2i> {
+            match self {
+                TileWorld::Phys(t) => t.shape(),
+                TileWorld::Prog(t) => t.shape(),
+            }
+        }
+    }
 }
 
 pub mod tilemaps {
@@ -235,144 +258,9 @@ pub mod tilemaps {
     new_key_type! { pub struct KeyWorld; }
     new_key_type! { pub struct KeyFunction; }
 
-    // brain blast: all tilemaps have inputs and outputs. it doesn't need to be in the actual tile array though - that can be a consequence of rendering. instead, the TilemapProgram struct should contain information describing its inputs and outputs and have an impl function that takes some inputs, converts it into a TilemapWorld, simulates it, then returns what it outputs (along with possibly the TilemapWorld for display)
-
-    // There's no reason a tilemap couldn't be a functor and an applicative - actually, it'd be cool if it were.
-    // I suspect it would be useful for the same reason that making tiles applicatives was useful for the
-    // Tile algebra.
-    #[derive(Debug, Clone)]
-    pub struct Tilemap<K: Key, I> {
-        pub tiles: SlotMap<K, I>,
-        pub map: Array2<Option<K>>,
-    }
-    impl<K: Key, I: PartialEq> PartialEq for Tilemap<K, I> {
-        // should return true if self and other are alpha-equivalent
-        fn eq(&self, other: &Self) -> bool {
-            // There's actually no reason that the two Tilemaps being compared need to have the same key type.
-            // PartialEq requires they be, but we can write this interior function that doesn't have that restriction
-            // and just call it. This prevents us from making bugs where we use the second tilemap key when we should have
-            // used the first.
-            fn e<Kp: Key, Kpp: Key, Ip: PartialEq>(
-                s: &Tilemap<Kp, Ip>,
-                other: &Tilemap<Kpp, Ip>,
-            ) -> bool {
-                if s.map.dim() != other.map.dim() {
-                    return false;
-                }
-
-                let mut associations: HashMap<Kp, Kpp> = HashMap::new();
-
-                for (index, tile_key_self) in s.map.indexed_iter() {
-                    let tile_key_other = &other.map[index];
-                    match (tile_key_self, tile_key_other) {
-                        (None, None) => {}
-                        (Some(tile_key_self), Some(tile_key_other)) => {
-                            if let Some(corresponding_tile) = associations.get(tile_key_self) {
-                                if corresponding_tile != tile_key_other {
-                                    return false;
-                                }
-                            } else {
-                                associations.insert(*tile_key_self, *tile_key_other);
-                            }
-
-                            let tile_self = s.tiles.get(*tile_key_self);
-                            let tile_other = other.tiles.get(*tile_key_other);
-                            match (tile_self, tile_other) {
-                                (None, None) => {}
-                                (Some(tile_self), Some(tile_other)) => {
-                                    if *tile_self != *tile_other {
-                                        return false;
-                                    }
-                                }
-                                _ => return false,
-                            }
-                        }
-                        _ => {
-                            return false;
-                        }
-                    }
-                }
-
-                true
-            }
-            e(self, other)
-        }
-    }
-    impl<K: Key, I: Eq> Eq for Tilemap<K, I> {}
-    impl<K: Key, I> Tilemap<K, I> {
-        pub fn get(&self, location: Vec2) -> Option<&I> {
-            if let Some(Some(tile_key)) = self.map.get([location.y, location.x]) {
-                self.tiles.get(*tile_key)
-            } else {
-                None
-            }
-        }
-
-        pub fn get_unchecked(&self, location: Vec2) -> &I {
-            self.get(location).unwrap_or_else(|| {
-                panic!(
-            "Attempted to access a tile at ({}, {}) but it was not present (out of bounds or None)",
-            location.x, location.y
-        )
-            })
-        }
-
-        pub fn get_mut(&mut self, location: Vec2) -> Option<&mut I> {
-            if let Some(Some(tile_key)) = self.map.get([location.y, location.x]) {
-                self.tiles.get_mut(*tile_key)
-            } else {
-                None
-            }
-        }
-        pub fn get_unchecked_mut(&mut self, location: Vec2) -> &mut I {
-            self.get_mut(location).unwrap_or_else(|| {
-                panic!(
-            "Attempted to access a tile at ({}, {}) but it was not present (out of bounds or None)",
-            location.x, location.y
-        )
-            })
-        }
-
-        pub fn add_tile(&mut self, location: Vec2, tile: I) {
-            if self.get(location).is_none() {
-                let tile_key = self.tiles.insert(tile);
-                self.map[[location.y, location.x]] = Some(tile_key);
-            } else {
-                panic!("Tried to add a tile where one already exists!")
-            }
-        }
-        pub fn set_tile(&mut self, location: Vec2, tile: I) {
-            let tile_key = &mut self.map[[location.y, location.x]];
-            if let Some(tile_key) = tile_key {
-                if let Some(tile_to_update) = self.tiles.get_mut(*tile_key) {
-                    *tile_to_update = tile;
-                } else {
-                    panic!("tile referenced in tilemap was not present in tile slotmap!")
-                }
-            } else {
-                let tile_key = self.tiles.insert(tile);
-                self.map[[location.y, location.x]] = Some(tile_key);
-            }
-        }
-        pub fn remove_tile(&mut self, location: Vec2) {
-            match self.map[[location.y, location.x]] {
-                None => { /* Nothing to do, no tile at location */ }
-                Some(tile_key) => {
-                    self.tiles.remove(tile_key);
-                    self.map[[location.y, location.x]] = None;
-                }
-            }
-        }
-
-        #[allow(dead_code)]
-        pub fn make_slotmap() -> SlotMap<K, I> {
-            SlotMap::with_key()
-        }
-    }
-
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct TilemapProgram {
-        pub spec: Tilemap<KeyProgram, TileProgram>,
+        pub spec: tilemap::Tilemap<KeyProgram, TileProgram>,
         pub inputs: Vec<(uuid::Uuid, String, DataType)>,
         pub outputs: Vec<(uuid::Uuid, String, DataType)>,
         //pub functions: SlotMap<KeyFunction, TilemapProgram>, // need to make this work with alpha-equivalence
@@ -380,7 +268,7 @@ pub mod tilemaps {
 
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct TilemapWorld {
-        pub data: Tilemap<KeyWorld, TileWorld>,
+        pub data: tilemap::Tilemap<KeyWorld, TileWorld>,
         pub inputs: Vec<Data>,
     }
 
@@ -395,15 +283,15 @@ pub mod tilemaps {
         }
 
         pub fn set_tile(&mut self, location: Vec2, tile: TileWorld) {
-            self.data.set_tile(location, tile);
+            todo!() //self.data.set_tile(location, tile);
         }
 
         pub fn add_tile(&mut self, location: Vec2, tile: TileWorld) {
-            self.data.add_tile(location, tile)
+            todo!() //self.data.add_tile(location, tile)
         }
 
         pub fn remove_tile(&mut self, location: Vec2) {
-            self.data.remove_tile(location);
+            todo!() //self.data.remove_tile(location);
         }
 
         pub fn add_laser(&mut self, location: Vec2, data: DirData) {
@@ -511,62 +399,31 @@ pub mod tilemaps {
         }
 
         pub fn get(&self, location: Vec2) -> Option<&TileWorld> {
-            self.data.get(location)
+            todo!() //self.data.get(location)
         }
 
         #[allow(dead_code)]
         pub fn getu(&self, location: Vec2) -> &TileWorld {
-            self.data.get_unchecked(location)
+            todo!() //self.data.get_unchecked(location)
         }
 
         #[allow(dead_code)]
         pub fn get_mut(&mut self, location: Vec2) -> Option<&mut TileWorld> {
-            self.data.get_mut(location)
+            todo!() //self.data.get_mut(location)
         }
 
         #[allow(dead_code)]
         pub fn getu_mut(&mut self, location: Vec2) -> &mut TileWorld {
-            self.data.get_unchecked_mut(location)
+            todo!() //self.data.get_unchecked_mut(location)
         }
 
-        pub fn apply_edit(&mut self, edit: Edit) {
-            match edit {
-                Edit::AddTile(location, tile) => self.add_tile(location, tile),
-                Edit::SetTile(location, tile) => self.set_tile(location, tile),
-                Edit::RemoveTile(location) => self.remove_tile(location),
-                Edit::AddLaser(location, data) => self.add_laser(location, data),
-                Edit::Edits(edits) => edits.into_iter().for_each(|edit| self.apply_edit(edit)),
-            }
-        }
-
-        pub fn apply_transformation<F: Fn(Option<&TileWorld>, Vec2) -> Option<Edit>>(
-            &mut self,
-            from: &Self,
-            transformation: F,
-        ) {
-            // Before applying any edits, I actually would like to create one big megalist of edits, and then search for incompatibilities (conflicting instructions on whether to update or remove a tile for instance)
-            from.data.map.indexed_iter().for_each(|(index, world_key)| {
-                if let Some(edit) = transformation(
-                    world_key.map(|key| {
-                        from.data
-                            .tiles
-                            .get(key)
-                            .expect("referenced key not found in world!")
-                    }),
-                    Vec2::new(index.1, index.0),
-                ) {
-                    self.apply_edit(edit)
-                }
-            });
-        }
-
-        pub fn make_slotmap() -> SlotMap<KeyWorld, TileWorld> {
+        pub fn make_slotmap() -> SlotMap<KeyWorld, (Vec2, Dir, TileWorld)> {
             SlotMap::with_key()
         }
     }
 
     impl TilemapProgram {
-        pub fn new(tilemap: Tilemap<KeyProgram, TileProgram>) -> Self {
+        pub fn new(tilemap: tilemap::Tilemap<KeyProgram, TileProgram>) -> Self {
             Self {
                 spec: tilemap,
                 inputs: vec![],
@@ -574,15 +431,15 @@ pub mod tilemaps {
             }
         }
         pub fn set_tile(&mut self, location: Vec2, tile: TileProgram) {
-            self.spec.set_tile(location, tile);
+            todo!() //self.spec.set_tile(location, tile);
         }
 
         pub fn add_tile(&mut self, location: Vec2, tile: TileProgram) {
-            self.spec.add_tile(location, tile)
+            todo!() //self.spec.add_tile(location, tile)
         }
 
         pub fn remove_tile(&mut self, location: Vec2) {
-            self.spec.remove_tile(location);
+            todo!() //self.spec.remove_tile(location);
         }
 
         #[allow(dead_code)]
@@ -598,13 +455,17 @@ pub mod tilemaps {
             let map = self.spec.map;
             let mut tiles = self.spec.tiles;
 
-            let mut world_tiles: SlotMap<KeyWorld, TileWorld> = TilemapWorld::make_slotmap();
+            let mut world_tiles: SlotMap<KeyWorld, (Vec2, Dir, TileWorld)> =
+                TilemapWorld::make_slotmap();
 
             let world_map: Array2<Option<KeyWorld>> = map.mapv(|program_key| match program_key {
                 Some(program_key) => {
                     if let Some(program_tile) = tiles.remove(program_key) {
-                        let world_key =
-                            world_tiles.insert(TileWorld::Prog(program_tile.create_machine_info()));
+                        let world_key = world_tiles.insert((
+                            program_tile.0,
+                            program_tile.1,
+                            TileWorld::Prog(program_tile.2.create_machine_info()),
+                        ));
                         Some(world_key)
                     } else {
                         None
@@ -613,7 +474,7 @@ pub mod tilemaps {
                 _ => None,
             });
             TilemapWorld {
-                data: Tilemap {
+                data: tilemap::Tilemap {
                     tiles: world_tiles,
                     map: world_map,
                 },
@@ -629,7 +490,7 @@ pub mod tilemaps {
             }
         }
 
-        pub fn make_slotmap() -> SlotMap<KeyProgram, TileProgram> {
+        pub fn make_slotmap() -> SlotMap<KeyProgram, (Vec2, Dir, TileProgram)> {
             SlotMap::with_key()
         }
     }

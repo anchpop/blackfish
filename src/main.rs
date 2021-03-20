@@ -6,7 +6,7 @@ mod units;
 #[macro_use]
 extern crate uom;
 
-use evaluation::{evaluate, simulate_until_stable};
+use evaluation::evaluate;
 use geom::Dir;
 use geom::Extent2;
 use geom::Vec2;
@@ -219,6 +219,7 @@ fn play_notes_test(conn_out: Res<Mutex<midir::MidiOutputConnection>>) {
 }
 
 fn create_map(commands: &mut Commands) {
+    /*
     let mut tiles = TilemapProgram::make_slotmap();
     let north_laser = tiles.insert(TileProgram::Machine(
         Dir::default(),
@@ -352,6 +353,7 @@ fn create_map(commands: &mut Commands) {
 
     commands.insert_resource(test_prog);
     commands.insert_resource(test_world);
+     */
 }
 
 fn spawn_main_tile(
@@ -520,6 +522,7 @@ fn clock_increment(
     conn_out: Res<Mutex<midir::MidiOutputConnection>>,
     mut notes_to_end_queue: ResMut<NotesToEnd>,
 ) {
+    /*
     if timer.0.tick(time.delta_seconds()).finished() {
         let mut conn_out = conn_out.lock().unwrap();
         *clock = CurrentClock(clock.0 + 1);
@@ -537,6 +540,7 @@ fn clock_increment(
         );
         *tilemap_world = simulate_until_stable(new_world);
     }
+     */
 }
 
 fn end_started_notes(
