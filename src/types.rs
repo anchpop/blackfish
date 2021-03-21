@@ -5,6 +5,7 @@ use std::{
 };
 use std::{fmt::Debug, ops::Neg};
 
+use crate::geom::direction::*;
 use crate::geom::*;
 
 use bevy::prelude::{ColorMaterial, Handle};
@@ -102,12 +103,12 @@ pub mod tiles {
                 }
                 BuiltInMachines::Trace => {
                     btree_map! {
-                        Dir::South: IOType::In("observe".to_string())
+                        Dir::south: IOType::In("observe".to_string())
                     }
                 }
                 BuiltInMachines::Produce => {
                     btree_map! {
-                        Dir::South: IOType::In("product".to_string())
+                        Dir::south: IOType::In("product".to_string())
                     }
                 }
             }
@@ -313,6 +314,7 @@ pub mod tilemaps {
             }
         }
 
+        /*
         pub fn get_outputs(&self, location: Vec2) -> Option<DirData> {
             if let Some(tile) = self.get(location) {
                 Some(match tile {
@@ -341,46 +343,47 @@ pub mod tilemaps {
             }
         }
 
-        pub fn get_inputs(&self, location: Vec2) -> Option<BTreeMap<String, Data>> {
-            if let Some(TileWorld::Prog(TileProgramMachineInfo::Machine(orientation, machine))) =
-                self.get(location)
-            {
-                match machine {
-                    MachineInfo::BuiltIn(
-                        machine,
-                        WorldMachineInfo {
-                            program_info: ProgramInfo { hardcoded_inputs },
-                            display: _,
-                        },
-                    ) => {
-                        let inputs = machine.inputs();
-                        inputs
-                            .into_iter()
-                            .map(|(dir, label)| {
-                                let rotated_dir = dir.rotate(*orientation);
-                                let inp = self.get_input_to_coordinate(location, -rotated_dir);
-                                (label, inp)
-                            })
-                            .map(|(label, data)| {
-                                let hardcoded = hardcoded_inputs.get(&label).cloned();
-                                (label, hardcoded.or(data))
-                            })
-                            .map(|(label, data)| {
-                                if let Some(data) = data {
-                                    Some((label, data))
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect::<Option<Vec<(String, Data)>>>()
-                            .map(|a| a.into_iter().collect::<BTreeMap<String, Data>>())
-                    }
-                }
-            } else {
-                todo!()
-            }
-        }
-
+               pub fn get_inputs(&self, location: Vec2) -> Option<BTreeMap<String, Data>> {
+                   if let Some(TileWorld::Prog(TileProgramMachineInfo::Machine(orientation, machine))) =
+                       self.get(location)
+                   {
+                       match machine {
+                           MachineInfo::BuiltIn(
+                               machine,
+                               WorldMachineInfo {
+                                   program_info: ProgramInfo { hardcoded_inputs },
+                                   display: _,
+                               },
+                           ) => {
+                               let inputs = machine.inputs();
+                               inputs
+                                   .into_iter()
+                                   .map(|(dir, label)| {
+                                       let rotated_dir = dir.rotate(*orientation);
+                                       let inp = self.get_input_to_coordinate(location, -rotated_dir);
+                                       (label, inp)
+                                   })
+                                   .map(|(label, data)| {
+                                       let hardcoded = hardcoded_inputs.get(&label).cloned();
+                                       (label, hardcoded.or(data))
+                                   })
+                                   .map(|(label, data)| {
+                                       if let Some(data) = data {
+                                           Some((label, data))
+                                       } else {
+                                           None
+                                       }
+                                   })
+                                   .collect::<Option<Vec<(String, Data)>>>()
+                                   .map(|a| a.into_iter().collect::<BTreeMap<String, Data>>())
+                           }
+                       }
+                   } else {
+                       todo!()
+                   }
+               }
+        */
+        /*
         pub fn get_input_to_coordinate(&self, location: Vec2, direction: Dir) -> Option<Data> {
             match (location.x == 0, direction, self.inputs.get(location.y)) {
                 (true, Dir::East, Some(data)) => Some(data.clone()),
@@ -393,6 +396,7 @@ pub mod tilemaps {
                 }
             }
         }
+         */
 
         pub fn update_machine_info(&mut self, location: Vec2, data: WorldMachineInfo) {
             todo!()
@@ -548,91 +552,7 @@ pub mod data {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-    pub struct DirMap<V> {
-        pub north: V,
-        pub east: V,
-        pub south: V,
-        pub west: V,
-    }
-    impl<V> DirMap<V> {
-        pub fn get(&self, dir: &Dir) -> &V {
-            match dir {
-                Dir::North => &self.north,
-                Dir::South => &self.south,
-                Dir::East => &self.east,
-                Dir::West => &self.west,
-            }
-        }
-        pub fn update(self, dir: &Dir, v: V) -> Self {
-            match dir {
-                Dir::North => Self { north: v, ..self },
-                Dir::South => Self { south: v, ..self },
-                Dir::East => Self { east: v, ..self },
-                Dir::West => Self { west: v, ..self },
-            }
-        }
-
-        pub fn itemize(self) -> [V; 4] {
-            [self.north, self.east, self.south, self.west]
-        }
-
-        pub fn deitemize(items: [V; 4]) -> Self {
-            let [north, east, south, west] = items;
-            DirMap {
-                north,
-                east,
-                south,
-                west,
-            }
-        }
-
-        pub fn rotate(self, dir: &Dir) -> Self {
-            Self::deitemize({
-                let mut items = self.itemize();
-                items.rotate_right(dir.to_num());
-                items
-            })
-        }
-    }
-    pub type DirData = DirMap<Option<Data>>;
-
-    impl<V> IntoIterator for DirMap<V> {
-        type Item = (Dir, V);
-
-        type IntoIter = std::vec::IntoIter<Self::Item>;
-
-        fn into_iter(self) -> Self::IntoIter {
-            vec![
-                (Dir::North, self.north),
-                (Dir::East, self.east),
-                (Dir::South, self.south),
-                (Dir::West, self.west),
-            ]
-            .into_iter()
-        }
-    }
-
-    impl<V: Semigroup> Semigroup for DirMap<V> {
-        fn combine(&self, other: &Self) -> Self {
-            DirMap {
-                north: self.north.combine(&other.north),
-                east: self.east.combine(&other.east),
-                south: self.south.combine(&other.south),
-                west: self.west.combine(&other.west),
-            }
-        }
-    }
-    impl<V: Monoid> Monoid for DirMap<V> {
-        fn empty() -> Self {
-            DirMap {
-                north: V::empty(),
-                east: V::empty(),
-                south: V::empty(),
-                west: V::empty(),
-            }
-        }
-    }
+    pub type DirData = crate::geom::direction::DirMap<Option<Data>>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

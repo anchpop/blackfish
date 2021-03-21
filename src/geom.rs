@@ -1,5 +1,3 @@
-use num_traits::ToPrimitive;
-use std::{fmt::Debug, ops::Neg};
 use vek::vec;
 
 pub type Vec2 = vec::Vec2<usize>;
@@ -8,143 +6,343 @@ pub type Extent2 = vec::Extent2<usize>;
 
 pub type Rect = (Vec2, Extent2);
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, Ord, PartialOrd)]
-pub enum Dir {
-    North,
-    East,
-    South,
-    West,
-}
-impl Dir {
-    pub fn to_vector(&self) -> Vec2i {
-        match self {
-            Self::North => Vec2i::new(0, 1),
-            Self::East => Vec2i::new(1, 0),
-            Self::South => Vec2i::new(0, -1),
-            Self::West => Vec2i::new(-1, 0),
+pub mod direction {
+    use frunk::monoid::Monoid;
+    use frunk::semigroup::Semigroup;
+
+    use super::*;
+    use num_traits::ToPrimitive;
+    use std::{fmt::Debug, ops::Mul, ops::Neg};
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, Ord, PartialOrd)]
+    pub enum Sign {
+        Positive,
+        Negative,
+    }
+    impl Neg for Sign {
+        type Output = Self;
+
+        fn neg(self) -> Self::Output {
+            match self {
+                Self::Positive => Self::Negative,
+                Self::Negative => Self::Positive,
+            }
         }
     }
+    impl Mul for Sign {
+        type Output = Self;
 
-    pub fn to_arrow(&self) -> &str {
-        match self {
-            Self::North => "↑",
-            Self::East => "→",
-            Self::South => "↓",
-            Self::West => "←",
-        }
-    }
-
-    pub fn shift<I: num_traits::WrappingAdd + num_traits::FromPrimitive>(
-        &self,
-        by: vek::Vec2<I>,
-    ) -> vek::Vec2<I> {
-        let (x, y) = (by.x, by.y);
-        let v = self.to_vector();
-
-        // the addition here should behave correctly,
-        // see https://stackoverflow.com/questions/53453628/how-do-i-add-a-signed-integer-to-an-unsigned-integer-in-rust
-        // and https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=1448b2d8f02f844f72864e10dbe98049
-        vek::Vec2::new(
-            x.wrapping_add(&num_traits::FromPrimitive::from_i64(v.x).unwrap()),
-            y.wrapping_add(&num_traits::FromPrimitive::from_i64(v.y).unwrap()),
-        )
-    }
-
-    pub fn to_num(&self) -> usize {
-        match self {
-            Self::North => 0,
-            Self::East => 1,
-            Self::South => 2,
-            Self::West => 3,
-        }
-    }
-
-    pub fn from_num(i: usize) -> Self {
-        match i {
-            0 => Self::North,
-            1 => Self::East,
-            2 => Self::South,
-            3 => Self::West,
-            _ => panic!("out of bounds"),
-        }
-    }
-
-    pub fn rotate(&self, by: Self) -> Self {
-        Self::from_num((self.to_num() + by.to_num()) % 4)
-    }
-    pub fn rotate_vec<I: Neg + std::ops::Neg<Output = I>>(
-        &self,
-        vec: vec::Vec2<I>,
-    ) -> vec::Vec2<I> {
-        match self {
-            Self::North => vec::Vec2::new(vec.x, vec.y),
-            Self::East => vec::Vec2::new(vec.y, -vec.x),
-            Self::South => vec::Vec2::new(-vec.x, -vec.y),
-            Self::West => vec::Vec2::new(-vec.y, vec.x),
-        }
-    }
-}
-impl Neg for Dir {
-    fn neg(self) -> Self::Output {
-        match self {
-            Self::North => Self::South,
-            Dir::East => Self::West,
-            Dir::South => Self::North,
-            Dir::West => Self::East,
-        }
-    }
-
-    type Output = Self;
-}
-impl Default for Dir {
-    fn default() -> Self {
-        Dir::North
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct GridLine {
-    tile: Vec2i,
-    side: Dir,
-}
-impl GridLine {
-    fn new<
-        I: num_traits::AsPrimitive<i64> + num_traits::FromPrimitive + num_traits::WrappingAdd,
-    >(
-        tile: vec::Vec2<I>,
-        mut side: Dir,
-    ) -> Self {
-        if side == Dir::North || side == Dir::East {
-            let tile = side.shift(tile);
-            let side = -side;
-            Self::new(tile, side)
-        } else {
-            let tile = Vec2i::new(tile.x.as_(), tile.y.as_());
-            Self { tile, side }
-        }
-    }
-}
-impl PartialEq for GridLine {
-    fn eq(&self, other: &Self) -> bool {
-        if self.tile == other.tile && self.side == other.side {
-            true
-        } else {
-            if self.side.shift(self.tile) == other.tile && other.side.shift(other.tile) == self.tile
-            {
-                true
+        fn mul(self, rhs: Self) -> Self::Output {
+            if self == rhs {
+                Self::Positive
             } else {
-                false
+                Self::Negative
+            }
+        }
+    }
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, Ord, PartialOrd)]
+    pub enum Basis {
+        North,
+        East,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, Ord, PartialOrd)]
+    pub struct Dir {
+        pub basis: Basis,
+        pub sign: Sign,
+    }
+    impl Dir {
+        pub const north: Self = Self {
+            basis: Basis::North,
+            sign: Sign::Positive,
+        };
+        pub const east: Self = Self {
+            basis: Basis::East,
+            sign: Sign::Positive,
+        };
+        pub const south: Self = Self {
+            basis: Basis::North,
+            sign: Sign::Negative,
+        };
+        pub const west: Self = Self {
+            basis: Basis::East,
+            sign: Sign::Negative,
+        };
+
+        pub fn to_vector(&self) -> Vec2i {
+            match self {
+                Self {
+                    basis: Basis::North,
+                    sign: Sign::Positive,
+                } => Vec2i::new(0, 1),
+                Self {
+                    basis: Basis::East,
+                    sign: Sign::Positive,
+                } => Vec2i::new(1, 0),
+                Self {
+                    basis: Basis::North,
+                    sign: Sign::Negative,
+                } => Vec2i::new(0, -1),
+                Self {
+                    basis: Basis::East,
+                    sign: Sign::Negative,
+                } => Vec2i::new(-1, 0),
+            }
+        }
+
+        pub fn to_arrow(&self) -> &str {
+            match self {
+                Self {
+                    basis: Basis::North,
+                    sign: Sign::Positive,
+                } => "↑",
+                Self {
+                    basis: Basis::East,
+                    sign: Sign::Positive,
+                } => "→",
+                Self {
+                    basis: Basis::North,
+                    sign: Sign::Negative,
+                } => "↓",
+                Self {
+                    basis: Basis::East,
+                    sign: Sign::Negative,
+                } => "←",
+            }
+        }
+
+        pub fn shift<I: num_traits::WrappingAdd + num_traits::FromPrimitive>(
+            &self,
+            by: vek::Vec2<I>,
+        ) -> vek::Vec2<I> {
+            let (x, y) = (by.x, by.y);
+            let v = self.to_vector();
+
+            // the addition here should behave correctly,
+            // see https://stackoverflow.com/questions/53453628/how-do-i-add-a-signed-integer-to-an-unsigned-integer-in-rust
+            // and https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=1448b2d8f02f844f72864e10dbe98049
+            vek::Vec2::new(
+                x.wrapping_add(&num_traits::FromPrimitive::from_i64(v.x).unwrap()),
+                y.wrapping_add(&num_traits::FromPrimitive::from_i64(v.y).unwrap()),
+            )
+        }
+
+        pub fn to_num(&self) -> usize {
+            match self {
+                Self {
+                    basis: Basis::North,
+                    sign: Sign::Positive,
+                } => 0,
+                Self {
+                    basis: Basis::East,
+                    sign: Sign::Positive,
+                } => 1,
+                Self {
+                    basis: Basis::North,
+                    sign: Sign::Negative,
+                } => 2,
+                Self {
+                    basis: Basis::East,
+                    sign: Sign::Negative,
+                } => 3,
+            }
+        }
+
+        pub fn from_num(i: usize) -> Self {
+            match i {
+                0 => Self::north,
+                1 => Self::east,
+                2 => Self::south,
+                3 => Self::west,
+                _ => panic!("out of bounds"),
+            }
+        }
+
+        pub fn rotate(&self, by: Self) -> Self {
+            Self::from_num((self.to_num() + by.to_num()) % 4)
+        }
+        pub fn rotate_vec<I: Neg + std::ops::Neg<Output = I>>(
+            &self,
+            vec: vec::Vec2<I>,
+        ) -> vec::Vec2<I> {
+            match self {
+                Self {
+                    basis: Basis::North,
+                    sign: Sign::Positive,
+                } => vec::Vec2::new(vec.x, vec.y),
+                Self {
+                    basis: Basis::East,
+                    sign: Sign::Positive,
+                } => vec::Vec2::new(vec.y, -vec.x),
+                Self {
+                    basis: Basis::North,
+                    sign: Sign::Negative,
+                } => vec::Vec2::new(-vec.x, -vec.y),
+                Self {
+                    basis: Basis::East,
+                    sign: Sign::Negative,
+                } => vec::Vec2::new(-vec.y, vec.x),
+            }
+        }
+    }
+    impl Neg for Dir {
+        fn neg(self) -> Self::Output {
+            Dir {
+                basis: self.basis,
+                sign: -self.sign,
+            }
+        }
+
+        type Output = Self;
+    }
+    impl Default for Dir {
+        fn default() -> Self {
+            Self::north
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct GridLine {
+        pub tile: Vec2i,
+        pub side: Basis,
+    }
+    impl GridLine {
+        pub fn new<
+            I: num_traits::AsPrimitive<i64> + num_traits::FromPrimitive + num_traits::WrappingAdd,
+        >(
+            tile: vec::Vec2<I>,
+            mut side: Dir,
+        ) -> Self {
+            if side.sign == Sign::Positive {
+                let tile = Vec2i::new(tile.x.as_(), tile.y.as_());
+                Self {
+                    tile,
+                    side: side.basis,
+                }
+            } else {
+                let tile = side.shift(tile);
+                let side = -side;
+                Self::new(tile, side)
+            }
+        }
+    }
+    pub struct GridLineDir {
+        grid_line: GridLine,
+        direction: Sign,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    pub struct DirMap<V> {
+        pub north: V,
+        pub east: V,
+        pub south: V,
+        pub west: V,
+    }
+    impl<V> DirMap<V> {
+        pub fn get(&self, dir: &Dir) -> &V {
+            match dir {
+                Dir {
+                    basis: Basis::North,
+                    sign: Sign::Positive,
+                } => &self.north,
+                Dir {
+                    basis: Basis::North,
+                    sign: Sign::Negative,
+                } => &self.south,
+                Dir {
+                    basis: Basis::East,
+                    sign: Sign::Positive,
+                } => &self.east,
+                Dir {
+                    basis: Basis::East,
+                    sign: Sign::Negative,
+                } => &self.west,
+            }
+        }
+        pub fn update(self, dir: &Dir, v: V) -> Self {
+            match dir {
+                Dir {
+                    basis: Basis::North,
+                    sign: Sign::Positive,
+                } => Self { north: v, ..self },
+                Dir {
+                    basis: Basis::North,
+                    sign: Sign::Negative,
+                } => Self { south: v, ..self },
+                Dir {
+                    basis: Basis::East,
+                    sign: Sign::Positive,
+                } => Self { east: v, ..self },
+                Dir {
+                    basis: Basis::East,
+                    sign: Sign::Negative,
+                } => Self { west: v, ..self },
+            }
+        }
+
+        pub fn itemize(self) -> [V; 4] {
+            [self.north, self.east, self.south, self.west]
+        }
+
+        pub fn deitemize(items: [V; 4]) -> Self {
+            let [north, east, south, west] = items;
+            DirMap {
+                north,
+                east,
+                south,
+                west,
+            }
+        }
+
+        pub fn rotate(self, dir: &Dir) -> Self {
+            Self::deitemize({
+                let mut items = self.itemize();
+                items.rotate_right(dir.to_num());
+                items
+            })
+        }
+    }
+
+    impl<V> IntoIterator for DirMap<V> {
+        type Item = (Dir, V);
+
+        type IntoIter = std::vec::IntoIter<Self::Item>;
+
+        fn into_iter(self) -> Self::IntoIter {
+            vec![
+                (Dir::north, self.north),
+                (Dir::east, self.east),
+                (Dir::south, self.south),
+                (Dir::west, self.west),
+            ]
+            .into_iter()
+        }
+    }
+
+    impl<V: Semigroup> Semigroup for DirMap<V> {
+        fn combine(&self, other: &Self) -> Self {
+            DirMap {
+                north: self.north.combine(&other.north),
+                east: self.east.combine(&other.east),
+                south: self.south.combine(&other.south),
+                west: self.west.combine(&other.west),
+            }
+        }
+    }
+    impl<V: Monoid> Monoid for DirMap<V> {
+        fn empty() -> Self {
+            DirMap {
+                north: V::empty(),
+                east: V::empty(),
+                south: V::empty(),
+                west: V::empty(),
             }
         }
     }
 }
-impl Eq for GridLine {}
 
 pub mod tilemap {
-    use super::GridLine;
-    use super::Vec2;
-    use super::Vec2i;
-    use super::{Dir, Extent2};
+    use super::direction::*;
+    use super::{Extent2, Vec2, Vec2i};
     use ndarray::{arr2, Array2};
     use nonempty::NonEmpty;
     use proptest::collection::hash_set;

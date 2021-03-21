@@ -6,8 +6,8 @@ mod units;
 #[macro_use]
 extern crate uom;
 
+use crate::geom::direction::*;
 use evaluation::evaluate;
-use geom::Dir;
 use geom::Extent2;
 use geom::Vec2;
 use types::data::*;
