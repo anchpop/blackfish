@@ -226,8 +226,8 @@ pub mod direction {
         }
     }
     pub struct GridLineDir {
-        grid_line: GridLine,
-        direction: Sign,
+        pub grid_line: GridLine,
+        pub direction: Sign,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]

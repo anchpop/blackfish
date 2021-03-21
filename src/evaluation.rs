@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::geom::direction::*;
 use crate::geom::*;
 use crate::types::data::*;
 use crate::types::tilemaps::*;
@@ -16,6 +17,11 @@ pub fn evaluate(
     let outputs_spec = prog.outputs.clone();
 
     let mut output_map: HashMap<uuid::Uuid, Data> = HashMap::new();
+
+    let output_spot = GridLineDir {
+        grid_line: GridLine::new(Vec2::new(width - 1, 0), Dir::east),
+        direction: Sign::Positive,
+    };
 
     todo!()
 }
