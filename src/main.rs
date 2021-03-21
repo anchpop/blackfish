@@ -90,7 +90,7 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
                 TileProgram::Machine(
                     Dir::default(),
                     MachineInfo::BuiltIn(
-                        BuiltInMachines::Produce,
+                        BuiltInMachine::Produce(()),
                         ProgramInfo {
                             hardcoded_inputs: btree_map! {
                                 "product".to_string(): Data::Number(3)
@@ -110,7 +110,7 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
                 TileProgram::Machine(
                     Dir::default(),
                     MachineInfo::BuiltIn(
-                        BuiltInMachines::Trace,
+                        BuiltInMachine::Trace(()),
                         ProgramInfo {
                             hardcoded_inputs: btree_map! {
                                 "product".to_string(): Data::Number(3)
@@ -126,7 +126,7 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
                 TileProgram::Machine(
                     Dir::default(),
                     MachineInfo::BuiltIn(
-                        BuiltInMachines::Produce,
+                        BuiltInMachine::Produce(()),
                         ProgramInfo {
                             hardcoded_inputs: btree_map! {
                                 "product".to_string(): Data::Number(3)

@@ -84,10 +84,10 @@ pub mod tiles {
     }
 
     #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-    pub enum BuiltInMachines {
-        Iffy,
-        Trace,
-        Produce,
+    pub enum BuiltInMachine<D> {
+        Iffy(D, D, D),
+        Trace(D),
+        Produce(D),
     }
     #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
     pub enum IOType {
@@ -95,18 +95,19 @@ pub mod tiles {
         Out(String),
     }
 
-    impl BuiltInMachines {
+    impl<D> BuiltInMachine<D> {
+        /*
         pub fn io(&self) -> BTreeMap<Dir, IOType> {
             match self {
-                BuiltInMachines::Iffy => {
+                BuiltInMachine::Iffy => {
                     todo!()
                 }
-                BuiltInMachines::Trace => {
+                BuiltInMachine::Trace => {
                     btree_map! {
                         Dir::south: IOType::In("observe".to_string())
                     }
                 }
-                BuiltInMachines::Produce => {
+                BuiltInMachine::Produce => {
                     btree_map! {
                         Dir::south: IOType::In("product".to_string())
                     }
@@ -139,11 +140,12 @@ pub mod tiles {
                 })
                 .collect()
         }
+         */
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum MachineInfo<I> {
-        BuiltIn(BuiltInMachines, I),
+        BuiltIn(BuiltInMachine<()>, I),
     }
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum TileProgramF<I> {
@@ -160,9 +162,9 @@ pub mod tiles {
     impl<I> TileProgramF<I> {
         pub fn name(&self) -> &'static str {
             match self {
-                Self::Machine(_, MachineInfo::BuiltIn(BuiltInMachines::Iffy, _)) => "Iffy",
-                Self::Machine(_, MachineInfo::BuiltIn(BuiltInMachines::Trace, _)) => "Trace",
-                Self::Machine(_, MachineInfo::BuiltIn(BuiltInMachines::Produce, _)) => "Producer",
+                Self::Machine(_, MachineInfo::BuiltIn(BuiltInMachine::Iffy(_, _, _), _)) => "Iffy",
+                Self::Machine(_, MachineInfo::BuiltIn(BuiltInMachine::Trace(_), _)) => "Trace",
+                Self::Machine(_, MachineInfo::BuiltIn(BuiltInMachine::Produce(_), _)) => "Producer",
             }
         }
     }
@@ -192,9 +194,9 @@ pub mod tiles {
                 Self::Phys(TilePhysics::Laser(_)) => Vec2::new(1, 1),
                 Self::Prog(TileProgramMachineInfo::Machine(_, MachineInfo::BuiltIn(b, _))) => {
                     match b {
-                        BuiltInMachines::Iffy => Vec2::new(1, 1),
-                        BuiltInMachines::Trace => Vec2::new(1, 1),
-                        BuiltInMachines::Produce => Vec2::new(1, 1),
+                        BuiltInMachine::Iffy(_, _, _) => Vec2::new(1, 1),
+                        BuiltInMachine::Trace(_) => Vec2::new(1, 1),
+                        BuiltInMachine::Produce(_) => Vec2::new(1, 1),
                     }
                 }
             }
@@ -524,7 +526,10 @@ pub mod tilemaps {
 }
 
 pub mod data {
-    use super::*;
+    use super::tiles::BuiltInMachine;
+    use crate::geom::direction::*;
+    use frunk::monoid::Monoid;
+    use frunk::semigroup::Semigroup;
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum DataType {
@@ -532,7 +537,7 @@ pub mod data {
     }
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum Data {
-        Thunk(GridLineDir),
+        Thunk(Vec<GridLineDir>, Box<BuiltInMachine<Data>>),
         Number(i32),
     }
     impl Semigroup for Data {
@@ -543,13 +548,13 @@ pub mod data {
     impl Data {
         pub fn show(&self) -> String {
             match self {
-                Data::Thunk(grid_line_dir) => format!("thunk: {:?}", grid_line_dir),
+                Data::Thunk(deps, _) => format!("thunk: {:?}", deps),
                 Data::Number(num) => format!("{}", num),
             }
         }
         pub fn check_types(&self, t: &DataType) -> bool {
             match (self, t) {
-                (Data::Thunk(_), _) => true,
+                (Data::Thunk(_, _), _) => true,
                 (Data::Number(_), DataType::Number) => true,
             }
         }
