@@ -25,3 +25,10 @@ pub fn evaluate(
 
     todo!()
 }
+
+fn get_output_from_grid_line_dir(
+    spot: GridLineDir,
+    known: HashMap<GridLineDir, Data>,
+) -> HashMap<GridLineDir, Data> {
+    todo!()
+}

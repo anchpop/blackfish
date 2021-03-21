@@ -202,7 +202,7 @@ pub mod direction {
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct GridLine {
-        pub tile: Vec2i,
+        pub location: Vec2i,
         pub side: Basis,
     }
     impl GridLine {
@@ -215,7 +215,7 @@ pub mod direction {
             if side.sign == Sign::Positive {
                 let tile = Vec2i::new(tile.x.as_(), tile.y.as_());
                 Self {
-                    tile,
+                    location: tile,
                     side: side.basis,
                 }
             } else {
@@ -225,9 +225,34 @@ pub mod direction {
             }
         }
     }
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct GridLineDir {
         pub grid_line: GridLine,
         pub direction: Sign,
+    }
+    impl GridLineDir {
+        pub fn parts(self) -> (Vec2i, Dir) {
+            (
+                self.grid_line.location,
+                Dir {
+                    basis: self.grid_line.side,
+                    sign: self.direction,
+                },
+            )
+        }
+
+        pub fn new<
+            I: num_traits::AsPrimitive<i64> + num_traits::FromPrimitive + num_traits::WrappingAdd,
+        >(
+            tile: vec::Vec2<I>,
+            side: Dir,
+        ) -> Self {
+            let grid_line = GridLine::new(tile, side);
+            Self {
+                grid_line,
+                direction: side.sign,
+            }
+        }
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -491,21 +516,21 @@ pub mod tilemap {
             }
         }
 
-        pub fn raycast(
-            &self,
-            location: Vec2,
-            direction: Dir,
-        ) -> (GridLine, Option<&(Vec2, Dir, I)>) {
-            assert!(self.check_in_bounds(location), "raycast out of bounds");
+        pub fn raycast(&self, grid_line_dir: GridLineDir) -> (GridLine, Option<&(Vec2, Dir, I)>) {
+            assert!(
+                self.check_grid_line_in_bounds(grid_line_dir.grid_line),
+                "raycast out of bounds"
+            );
+            let (location, direction) = grid_line_dir.parts();
             let new_loc = direction.shift(location);
-            if !self.check_in_bounds(new_loc) {
-                (GridLine::new(location, direction), None)
-            } else {
+            if let Some(new_loc) = self.check_in_bounds_i(new_loc) {
                 if let Some(hit) = self.get(new_loc) {
                     (GridLine::new(location, direction), Some(hit))
                 } else {
-                    self.raycast(new_loc, direction)
+                    self.raycast(GridLineDir::new(new_loc, direction))
                 }
+            } else {
+                (GridLine::new(location, direction), None)
             }
         }
 
@@ -527,6 +552,22 @@ pub mod tilemap {
                 }
             } else {
                 None
+            }
+        }
+
+        pub fn check_grid_line_in_bounds(&self, grid_line: GridLine) -> bool {
+            if self.check_in_bounds_i(grid_line.location).is_some() {
+                true
+            } else if (grid_line.location.x == -1) != (grid_line.location.y == -1) {
+                if (grid_line.location.x == -1) && (grid_line.side == Basis::East) {
+                    true
+                } else if (grid_line.location.y == -1) && (grid_line.side == Basis::North) {
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
             }
         }
     }

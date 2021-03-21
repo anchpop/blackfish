@@ -532,6 +532,7 @@ pub mod data {
     }
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum Data {
+        Thunk(GridLineDir),
         Number(i32),
     }
     impl Semigroup for Data {
@@ -542,11 +543,13 @@ pub mod data {
     impl Data {
         pub fn show(&self) -> String {
             match self {
+                Data::Thunk(grid_line_dir) => format!("thunk: {:?}", grid_line_dir),
                 Data::Number(num) => format!("{}", num),
             }
         }
         pub fn check_types(&self, t: &DataType) -> bool {
             match (self, t) {
+                (Data::Thunk(_), _) => true,
                 (Data::Number(_), DataType::Number) => true,
             }
         }
