@@ -8,6 +8,7 @@ use crate::types::tiles::*;
 use crate::types::*;
 use bevy::ecs::Location;
 use frunk::monoid::Monoid;
+use std::collections::hash_map::{Entry, Entry::Occupied, OccupiedEntry};
 
 pub fn evaluate(
     prog: TilemapProgram,
@@ -23,7 +24,7 @@ pub fn evaluate(
         direction: Sign::Positive,
     };
 
-    let known_map: HashMap<GridLineDir, Data> = inputs
+    let mut known: HashMap<GridLineDir, Data> = inputs
         .iter()
         .map(|(uuid, data)| {
             let index = prog
@@ -38,16 +39,34 @@ pub fn evaluate(
         })
         .collect();
 
-    todo!()
+    let outputs: HashMap<uuid::Uuid, Data> = prog
+        .outputs
+        .iter()
+        .enumerate()
+        .map(|(index, (uuid, _, _))| {
+            let data = force(
+                &prog,
+                GridLineDir::new(Vec2::new(width - 1, index), Dir::east),
+                &mut known,
+            );
+            (uuid.clone(), data)
+        })
+        .collect();
+
+    return (todo!(), outputs);
 }
 
 fn force(
     prog: &TilemapProgram,
     to_calc_input_to: GridLineDir,
-    known: HashMap<GridLineDir, Data>,
-) -> HashMap<GridLineDir, Data> {
+    known: &mut HashMap<GridLineDir, Data>,
+) -> Data {
     let raycast_hit = prog.spec.raycast(-to_calc_input_to);
     let output_to_get = raycast_hit.0;
-    if known.contains_key(&output_to_get) {}
-    todo!()
+    if let Some(value) = known.get(&output_to_get).cloned() {
+        known.insert(to_calc_input_to, value.clone());
+        value
+    } else {
+        todo!()
+    }
 }
