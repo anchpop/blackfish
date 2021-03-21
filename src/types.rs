@@ -141,6 +141,14 @@ pub mod tiles {
                 .collect()
         }
          */
+
+        pub fn name(&self) -> &str {
+            match self {
+                Self::Produce(_) => "id",
+                Self::Iffy(_, _, _) => "if",
+                Self::Trace(_) => "trace",
+            }
+        }
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -537,7 +545,9 @@ pub mod data {
     }
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum Data {
-        Thunk(Vec<GridLineDir>, Box<BuiltInMachine<Data>>),
+        Nothing(GridLineDir),
+        ThunkPure(GridLineDir),
+        ThunkBuiltinOp(Box<BuiltInMachine<Data>>),
         Number(i32),
     }
     impl Semigroup for Data {
@@ -548,13 +558,17 @@ pub mod data {
     impl Data {
         pub fn show(&self) -> String {
             match self {
-                Data::Thunk(deps, _) => format!("thunk: {:?}", deps),
+                Data::Nothing(hit) => format!("nothing: {:?}", hit),
+                Data::ThunkPure(dep) => format!("thunk: {:?}", dep),
+                Data::ThunkBuiltinOp(op) => format!("op: {:?}", op.name()),
                 Data::Number(num) => format!("{}", num),
             }
         }
         pub fn check_types(&self, t: &DataType) -> bool {
             match (self, t) {
-                (Data::Thunk(_, _), _) => true,
+                (Data::Nothing(_), _) => true,
+                (Data::ThunkPure(_), _) => true,
+                (Data::ThunkBuiltinOp(_), _) => true,
                 (Data::Number(_), DataType::Number) => true,
             }
         }

@@ -23,12 +23,31 @@ pub fn evaluate(
         direction: Sign::Positive,
     };
 
+    let known_map: HashMap<GridLineDir, Data> = inputs
+        .iter()
+        .map(|(uuid, data)| {
+            let index = prog
+                .inputs
+                .iter()
+                .position(|(input_uuid, _, _)| uuid == input_uuid)
+                .expect("Input uuid was not in program's uuid list") as i64;
+            (
+                GridLineDir::new(Vec2i::new(-1, index), Dir::east),
+                data.clone(),
+            )
+        })
+        .collect();
+
     todo!()
 }
 
-fn get_output_from_grid_line_dir(
-    spot: GridLineDir,
+fn force(
+    prog: &TilemapProgram,
+    to_calc_input_to: GridLineDir,
     known: HashMap<GridLineDir, Data>,
 ) -> HashMap<GridLineDir, Data> {
+    let raycast_hit = prog.spec.raycast(-to_calc_input_to);
+    let output_to_get = raycast_hit.0;
+    if known.contains_key(&output_to_get) {}
     todo!()
 }

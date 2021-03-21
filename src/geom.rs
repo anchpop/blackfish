@@ -253,8 +253,24 @@ pub mod direction {
                 direction: side.sign,
             }
         }
-    }
 
+        pub fn new_from_gridline(grid_line: GridLine, direction: Dir) -> Self {
+            Self {
+                grid_line: grid_line,
+                direction: direction.sign,
+            }
+        }
+    }
+    impl Neg for GridLineDir {
+        type Output = GridLineDir;
+
+        fn neg(self) -> Self::Output {
+            Self {
+                grid_line: self.grid_line,
+                direction: -self.direction,
+            }
+        }
+    }
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub struct DirMap<V> {
         pub north: V,
@@ -516,7 +532,13 @@ pub mod tilemap {
             }
         }
 
-        pub fn raycast(&self, grid_line_dir: GridLineDir) -> (GridLine, Option<&(Vec2, Dir, I)>) {
+        /// Performs a raycast from the gridline in the specified direction. Returns a GridLineDir representing the location and normal direction of the hit.
+        /// (Every raycast will hit something, whether it be the bounds of the map or the bounds or a tile.) Optionally also returns tile info for
+        /// if one was hit.
+        pub fn raycast(
+            &self,
+            grid_line_dir: GridLineDir,
+        ) -> (GridLineDir, Option<&(Vec2, Dir, I)>) {
             assert!(
                 self.check_grid_line_in_bounds(grid_line_dir.grid_line),
                 "raycast out of bounds"
@@ -525,12 +547,12 @@ pub mod tilemap {
             let new_loc = direction.shift(location);
             if let Some(new_loc) = self.check_in_bounds_i(new_loc) {
                 if let Some(hit) = self.get(new_loc) {
-                    (GridLine::new(location, direction), Some(hit))
+                    (GridLineDir::new(new_loc, -direction), Some(hit))
                 } else {
                     self.raycast(GridLineDir::new(new_loc, direction))
                 }
             } else {
-                (GridLine::new(location, direction), None)
+                (GridLineDir::new(new_loc, -direction), None)
             }
         }
 
