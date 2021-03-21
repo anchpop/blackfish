@@ -1,3 +1,4 @@
+use num_traits::ToPrimitive;
 use std::{fmt::Debug, ops::Neg};
 use vek::vec;
 
@@ -33,14 +34,20 @@ impl Dir {
         }
     }
 
-    pub fn shift(&self, by: Vec2) -> Vec2 {
+    pub fn shift<I: num_traits::WrappingAdd + num_traits::FromPrimitive>(
+        &self,
+        by: vek::Vec2<I>,
+    ) -> vek::Vec2<I> {
         let (x, y) = (by.x, by.y);
         let v = self.to_vector();
 
         // the addition here should behave correctly,
         // see https://stackoverflow.com/questions/53453628/how-do-i-add-a-signed-integer-to-an-unsigned-integer-in-rust
         // and https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=1448b2d8f02f844f72864e10dbe98049
-        Vec2::new(x.wrapping_add(v.x as usize), y.wrapping_add(v.y as usize))
+        vek::Vec2::new(
+            x.wrapping_add(&num_traits::FromPrimitive::from_i64(v.x).unwrap()),
+            y.wrapping_add(&num_traits::FromPrimitive::from_i64(v.y).unwrap()),
+        )
     }
 
     pub fn to_num(&self) -> usize {
@@ -95,7 +102,46 @@ impl Default for Dir {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct GridLine {
+    tile: Vec2i,
+    side: Dir,
+}
+impl GridLine {
+    fn new<
+        I: num_traits::AsPrimitive<i64> + num_traits::FromPrimitive + num_traits::WrappingAdd,
+    >(
+        tile: vec::Vec2<I>,
+        mut side: Dir,
+    ) -> Self {
+        if side == Dir::North || side == Dir::East {
+            let tile = side.shift(tile);
+            let side = -side;
+            Self::new(tile, side)
+        } else {
+            let tile = Vec2i::new(tile.x.as_(), tile.y.as_());
+            Self { tile, side }
+        }
+    }
+}
+impl PartialEq for GridLine {
+    fn eq(&self, other: &Self) -> bool {
+        if self.tile == other.tile && self.side == other.side {
+            true
+        } else {
+            if self.side.shift(self.tile) == other.tile && other.side.shift(other.tile) == self.tile
+            {
+                true
+            } else {
+                false
+            }
+        }
+    }
+}
+impl Eq for GridLine {}
+
 pub mod tilemap {
+    use super::GridLine;
     use super::Vec2;
     use super::Vec2i;
     use super::{Dir, Extent2};
@@ -247,14 +293,18 @@ pub mod tilemap {
             }
         }
 
-        pub fn raycast(&self, location: Vec2, direction: Dir) -> (Vec2, Option<&(Vec2, Dir, I)>) {
+        pub fn raycast(
+            &self,
+            location: Vec2,
+            direction: Dir,
+        ) -> (GridLine, Option<&(Vec2, Dir, I)>) {
             assert!(self.check_in_bounds(location), "raycast out of bounds");
             let new_loc = direction.shift(location);
-            if self.check_in_bounds(new_loc) {
-                (location, None)
+            if !self.check_in_bounds(new_loc) {
+                (GridLine::new(location, direction), None)
             } else {
                 if let Some(hit) = self.get(new_loc) {
-                    (location, Some(hit))
+                    (GridLine::new(location, direction), Some(hit))
                 } else {
                     self.raycast(new_loc, direction)
                 }
