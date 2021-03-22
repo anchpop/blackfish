@@ -157,7 +157,7 @@ pub mod tiles {
     }
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum TileProgramF<I> {
-        Machine(Dir, MachineInfo<I>),
+        Machine(MachineInfo<I>),
     }
     pub type TileProgram = TileProgramF<ProgramInfo>;
     pub type TileProgramMachineInfo = TileProgramF<WorldMachineInfo>;
@@ -170,9 +170,9 @@ pub mod tiles {
     impl<I> TileProgramF<I> {
         pub fn name(&self) -> &'static str {
             match self {
-                Self::Machine(_, MachineInfo::BuiltIn(BuiltInMachine::Iffy(_, _, _), _)) => "Iffy",
-                Self::Machine(_, MachineInfo::BuiltIn(BuiltInMachine::Trace(_), _)) => "Trace",
-                Self::Machine(_, MachineInfo::BuiltIn(BuiltInMachine::Produce(_), _)) => "Producer",
+                Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Iffy(_, _, _), _)) => "Iffy",
+                Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Trace(_), _)) => "Trace",
+                Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Produce(_), _)) => "Producer",
             }
         }
     }
@@ -200,7 +200,7 @@ pub mod tiles {
         pub fn size(&self) -> Vec2 {
             match self {
                 Self::Phys(TilePhysics::Laser(_)) => Vec2::new(1, 1),
-                Self::Prog(TileProgramMachineInfo::Machine(_, MachineInfo::BuiltIn(b, _))) => {
+                Self::Prog(TileProgramMachineInfo::Machine(MachineInfo::BuiltIn(b, _))) => {
                     match b {
                         BuiltInMachine::Iffy(_, _, _) => Vec2::new(1, 1),
                         BuiltInMachine::Trace(_) => Vec2::new(1, 1),
@@ -213,9 +213,8 @@ pub mod tiles {
     impl TileProgram {
         pub fn create_machine_info(self) -> TileProgramMachineInfo {
             match self {
-                TileProgram::Machine(dir, machine_info) => TileProgramMachineInfo::Machine(
-                    dir,
-                    match machine_info {
+                TileProgram::Machine(machine_info) => {
+                    TileProgramMachineInfo::Machine(match machine_info {
                         MachineInfo::BuiltIn(machine_type, info) => MachineInfo::BuiltIn(
                             machine_type,
                             WorldMachineInfo {
@@ -223,21 +222,21 @@ pub mod tiles {
                                 ..WorldMachineInfo::empty()
                             },
                         ),
-                    },
-                ),
+                    })
+                }
             }
         }
     }
 
     impl<T> tilemap::Shaped for TileProgramF<T> {
         fn shape(&self) -> nonempty::NonEmpty<Vec2i> {
-            todo!()
+            nonempty::NonEmpty::new(Vec2i::new(0, 0)) // assume only one tile at position (0,0)
         }
     }
 
     impl tilemap::Shaped for TilePhysics {
         fn shape(&self) -> nonempty::NonEmpty<Vec2i> {
-            todo!()
+            nonempty::NonEmpty::new(Vec2i::new(0, 0)) // assume only one tile at position (0,0)
         }
     }
 
@@ -279,32 +278,65 @@ pub mod tilemaps {
 
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct TilemapWorld {
-        pub data: tilemap::Tilemap<KeyWorld, TileWorld>,
-        pub inputs: Vec<Data>,
+        pub world: tilemap::Tilemap<KeyWorld, TileWorld>,
+        pub inputs: Vec<(String, Option<Data>)>,
+        pub outputs: Vec<(String, Option<Data>)>,
     }
 
     impl TilemapWorld {
         #[allow(dead_code)]
         pub fn world(self) -> Array2<Option<KeyWorld>> {
-            self.data.map
+            self.world.map
         }
         pub fn world_dim(&self) -> Extent2 {
-            let dim = self.data.map.dim();
+            let dim = self.world.map.dim();
             Extent2::new(dim.1, dim.0)
         }
-
-        pub fn set_tile(&mut self, location: Vec2, tile: TileWorld) {
-            todo!() //self.data.set_tile(location, tile);
+        pub fn try_do_to_map<
+            F: Fn(
+                tilemap::Tilemap<KeyWorld, TileWorld>,
+            ) -> Result<
+                tilemap::Tilemap<KeyWorld, TileWorld>,
+                tilemap::Tilemap<KeyWorld, TileWorld>,
+            >,
+        >(
+            self,
+            f: F,
+        ) -> Result<Self, Self> {
+            match f(self.world) {
+                Ok(world) => Ok(Self {
+                    world,
+                    inputs: self.inputs,
+                    outputs: self.outputs,
+                }),
+                Err(world) => Err(Self {
+                    world,
+                    inputs: self.inputs,
+                    outputs: self.outputs,
+                }),
+            }
+        }
+        pub fn apply_to_map<
+            F: Fn(tilemap::Tilemap<KeyWorld, TileWorld>) -> tilemap::Tilemap<KeyWorld, TileWorld>,
+        >(
+            self,
+            f: F,
+        ) -> Self {
+            Self {
+                world: f(self.world),
+                inputs: self.inputs,
+                outputs: self.outputs,
+            }
         }
 
-        pub fn add_tile(&mut self, location: Vec2, tile: TileWorld) {
-            todo!() //self.data.add_tile(location, tile)
+        pub fn get_from_map<A, F: Fn(&tilemap::Tilemap<KeyWorld, TileWorld>) -> A>(
+            self,
+            f: F,
+        ) -> A {
+            f(&self.world)
         }
 
-        pub fn remove_tile(&mut self, location: Vec2) {
-            todo!() //self.data.remove_tile(location);
-        }
-
+        /*
         pub fn add_laser(&mut self, location: Vec2, data: DirData) {
             match self.get(location) {
                 None => self.add_tile(
@@ -322,114 +354,7 @@ pub mod tilemaps {
                 }
                 _ => {}
             }
-        }
-
-        /*
-        pub fn get_outputs(&self, location: Vec2) -> Option<DirData> {
-            if let Some(tile) = self.get(location) {
-                Some(match tile {
-                    TileWorld::Phys(TilePhysics::Laser(dir_data)) => dir_data.clone(),
-                    TileWorld::Prog(TileProgramF::Machine(
-                        direction,
-                        MachineInfo::BuiltIn(machine_type, info),
-                    )) => {
-                        let input = self.get_inputs(location);
-                        if let Some(input) = input {
-                            match machine_type {
-                                BuiltInMachines::Produce => DirData::empty()
-                                    .update(&direction, Some(input["product"].clone())),
-                                _ => DirData::empty(),
-                            }
-                        } else {
-                            DirData::empty()
-                        }
-                    }
-                    TileWorld::Prog(TileProgramF::Machine(_, MachineInfo::BuiltIn(_, _))) => {
-                        DirData::empty()
-                    }
-                })
-            } else {
-                None
-            }
-        }
-
-               pub fn get_inputs(&self, location: Vec2) -> Option<BTreeMap<String, Data>> {
-                   if let Some(TileWorld::Prog(TileProgramMachineInfo::Machine(orientation, machine))) =
-                       self.get(location)
-                   {
-                       match machine {
-                           MachineInfo::BuiltIn(
-                               machine,
-                               WorldMachineInfo {
-                                   program_info: ProgramInfo { hardcoded_inputs },
-                                   display: _,
-                               },
-                           ) => {
-                               let inputs = machine.inputs();
-                               inputs
-                                   .into_iter()
-                                   .map(|(dir, label)| {
-                                       let rotated_dir = dir.rotate(*orientation);
-                                       let inp = self.get_input_to_coordinate(location, -rotated_dir);
-                                       (label, inp)
-                                   })
-                                   .map(|(label, data)| {
-                                       let hardcoded = hardcoded_inputs.get(&label).cloned();
-                                       (label, hardcoded.or(data))
-                                   })
-                                   .map(|(label, data)| {
-                                       if let Some(data) = data {
-                                           Some((label, data))
-                                       } else {
-                                           None
-                                       }
-                                   })
-                                   .collect::<Option<Vec<(String, Data)>>>()
-                                   .map(|a| a.into_iter().collect::<BTreeMap<String, Data>>())
-                           }
-                       }
-                   } else {
-                       todo!()
-                   }
-               }
-        */
-        /*
-        pub fn get_input_to_coordinate(&self, location: Vec2, direction: Dir) -> Option<Data> {
-            match (location.x == 0, direction, self.inputs.get(location.y)) {
-                (true, Dir::East, Some(data)) => Some(data.clone()),
-                _ => {
-                    if let Some(dir_data) = self.get_outputs((-direction).shift(location)) {
-                        dir_data.get(&direction).clone()
-                    } else {
-                        None
-                    }
-                }
-            }
-        }
-         */
-
-        pub fn update_machine_info(&mut self, location: Vec2, data: WorldMachineInfo) {
-            todo!()
-        }
-
-        pub fn get(&self, location: Vec2) -> Option<&TileWorld> {
-            todo!() //self.data.get(location)
-        }
-
-        #[allow(dead_code)]
-        pub fn getu(&self, location: Vec2) -> &TileWorld {
-            todo!() //self.data.get_unchecked(location)
-        }
-
-        #[allow(dead_code)]
-        pub fn get_mut(&mut self, location: Vec2) -> Option<&mut TileWorld> {
-            todo!() //self.data.get_mut(location)
-        }
-
-        #[allow(dead_code)]
-        pub fn getu_mut(&mut self, location: Vec2) -> &mut TileWorld {
-            todo!() //self.data.get_unchecked_mut(location)
-        }
+        }*/
 
         pub fn make_slotmap() -> SlotMap<KeyWorld, (Vec2, Dir, TileWorld)> {
             SlotMap::with_key()
@@ -437,6 +362,20 @@ pub mod tilemaps {
     }
 
     impl TilemapProgram {
+        pub fn new_empty(dim: Extent2) -> Self {
+            let map: Array2<Option<KeyProgram>> =
+                Array2::zeros((dim.h, dim.w)).mapv(|_: usize| None);
+
+            Self {
+                spec: tilemap::Tilemap {
+                    tiles: Self::make_slotmap(),
+                    map: map,
+                },
+                inputs: vec![],
+                outputs: vec![],
+            }
+        }
+
         pub fn new(tilemap: tilemap::Tilemap<KeyProgram, TileProgram>) -> Self {
             Self {
                 spec: tilemap,
@@ -444,16 +383,51 @@ pub mod tilemaps {
                 outputs: vec![],
             }
         }
-        pub fn set_tile(&mut self, location: Vec2, tile: TileProgram) {
-            todo!() //self.spec.set_tile(location, tile);
+
+        pub fn try_do_to_map<
+            F: Fn(
+                tilemap::Tilemap<KeyProgram, TileProgram>,
+            ) -> Result<
+                tilemap::Tilemap<KeyProgram, TileProgram>,
+                tilemap::Tilemap<KeyProgram, TileProgram>,
+            >,
+        >(
+            self,
+            f: F,
+        ) -> Result<Self, Self> {
+            match f(self.spec) {
+                Ok(spec) => Ok(Self {
+                    spec,
+                    inputs: self.inputs,
+                    outputs: self.outputs,
+                }),
+                Err(spec) => Err(Self {
+                    spec,
+                    inputs: self.inputs,
+                    outputs: self.outputs,
+                }),
+            }
+        }
+        pub fn apply_to_map<
+            F: Fn(
+                tilemap::Tilemap<KeyProgram, TileProgram>,
+            ) -> tilemap::Tilemap<KeyProgram, TileProgram>,
+        >(
+            self,
+            f: F,
+        ) -> Self {
+            Self {
+                spec: f(self.spec),
+                inputs: self.inputs,
+                outputs: self.outputs,
+            }
         }
 
-        pub fn add_tile(&mut self, location: Vec2, tile: TileProgram) {
-            todo!() //self.spec.add_tile(location, tile)
-        }
-
-        pub fn remove_tile(&mut self, location: Vec2) {
-            todo!() //self.spec.remove_tile(location);
+        pub fn get_from_map<A, F: Fn(&tilemap::Tilemap<KeyProgram, TileProgram>) -> A>(
+            self,
+            f: F,
+        ) -> A {
+            f(&self.spec)
         }
 
         #[allow(dead_code)]
@@ -465,7 +439,11 @@ pub mod tilemaps {
             let dim = self.spec.map.dim();
             Extent2::new(dim.1, dim.0)
         }
-        pub fn into_world(self, inputs: HashMap<uuid::Uuid, Data>) -> TilemapWorld {
+        pub fn into_world(
+            self,
+            inputs: Vec<(String, Option<Data>)>,
+            outputs: Vec<(String, Option<Data>)>,
+        ) -> TilemapWorld {
             let map = self.spec.map;
             let mut tiles = self.spec.tiles;
 
@@ -488,19 +466,12 @@ pub mod tilemaps {
                 _ => None,
             });
             TilemapWorld {
-                data: tilemap::Tilemap {
+                world: tilemap::Tilemap {
                     tiles: world_tiles,
                     map: world_map,
                 },
-                inputs: self
-                    .inputs
-                    .iter()
-                    .map(|(uuid, _, data_type)| {
-                        let input = inputs[uuid].clone();
-                        assert!(input.check_types(data_type));
-                        input
-                    })
-                    .collect(),
+                inputs,
+                outputs,
             }
         }
 

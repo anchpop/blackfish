@@ -567,7 +567,7 @@ pub mod tilemap {
         pub fn check_in_bounds_i(&self, location: Vec2i) -> Option<Vec2> {
             if !location.is_any_negative() {
                 let location = Vec2::new(location.x as usize, location.y as usize);
-                if Vec2::partial_min(location, self.extents()) != location {
+                if Vec2::partial_min(location, self.extents()) == location {
                     Some(location)
                 } else {
                     None

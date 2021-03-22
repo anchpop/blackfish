@@ -35,6 +35,8 @@ use midir::{MidiOutput, MidiOutputConnection, MidiOutputPort};
 
 use std::sync::{Mutex, MutexGuard};
 
+use test::default_program;
+
 use units::f64::*;
 use units::music_time::{bang, beat, note};
 
@@ -87,18 +89,15 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
         empty: materials.add(Color::rgb(0.1, 0.1, 0.1).into()),
         tiles: [
             (
-                TileProgram::Machine(
-                    Dir::default(),
-                    MachineInfo::BuiltIn(
-                        BuiltInMachine::Produce(()),
-                        ProgramInfo {
-                            hardcoded_inputs: btree_map! {
-                                "product".to_string(): Data::Number(3)
-                            },
-                            ..ProgramInfo::empty()
+                TileProgram::Machine(MachineInfo::BuiltIn(
+                    BuiltInMachine::Produce(()),
+                    ProgramInfo {
+                        hardcoded_inputs: btree_map! {
+                            "product".to_string(): Data::Number(3)
                         },
-                    ),
-                )
+                        ..ProgramInfo::empty()
+                    },
+                ))
                 .name(),
                 materials.add(Color::rgb(0.3, 0.3, 0.3).into()),
             ),
@@ -107,34 +106,28 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
                 materials.add(Color::rgb(0.9, 0.3, 0.3).into()),
             ),
             (
-                TileProgram::Machine(
-                    Dir::default(),
-                    MachineInfo::BuiltIn(
-                        BuiltInMachine::Trace(()),
-                        ProgramInfo {
-                            hardcoded_inputs: btree_map! {
-                                "product".to_string(): Data::Number(3)
-                            },
-                            ..ProgramInfo::empty()
+                TileProgram::Machine(MachineInfo::BuiltIn(
+                    BuiltInMachine::Trace(()),
+                    ProgramInfo {
+                        hardcoded_inputs: btree_map! {
+                            "product".to_string(): Data::Number(3)
                         },
-                    ),
-                )
+                        ..ProgramInfo::empty()
+                    },
+                ))
                 .name(),
                 materials.add(Color::rgb(0.5, 0.3, 0.5).into()),
             ),
             (
-                TileProgram::Machine(
-                    Dir::default(),
-                    MachineInfo::BuiltIn(
-                        BuiltInMachine::Produce(()),
-                        ProgramInfo {
-                            hardcoded_inputs: btree_map! {
-                                "product".to_string(): Data::Number(3)
-                            },
-                            ..ProgramInfo::empty()
+                TileProgram::Machine(MachineInfo::BuiltIn(
+                    BuiltInMachine::Produce(()),
+                    ProgramInfo {
+                        hardcoded_inputs: btree_map! {
+                            "product".to_string(): Data::Number(3)
                         },
-                    ),
-                )
+                        ..ProgramInfo::empty()
+                    },
+                ))
                 .name(),
                 materials.add(Color::rgb(0.3, 0.3, 0.3).into()),
             ),
@@ -219,6 +212,8 @@ fn play_notes_test(conn_out: Res<Mutex<midir::MidiOutputConnection>>) {
 }
 
 fn create_map(commands: &mut Commands) {
+    let test_prog = default_program();
+
     /*
     let mut tiles = TilemapProgram::make_slotmap();
     let north_laser = tiles.insert(TileProgram::Machine(
@@ -354,6 +349,10 @@ fn create_map(commands: &mut Commands) {
     commands.insert_resource(test_prog);
     commands.insert_resource(test_world);
      */
+    let test_world = test_prog.clone().into_world(vec![], vec![]);
+
+    commands.insert_resource(test_prog);
+    commands.insert_resource(test_world);
 }
 
 fn spawn_main_tile(
@@ -366,19 +365,19 @@ fn spawn_main_tile(
         Borderland,
     }
     for location in tilemap
-        .data
+        .world
         .map
         .indexed_iter()
         .map(|(index, _)| (TileType::Real, (index.1, index.0)))
-        .chain((0..tilemap.data.map.dim().1).map(|x| (TileType::Borderland, (x, 0))))
+        .chain((0..tilemap.world.map.dim().1).map(|x| (TileType::Borderland, (x, 0))))
         .chain(
-            (0..tilemap.data.map.dim().1)
-                .map(|x| (TileType::Borderland, (x, tilemap.data.map.dim().0 - 1))),
+            (0..tilemap.world.map.dim().1)
+                .map(|x| (TileType::Borderland, (x, tilemap.world.map.dim().0 - 1))),
         )
-        .chain((1..tilemap.data.map.dim().0 - 1).map(|y| (TileType::Borderland, (0, y))))
+        .chain((1..tilemap.world.map.dim().0 - 1).map(|y| (TileType::Borderland, (0, y))))
         .chain(
-            (1..tilemap.data.map.dim().0 - 1)
-                .map(|y| (TileType::Borderland, (tilemap.data.map.dim().1 - 1, y))),
+            (1..tilemap.world.map.dim().0 - 1)
+                .map(|y| (TileType::Borderland, (tilemap.world.map.dim().1 - 1, y))),
         )
     {
         if let (TileType::Real, location) = location {
@@ -476,7 +475,10 @@ fn tile_appearance(
     tilemap: Res<TilemapWorld>,
 ) {
     for (tile_position, mut color_mat_handle) in q.iter_mut() {
-        let tile = tilemap.get(Vec2::new(tile_position.x, tile_position.y));
+        let tile = tilemap
+            .world
+            .get(Vec2::new(tile_position.x, tile_position.y))
+            .map(|(_, _, t)| t);
         *color_mat_handle = get_tile_material(&tile, &materials);
     }
 }
@@ -487,7 +489,10 @@ fn tile_text(
     tilemap: Res<TilemapWorld>,
 ) {
     for (tile_position, children) in q.iter_mut() {
-        let tile = tilemap.get(Vec2::new(tile_position.x, tile_position.y));
+        let tile = tilemap
+            .world
+            .get(Vec2::new(tile_position.x, tile_position.y))
+            .map(|(_, _, t)| t);
         for child in children.iter() {
             if let Ok(mut text) = text_q.get_mut(*child) {
                 text.sections[0].value = match tile {
@@ -495,13 +500,12 @@ fn tile_text(
                         format!("{} {}", dir.to_arrow(), data.show())
                     }*/
                     Some(TileWorld::Prog(TileProgramMachineInfo::Machine(
-                        dir,
                         MachineInfo::BuiltIn(_, data),
                     ))) => {
                         if let Some(text) = data.display.clone() {
-                            format!("{} {}", dir.to_arrow(), text)
+                            format!("{}", text)
                         } else {
-                            dir.to_arrow().to_string()
+                            "".to_string()
                         }
                         //format!("{} {}", dir.to_arrow(), data.show())
                     }

@@ -53,7 +53,19 @@ pub fn evaluate(
         })
         .collect();
 
-    return (todo!(), outputs);
+    let world_inputs = prog
+        .inputs
+        .iter()
+        .map(|(uuid, name, typ)| (name.clone(), inputs.get(uuid).cloned()))
+        .collect();
+
+    let world_outputs = prog
+        .outputs
+        .iter()
+        .map(|(uuid, name, typ)| (name.clone(), outputs.get(uuid).cloned()))
+        .collect();
+
+    return (prog.into_world(world_inputs, world_outputs), outputs);
 }
 
 fn force(
