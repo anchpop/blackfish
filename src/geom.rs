@@ -400,7 +400,8 @@ pub mod tilemap {
         num::NonZeroUsize,
     };
     pub trait Shaped {
-        fn shape(&self) -> NonEmpty<Vec2i>;
+        type ExtraInfo;
+        fn shape(&self) -> NonEmpty<(Vec2i, Self::ExtraInfo)>;
     }
     #[derive(Debug, Clone)]
     pub struct Tilemap<K: Key, I: Shaped> {
@@ -453,7 +454,7 @@ pub mod tilemap {
             tile: &I,
         ) -> Option<Vec<Vec2>> {
             let shape = tile.shape().into_iter();
-            let shape = shape.map(|v| orientation.rotate_vec(v));
+            let shape = shape.map(|v| orientation.rotate_vec(v.0));
             let positions = shape.map(|v| {
                 let location: Vec2i = Vec2i::new(location.x as i64, location.y as i64);
                 location + v

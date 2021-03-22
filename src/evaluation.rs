@@ -80,7 +80,6 @@ fn force(
         known.insert(to_calc_input_to, value.clone());
         value
     } else {
-        println!("{:?} not found in {:?}", &output_to_get, &known);
-        todo!()
+        todo!("{:?} not found in {:?}", &output_to_get, &known)
     }
 }

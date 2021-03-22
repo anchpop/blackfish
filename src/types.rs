@@ -229,19 +229,22 @@ pub mod tiles {
     }
 
     impl<T> tilemap::Shaped for TileProgramF<T> {
-        fn shape(&self) -> nonempty::NonEmpty<Vec2i> {
-            nonempty::NonEmpty::new(Vec2i::new(0, 0)) // assume only one tile at position (0,0)
+        type ExtraInfo = ();
+        fn shape(&self) -> nonempty::NonEmpty<(Vec2i, Self::ExtraInfo)> {
+            nonempty::NonEmpty::new((Vec2i::new(0, 0), ())) // assume only one tile at position (0,0)
         }
     }
 
     impl tilemap::Shaped for TilePhysics {
-        fn shape(&self) -> nonempty::NonEmpty<Vec2i> {
-            nonempty::NonEmpty::new(Vec2i::new(0, 0)) // assume only one tile at position (0,0)
+        type ExtraInfo = ();
+        fn shape(&self) -> nonempty::NonEmpty<(Vec2i, Self::ExtraInfo)> {
+            nonempty::NonEmpty::new((Vec2i::new(0, 0), ())) // assume only one tile at position (0,0)
         }
     }
 
     impl tilemap::Shaped for TileWorld {
-        fn shape(&self) -> nonempty::NonEmpty<Vec2i> {
+        type ExtraInfo = ();
+        fn shape(&self) -> nonempty::NonEmpty<(Vec2i, Self::ExtraInfo)> {
             match self {
                 TileWorld::Phys(t) => t.shape(),
                 TileWorld::Prog(t) => t.shape(),
