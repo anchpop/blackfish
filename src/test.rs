@@ -14,8 +14,19 @@ use ndarray::arr2;
 use velcro::btree_map;
 use velcro::hash_map;
 
+use crate::evaluation;
+
 pub fn default_program() -> TilemapProgram {
-    simple_program()
+    in_out_id_prog()
+}
+pub fn in_out_id_prog() -> TilemapProgram {
+    let clock_uuid = uuid::Uuid::new_v4();
+    let audio_uuid = uuid::Uuid::new_v4();
+
+    let mut prog = simple_program();
+    prog.inputs = vec![(clock_uuid, "Clock".to_string(), DataType::Number)];
+    prog.outputs = vec![(audio_uuid, "Audio".to_string(), DataType::Number)];
+    prog
 }
 pub fn simple_program() -> TilemapProgram {
     let map = empty_program().try_do_to_map(|map| {
@@ -126,11 +137,12 @@ mod tests {
             assert_eq!(simple_program(), simple_program());
         }
         #[test]
-        fn basic_tilemap_equality_default() {
-            assert_eq!(default_program(), default_program());
+        fn basic_tilemap_inequality_default() {
+            // the default programs should have different UUIDs making them different
+            assert_ne!(default_program(), default_program());
         }
         #[test]
-        fn basic_tilemap_inequality_default() {
+        fn basic_tilemap_inequality_default_2() {
             assert_ne!(default_program(), empty_program());
         }
 
@@ -162,6 +174,8 @@ mod tests {
         }
     }
 
+    // should probably test raycasts
+
     #[cfg(test)]
     mod input_output {
         use std::collections::BTreeMap;
@@ -170,6 +184,22 @@ mod tests {
 
         use super::*;
         use crate::evaluation;
+
+        #[test]
+        fn get_inputs_to_coordinate() {
+            let data = Data::Number(0);
+            let prog = in_out_id_prog();
+
+            let input_uuid = prog.inputs[0].0;
+            let output_uuid = prog.outputs[0].0;
+
+            let result = evaluation::evaluate(
+                prog.clone(),
+                std::array::IntoIter::new([(input_uuid, data.clone())]).collect(),
+            );
+            assert_eq!(result.1.get(&output_uuid).unwrap(), &data);
+        }
+
         /*
 
                #[test]
