@@ -15,6 +15,9 @@ use velcro::btree_map;
 use velcro::hash_map;
 
 pub fn default_program() -> TilemapProgram {
+    simple_program()
+}
+pub fn simple_program() -> TilemapProgram {
     let map = empty_program().try_do_to_map(|map| {
         map.add(
             Vec2::new(3, 2),
@@ -119,283 +122,240 @@ mod tests {
             assert_eq!(empty_program(), empty_program());
         }
         #[test]
-        fn basic_tilemap_equality_default() {
-            //assert_eq!(default_map(), default_map());
+        fn basic_tilemap_equality_simple() {
+            assert_eq!(simple_program(), simple_program());
         }
-
-        /*
         #[test]
-        fn basic_tilemap_equality() {
-            assert_eq!(default_map(), default_map());
+        fn basic_tilemap_equality_default() {
+            assert_eq!(default_program(), default_program());
+        }
+        #[test]
+        fn basic_tilemap_inequality_default() {
+            assert_ne!(default_program(), empty_program());
         }
 
         #[test]
         fn tilemap_world_equality() {
             assert_eq!(
-                default_map().into_world(hash_map! {}),
-                default_map().into_world(hash_map! {})
+                default_program().into_world(vec![], vec![]),
+                default_program().into_world(vec![], vec![])
             );
         }
-
         #[test]
         fn tilemap_equality_invariant_to_unreferenced_tiles() {
-            let m1 = default_map();
+            let m1 = default_program();
             let mut m2 = m1.clone();
-            m2.spec.tiles.insert(TileProgram::Machine(
+            m2.spec.tiles.insert((
+                Vec2::new(0, 0),
                 Dir::default(),
-                MachineInfo::BuiltIn(
-                    BuiltInMachines::Produce,
+                TileProgram::Machine(MachineInfo::BuiltIn(
+                    BuiltInMachine::Produce(()),
                     ProgramInfo {
                         hardcoded_inputs: btree_map! {
                             "product".to_string(): Data::Number(3)
                         },
                         ..ProgramInfo::empty()
                     },
-                ),
+                )),
             ));
             assert_eq!(m1, m2);
         }
-
-        #[test]
-        fn tilemap_equality_alpha_equivalence() {
-            let m1 = default_map();
-            let mut m2 = m1.clone();
-            m2.spec.set_tile(
-                Vec2::new(3, 2),
-                TileProgram::Machine(
-                    Dir::default(),
-                    MachineInfo::BuiltIn(
-                        BuiltInMachines::Produce,
-                        ProgramInfo {
-                            hardcoded_inputs: btree_map! {
-                                "product".to_string(): Data::Number(3)
-                            },
-                            ..ProgramInfo::empty()
-                        },
-                    ),
-                ),
-            );
-            assert_eq!(m1, m2);
-        }
-
-        #[test]
-        fn tilemap_inequality() {
-            let m1 = default_map();
-            let mut m2 = m1.clone();
-            m2.spec.set_tile(
-                Vec2::new(0, 0),
-                TileProgram::Machine(
-                    Dir::North,
-                    MachineInfo::BuiltIn(
-                        BuiltInMachines::Produce,
-                        ProgramInfo {
-                            hardcoded_inputs: btree_map! {
-                                "product".to_string(): Data::Number(3)
-                            },
-                            ..ProgramInfo::empty()
-                        },
-                    ),
-                ),
-            );
-            assert_ne!(m1, m2);
-        }
-        */
     }
 
-    /*
-       #[cfg(test)]
-       mod input_output {
-           use std::collections::BTreeMap;
+    #[cfg(test)]
+    mod input_output {
+        use std::collections::BTreeMap;
 
-           use frunk::Monoid;
+        use frunk::Monoid;
 
-           use super::*;
-           use crate::evaluation;
+        use super::*;
+        use crate::evaluation;
+        /*
 
-           #[test]
-           fn get_inputs_to_coordinate() {
-               let data = Data::Number(2);
-               let map = {
-                   let mut map = empty_map();
-                   map.add_tile(
-                       Vec2::new(3, 1),
-                       TileProgram::Machine(
-                           Dir::North,
-                           MachineInfo::BuiltIn(
-                               BuiltInMachines::Produce,
-                               ProgramInfo {
-                                   hardcoded_inputs: btree_map! {
-                                       "product".to_string(): data.clone()
+               #[test]
+               fn get_inputs_to_coordinate() {
+                   let data = Data::Number(2);
+                   let map = {
+                       let mut map = empty_map();
+                       map.add_tile(
+                           Vec2::new(3, 1),
+                           TileProgram::Machine(
+                               Dir::North,
+                               MachineInfo::BuiltIn(
+                                   BuiltInMachines::Produce,
+                                   ProgramInfo {
+                                       hardcoded_inputs: btree_map! {
+                                           "product".to_string(): data.clone()
+                                       },
+                                       ..ProgramInfo::empty()
                                    },
-                                   ..ProgramInfo::empty()
-                               },
+                               ),
                            ),
-                       ),
+                       );
+                       map
+                   };
+
+                   let world = evaluation::evaluate(map, hash_map! {}).0;
+                   assert_eq!(
+                       world
+                           .get_input_to_coordinate(Vec2::new(3, 3), Dir::North)
+                           .unwrap(),
+                       data
                    );
-                   map
-               };
+               }
 
-               let world = evaluation::evaluate(map, hash_map! {}).0;
-               assert_eq!(
-                   world
-                       .get_input_to_coordinate(Vec2::new(3, 3), Dir::North)
-                       .unwrap(),
-                   data
-               );
-           }
+               #[test]
+               fn get_input_hardcoded() {
+                   let data = Data::Number(2);
+                   let hardcoded_inputs = btree_map! {
+                       "product".to_string(): data.clone()
+                   };
+                   let location = Vec2::new(3, 1);
 
-           #[test]
-           fn get_input_hardcoded() {
-               let data = Data::Number(2);
-               let hardcoded_inputs = btree_map! {
-                   "product".to_string(): data.clone()
-               };
-               let location = Vec2::new(3, 1);
-
-               let map = {
-                   let mut map = empty_map();
-                   map.add_tile(
-                       location,
-                       TileProgram::Machine(
-                           Dir::North,
-                           MachineInfo::BuiltIn(
-                               BuiltInMachines::Produce,
-                               ProgramInfo {
-                                   hardcoded_inputs: hardcoded_inputs.clone(),
-                                   ..ProgramInfo::empty()
-                               },
+                   let map = {
+                       let mut map = empty_map();
+                       map.add_tile(
+                           location,
+                           TileProgram::Machine(
+                               Dir::North,
+                               MachineInfo::BuiltIn(
+                                   BuiltInMachines::Produce,
+                                   ProgramInfo {
+                                       hardcoded_inputs: hardcoded_inputs.clone(),
+                                       ..ProgramInfo::empty()
+                                   },
+                               ),
                            ),
-                       ),
+                       );
+                       map
+                   };
+
+                   assert_eq!(
+                       map.into_world(hash_map! {}).get_inputs(location),
+                       Some(hardcoded_inputs)
                    );
-                   map
-               };
+               }
 
-               assert_eq!(
-                   map.into_world(hash_map! {}).get_inputs(location),
-                   Some(hardcoded_inputs)
-               );
-           }
+               #[test]
+               fn test_no_inputs() {
+                   let hardcoded_inputs = btree_map! {};
+                   let location = Vec2::new(3, 1);
 
-           #[test]
-           fn test_no_inputs() {
-               let hardcoded_inputs = btree_map! {};
-               let location = Vec2::new(3, 1);
-
-               let map = {
-                   let mut map = empty_map();
-                   map.add_tile(
-                       location,
-                       TileProgram::Machine(
-                           Dir::North,
-                           MachineInfo::BuiltIn(
-                               BuiltInMachines::Produce,
-                               ProgramInfo {
-                                   hardcoded_inputs: hardcoded_inputs.clone(),
-                                   ..ProgramInfo::empty()
-                               },
+                   let map = {
+                       let mut map = empty_map();
+                       map.add_tile(
+                           location,
+                           TileProgram::Machine(
+                               Dir::North,
+                               MachineInfo::BuiltIn(
+                                   BuiltInMachines::Produce,
+                                   ProgramInfo {
+                                       hardcoded_inputs: hardcoded_inputs.clone(),
+                                       ..ProgramInfo::empty()
+                                   },
+                               ),
                            ),
-                       ),
-                   );
-                   map
-               };
+                       );
+                       map
+                   };
 
-               assert_eq!(map.into_world(hash_map! {}).get_inputs(location), None);
-           }
+                   assert_eq!(map.into_world(hash_map! {}).get_inputs(location), None);
+               }
 
-           #[test]
-           fn test_passed_inputs() {
-               let data = Data::Number(2);
-               let passed_inputs = btree_map! {
-                   "product".to_string(): data.clone()
-               };
-               let location = Vec2::new(3, 3);
+               #[test]
+               fn test_passed_inputs() {
+                   let data = Data::Number(2);
+                   let passed_inputs = btree_map! {
+                       "product".to_string(): data.clone()
+                   };
+                   let location = Vec2::new(3, 3);
 
-               let map = {
-                   let mut map = empty_map();
-                   map.add_tile(
-                       location,
-                       TileProgram::Machine(
-                           Dir::North,
-                           MachineInfo::BuiltIn(
-                               BuiltInMachines::Produce,
-                               ProgramInfo {
-                                   hardcoded_inputs: btree_map! {},
-                                   ..ProgramInfo::empty()
-                               },
+                   let map = {
+                       let mut map = empty_map();
+                       map.add_tile(
+                           location,
+                           TileProgram::Machine(
+                               Dir::North,
+                               MachineInfo::BuiltIn(
+                                   BuiltInMachines::Produce,
+                                   ProgramInfo {
+                                       hardcoded_inputs: btree_map! {},
+                                       ..ProgramInfo::empty()
+                                   },
+                               ),
                            ),
-                       ),
-                   );
-                   map.add_tile(
-                       location - Vec2::new(0, 2),
-                       TileProgram::Machine(
-                           Dir::default(),
-                           MachineInfo::BuiltIn(
-                               BuiltInMachines::Produce,
-                               ProgramInfo {
-                                   hardcoded_inputs: passed_inputs.clone(),
-                               },
+                       );
+                       map.add_tile(
+                           location - Vec2::new(0, 2),
+                           TileProgram::Machine(
+                               Dir::default(),
+                               MachineInfo::BuiltIn(
+                                   BuiltInMachines::Produce,
+                                   ProgramInfo {
+                                       hardcoded_inputs: passed_inputs.clone(),
+                                   },
+                               ),
                            ),
-                       ),
-                   );
-                   map
-               };
+                       );
+                       map
+                   };
 
-               assert_eq!(
+                   assert_eq!(
+                       evaluation::evaluate(map, hash_map! {})
+                           .0
+                           .get_inputs(location),
+                       Some(passed_inputs)
+                   );
+               }
+
+               // this causes an infinite loop even though it doesn't strictly need to in the current setup.
+               // get_input_to_coordinate just needs to check the contents of the tile it's accessing, and
+               // only actually attempt to compute it if it can possibly output anything in the direction
+               // that's being asked about
+               // However, some infinite loops are inevitable, and since I'm eventaully going to rearch
+               // everything anyway I don't feel like bothering to fix this when it'll just have to be
+               // redone once I switch to lazy evaluation (or pull-based instead of push-based).
+               #[test]
+               #[ignore]
+               fn unecessary_infinite_loop() {
+                   let data = Data::Number(2);
+                   let location = Vec2::new(3, 3);
+
+                   let map = {
+                       let mut map = empty_map();
+                       map.add_tile(
+                           location,
+                           TileProgram::Machine(
+                               Dir::North,
+                               MachineInfo::BuiltIn(
+                                   BuiltInMachines::Produce,
+                                   ProgramInfo {
+                                       hardcoded_inputs: btree_map! {},
+                                       ..ProgramInfo::empty()
+                                   },
+                               ),
+                           ),
+                       );
+                       map.add_tile(
+                           location - Vec2::new(0, 1),
+                           TileProgram::Machine(
+                               Dir::South,
+                               MachineInfo::BuiltIn(
+                                   BuiltInMachines::Produce,
+                                   ProgramInfo {
+                                       hardcoded_inputs: btree_map! {},
+                                       ..ProgramInfo::empty()
+                                   },
+                               ),
+                           ),
+                       );
+                       map
+                   };
+
                    evaluation::evaluate(map, hash_map! {})
                        .0
-                       .get_inputs(location),
-                   Some(passed_inputs)
-               );
-           }
-
-           // this causes an infinite loop even though it doesn't strictly need to in the current setup.
-           // get_input_to_coordinate just needs to check the contents of the tile it's accessing, and
-           // only actually attempt to compute it if it can possibly output anything in the direction
-           // that's being asked about
-           // However, some infinite loops are inevitable, and since I'm eventaully going to rearch
-           // everything anyway I don't feel like bothering to fix this when it'll just have to be
-           // redone once I switch to lazy evaluation (or pull-based instead of push-based).
-           #[test]
-           #[ignore]
-           fn unecessary_infinite_loop() {
-               let data = Data::Number(2);
-               let location = Vec2::new(3, 3);
-
-               let map = {
-                   let mut map = empty_map();
-                   map.add_tile(
-                       location,
-                       TileProgram::Machine(
-                           Dir::North,
-                           MachineInfo::BuiltIn(
-                               BuiltInMachines::Produce,
-                               ProgramInfo {
-                                   hardcoded_inputs: btree_map! {},
-                                   ..ProgramInfo::empty()
-                               },
-                           ),
-                       ),
-                   );
-                   map.add_tile(
-                       location - Vec2::new(0, 1),
-                       TileProgram::Machine(
-                           Dir::South,
-                           MachineInfo::BuiltIn(
-                               BuiltInMachines::Produce,
-                               ProgramInfo {
-                                   hardcoded_inputs: btree_map! {},
-                                   ..ProgramInfo::empty()
-                               },
-                           ),
-                       ),
-                   );
-                   map
-               };
-
-               evaluation::evaluate(map, hash_map! {})
-                   .0
-                   .get_inputs(location);
-           }
-       }
-    */
+                       .get_inputs(location);
+               }
+        */
+    }
 }
