@@ -609,7 +609,7 @@ pub mod tilemap {
             let new_location = direction.shift(location);
             if let Some(new_location) = self.check_in_bounds_i(new_location) {
                 if let Some(hit) = self.get(new_location) {
-                    RaycastHit::HitTile(new_location, direction, hit)
+                    RaycastHit::HitTile(new_location, -direction, hit)
                 } else {
                     self.raycast(GridLineDir::new(new_location, direction))
                 }

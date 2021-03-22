@@ -90,12 +90,24 @@ fn force(
             }
         }
         RaycastHit::HitTile(hit_location, dir, tile_data) => {
+            let hit_normal = GridLineDir::new(hit_location, dir);
+
             let tile_positions =
                 prog.spec
                     .get_tile_positions(&tile_data.0, &tile_data.1, &tile_data.2);
             let tile_positions = tile_positions.expect("Invalid tile somehow >:(");
-            let io_map = tile_positions.get(&hit_location);
-            todo!()
+            let io_map = tile_positions
+                .get(&hit_location)
+                .expect("tile hit somehow not in result of calling tile_positions");
+            let io_typ = io_map.get(&dir);
+            if let Some(io_typ) = io_typ {
+                match io_typ {
+                    IOType::In(_) => Data::Nothing(hit_normal),
+                    IOType::Out(_) => Data::ThunkPure(hit_normal),
+                }
+            } else {
+                Data::Nothing(hit_normal)
+            }
         }
     }
 }

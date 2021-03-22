@@ -90,11 +90,6 @@ pub mod tiles {
         Trace(D),
         Produce(D),
     }
-    #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
-    pub enum IOType {
-        In(String),
-        Out(String),
-    }
 
     impl<D> BuiltInMachine<D> {
         /*
@@ -280,7 +275,10 @@ pub mod tiles {
         fn shape(&self) -> NonEmptyIndexMap<Vec2i, Self::ExtraInfo> {
             match self {
                 TileWorld::Phys(t) => t.shape(),
-                TileWorld::Prog(t) => NonEmptyIndexMap::from_iterator(t.shape().into_iter().map(|(loc, _)| (loc, ()))).unwrap(),
+                TileWorld::Prog(t) => {
+                    NonEmptyIndexMap::from_iterator(t.shape().into_iter().map(|(loc, _)| (loc, ())))
+                        .unwrap()
+                }
             }
         }
     }
@@ -546,6 +544,11 @@ pub mod data {
     use frunk::monoid::Monoid;
     use frunk::semigroup::Semigroup;
 
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
+    pub enum IOType {
+        In(String),
+        Out(String),
+    }
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum DataType {
         Number,
