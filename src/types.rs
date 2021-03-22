@@ -229,9 +229,41 @@ pub mod tiles {
     }
 
     impl<T> tilemap::Shaped for TileProgramF<T> {
-        type ExtraInfo = ();
+        type ExtraInfo = DirMap<Option<IOType>>;
         fn shape(&self) -> nonempty::NonEmpty<(Vec2i, Self::ExtraInfo)> {
-            nonempty::NonEmpty::new((Vec2i::new(0, 0), ())) // assume only one tile at position (0,0)
+            match self {
+                TileProgramF::Machine(a) => match a {
+                    MachineInfo::BuiltIn(builtin, _) => match builtin {
+                        BuiltInMachine::Iffy(_, _, _) => nonempty::NonEmpty::new((
+                            Vec2i::new(0, 0),
+                            DirMap {
+                                north: Some(IOType::Out("output".to_owned())),
+                                east: Some(IOType::In("a".to_owned())),
+                                south: Some(IOType::In("boolean".to_owned())),
+                                west: Some(IOType::In("b".to_owned())),
+                            },
+                        )),
+                        BuiltInMachine::Trace(_) => nonempty::NonEmpty::new((
+                            Vec2i::new(0, 0),
+                            DirMap {
+                                north: None,
+                                east: None,
+                                south: Some(IOType::In("trace".to_owned())),
+                                west: None,
+                            },
+                        )),
+                        BuiltInMachine::Produce(_) => nonempty::NonEmpty::new((
+                            Vec2i::new(0, 0),
+                            DirMap {
+                                north: Some(IOType::Out("output".to_owned())),
+                                east: None,
+                                south: Some(IOType::In("trace".to_owned())),
+                                west: None,
+                            },
+                        )),
+                    },
+                },
+            }
         }
     }
 
@@ -247,7 +279,7 @@ pub mod tiles {
         fn shape(&self) -> nonempty::NonEmpty<(Vec2i, Self::ExtraInfo)> {
             match self {
                 TileWorld::Phys(t) => t.shape(),
-                TileWorld::Prog(t) => t.shape(),
+                TileWorld::Prog(t) => t.shape().map(|v| (v.0, ())),
             }
         }
     }
