@@ -207,7 +207,12 @@ pub mod direction {
             } else {
                 let tile = side.shift(tile);
                 let side = -side;
-                Self::new(tile, side)
+
+                let tile = Vec2i::new(tile.x.as_(), tile.y.as_());
+                Self {
+                    location: tile,
+                    side: side.basis,
+                }
             }
         }
     }
@@ -218,13 +223,21 @@ pub mod direction {
     }
     impl GridLineDir {
         pub fn parts(self) -> (Vec2i, Dir) {
-            (
-                self.grid_line.location,
-                Dir {
+            if self.direction == Sign::Positive {
+                (
+                    self.grid_line.location,
+                    Dir {
+                        basis: self.grid_line.side,
+                        sign: self.direction,
+                    },
+                )
+            } else {
+                let dir = Dir {
                     basis: self.grid_line.side,
                     sign: self.direction,
-                },
-            )
+                };
+                ((-dir).shift(self.grid_line.location), dir)
+            }
         }
 
         pub fn new<
@@ -588,14 +601,15 @@ pub mod tilemap {
                 "raycast out of bounds"
             );
             let (location, direction) = grid_line_dir.parts();
-            if let Some(location) = self.check_in_bounds_i(location) {
+            let new_location = direction.shift(location);
+            if let Some(location) = self.check_in_bounds_i(new_location) {
                 if let Some(hit) = self.get(location) {
-                    (GridLineDir::new(location, -direction), Some(hit))
+                    (GridLineDir::new(new_location, -direction), Some(hit))
                 } else {
-                    self.raycast(GridLineDir::new(location, direction))
+                    self.raycast(GridLineDir::new(new_location, direction))
                 }
             } else {
-                (GridLineDir::new(location, -direction), None)
+                (GridLineDir::new(new_location, -direction), None)
             }
         }
 

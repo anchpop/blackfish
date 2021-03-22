@@ -197,10 +197,7 @@ mod tests {
     }
 
     #[cfg(test)]
-    mod gridlines {}
-
-    #[cfg(test)]
-    mod raycast {
+    mod gridlines {
         use std::collections::BTreeMap;
 
         use frunk::Monoid;
@@ -209,50 +206,217 @@ mod tests {
         use crate::evaluation;
 
         #[test]
-        fn test_ray_hit_edge() {
-            let prog = in_out_id_prog();
-
-            let (raycast_hit_gridline, raycast_hit) = prog
-                .spec
-                .raycast(GridLineDir::new(Vec2::new(5, 0), Dir::west));
-
-            assert_eq!(raycast_hit, None);
+        fn grid_line_east() {
             assert_eq!(
-                raycast_hit_gridline,
+                GridLine {
+                    location: Vec2i::new(-1, 0),
+                    side: Basis::East
+                },
+                GridLine::new(Vec2i::new(-1, 0), Dir::east)
+            );
+        }
+        #[test]
+        fn grid_line_north() {
+            assert_eq!(
+                GridLine {
+                    location: Vec2i::new(-1, 0),
+                    side: Basis::North
+                },
+                GridLine::new(Vec2i::new(-1, 0), Dir::north)
+            );
+        }
+        #[test]
+        fn grid_line_south() {
+            assert_eq!(
+                GridLine {
+                    location: Vec2i::new(-1, -1),
+                    side: Basis::North
+                },
+                GridLine::new(Vec2i::new(-1, 0), Dir::south)
+            );
+        }
+        #[test]
+        fn grid_line_west() {
+            assert_eq!(
+                GridLine {
+                    location: Vec2i::new(-2, 0),
+                    side: Basis::East
+                },
+                GridLine::new(Vec2i::new(-1, 0), Dir::west)
+            );
+        }
+
+        #[test]
+        fn grid_line_dir_east() {
+            assert_eq!(
+                GridLineDir {
+                    grid_line: GridLine {
+                        location: Vec2i::new(-1, 0),
+                        side: Basis::East
+                    },
+                    direction: Sign::Positive
+                },
                 GridLineDir::new(Vec2i::new(-1, 0), Dir::east)
             );
         }
-
         #[test]
-        fn test_ray_hit_machine() {
-            let prog = in_out_id_with_indirection_prog();
-
-            let (raycast_hit_gridline, raycast_hit) = prog
-                .spec
-                .raycast(GridLineDir::new(Vec2::new(5, 0), Dir::west));
-
-            assert!(raycast_hit.is_some());
+        fn grid_line_dir_north() {
             assert_eq!(
-                raycast_hit_gridline,
-                GridLineDir::new(Vec2i::new(3, 0), Dir::east)
+                GridLineDir {
+                    grid_line: GridLine {
+                        location: Vec2i::new(-1, 0),
+                        side: Basis::North
+                    },
+                    direction: Sign::Positive
+                },
+                GridLineDir::new(Vec2i::new(-1, 0), Dir::north)
             );
         }
         #[test]
-        fn test_ray_hit_machine_2() {
-            let prog = in_out_id_with_indirection_prog();
-
-            let (raycast_hit_gridline, raycast_hit) = prog
-                .spec
-                .raycast(GridLineDir::new(Vec2::new(6, 0), Dir::west));
-
-            assert!(raycast_hit.is_some());
+        fn grid_line_dir_west() {
             assert_eq!(
-                raycast_hit_gridline,
-                GridLineDir::new(Vec2i::new(3, 0), Dir::east)
+                GridLineDir {
+                    grid_line: GridLine {
+                        location: Vec2i::new(-2, 0),
+                        side: Basis::East
+                    },
+                    direction: Sign::Negative
+                },
+                GridLineDir::new(Vec2i::new(-1, 0), Dir::west)
             );
+        }
+
+        #[test]
+        fn grid_line_dir_south() {
+            assert_eq!(
+                GridLineDir {
+                    grid_line: GridLine {
+                        location: Vec2i::new(-1, -1),
+                        side: Basis::North
+                    },
+                    direction: Sign::Negative
+                },
+                GridLineDir::new(Vec2i::new(-1, 0), Dir::south)
+            );
+        }
+
+        #[test]
+        fn grid_line_dir_parts_north() {
+            let start = Vec2i::new(-1, 0);
+            let dir = Dir::north;
+
+            let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).parts();
+            assert_eq!(start, recovered_start);
+        }
+        #[test]
+        fn grid_line_dir_parts_south() {
+            let start = Vec2i::new(-1, 0);
+            let dir = Dir::south;
+
+            let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).parts();
+            assert_eq!(start, recovered_start);
+        }
+        #[test]
+        fn grid_line_dir_parts_east() {
+            let start = Vec2i::new(-1, 0);
+            let dir = Dir::east;
+
+            let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).parts();
+            assert_eq!(start, recovered_start);
+        }
+        #[test]
+        fn grid_line_dir_parts_west() {
+            let start = Vec2i::new(-1, 0);
+            let dir = Dir::west;
+
+            let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).parts();
+            assert_eq!(start, recovered_start);
         }
     }
+    /*
+       #[cfg(test)]
+       mod raycast {
+           use std::collections::BTreeMap;
 
+           use frunk::Monoid;
+
+           use super::*;
+           use crate::evaluation;
+
+           #[test]
+           fn test_ray_hit_edge() {
+               let prog = in_out_id_prog();
+
+               let (raycast_hit_gridline, raycast_hit) = prog
+                   .spec
+                   .raycast(GridLineDir::new(Vec2::new(5, 0), Dir::west));
+
+               assert_eq!(raycast_hit, None);
+               assert_eq!(
+                   raycast_hit_gridline,
+                   GridLineDir::new(Vec2i::new(-1, 0), Dir::east)
+               );
+           }
+
+           #[test]
+           fn test_ray_hit_machine() {
+               let prog = in_out_id_with_indirection_prog();
+
+               let (raycast_hit_gridline, raycast_hit) = prog
+                   .spec
+                   .raycast(GridLineDir::new(Vec2::new(5, 0), Dir::west));
+
+               assert!(raycast_hit.is_some());
+               assert_eq!(
+                   raycast_hit_gridline,
+                   GridLineDir::new(Vec2i::new(3, 0), Dir::east)
+               );
+           }
+           #[test]
+           fn test_ray_hit_machine_2() {
+               let prog = in_out_id_with_indirection_prog();
+
+               let (raycast_hit_gridline, raycast_hit) = prog
+                   .spec
+                   .raycast(GridLineDir::new(Vec2::new(6, 0), Dir::west));
+
+               assert!(raycast_hit.is_some());
+               assert_eq!(
+                   raycast_hit_gridline,
+                   GridLineDir::new(Vec2i::new(3, 0), Dir::east)
+               );
+           }
+
+           #[test]
+           fn test_ray_hit_machine_other_way() {
+               let prog = in_out_id_with_indirection_prog();
+
+               let (raycast_hit_gridline, raycast_hit) = prog
+                   .spec
+                   .raycast(GridLineDir::new(Vec2::new(0, 0), Dir::east));
+
+               assert!(raycast_hit.is_some());
+               assert_eq!(
+                   raycast_hit_gridline,
+                   GridLineDir::new(Vec2i::new(3, 0), Dir::west)
+               );
+           }
+           #[test]
+           fn test_ray_hit_machine_other_way_2() {
+               let prog = in_out_id_with_indirection_prog();
+
+               let (raycast_hit_gridline, raycast_hit) = prog
+                   .spec
+                   .raycast(GridLineDir::new(Vec2::new(1, 0), Dir::east));
+
+               assert!(raycast_hit.is_some());
+               assert_eq!(
+                   raycast_hit_gridline,
+                   GridLineDir::new(Vec2i::new(3, 0), Dir::west)
+               );
+           }
+       }
+    */
     #[cfg(test)]
     mod input_output {
         use std::collections::BTreeMap;
