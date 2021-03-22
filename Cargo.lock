@@ -782,7 +782,7 @@ dependencies = [
  "frunk",
  "midir",
  "ndarray",
- "nonempty",
+ "non-empty-collections",
  "num-traits 0.1.43",
  "proptest",
  "rand 0.7.3",
@@ -2588,10 +2588,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "nonempty"
-version = "0.6.0"
+name = "non-empty-collections"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fa586da3e43cc7df44aae0e21ed2e743218b876de3f38035683d30bd8a3828e"
+checksum = "5c42b53ccc74db1fb5dc55ae151cb40d9bd712556c4ccc0bac6216df49ce6485"
+dependencies = [
+ "indexmap",
+ "serde",
+]
 
 [[package]]
 name = "notify"

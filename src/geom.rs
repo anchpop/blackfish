@@ -428,7 +428,7 @@ pub mod tilemap {
     use super::direction::*;
     use super::{Extent2, Vec2, Vec2i};
     use ndarray::{arr2, Array2};
-    use nonempty::NonEmpty;
+    use non_empty_collections::index_map::NonEmptyIndexMap;
     use proptest::collection::hash_set;
     use slotmap::{new_key_type, Key, SlotMap};
     use std::{
@@ -438,7 +438,7 @@ pub mod tilemap {
     };
     pub trait Shaped {
         type ExtraInfo: Rotatable;
-        fn shape(&self) -> NonEmpty<(Vec2i, Self::ExtraInfo)>;
+        fn shape(&self) -> NonEmptyIndexMap<Vec2i, Self::ExtraInfo>;
     }
     #[derive(Debug, Clone)]
     pub struct Tilemap<K: Key, I: Shaped> {

@@ -39,6 +39,7 @@ pub struct Materials {
 
 pub mod tiles {
     use crate::geom::tilemap::Shaped;
+    use non_empty_collections::index_map::NonEmptyIndexMap;
 
     use super::data::*;
     use super::*;
@@ -230,11 +231,11 @@ pub mod tiles {
 
     impl<T> tilemap::Shaped for TileProgramF<T> {
         type ExtraInfo = DirMap<Option<IOType>>;
-        fn shape(&self) -> nonempty::NonEmpty<(Vec2i, Self::ExtraInfo)> {
+        fn shape(&self) -> NonEmptyIndexMap<Vec2i, Self::ExtraInfo> {
             match self {
                 TileProgramF::Machine(a) => match a {
                     MachineInfo::BuiltIn(builtin, _) => match builtin {
-                        BuiltInMachine::Iffy(_, _, _) => nonempty::NonEmpty::new((
+                        BuiltInMachine::Iffy(_, _, _) => NonEmptyIndexMap::new(
                             Vec2i::new(0, 0),
                             DirMap {
                                 north: Some(IOType::Out("output".to_owned())),
@@ -242,8 +243,8 @@ pub mod tiles {
                                 south: Some(IOType::In("boolean".to_owned())),
                                 west: Some(IOType::In("b".to_owned())),
                             },
-                        )),
-                        BuiltInMachine::Trace(_) => nonempty::NonEmpty::new((
+                        ),
+                        BuiltInMachine::Trace(_) => NonEmptyIndexMap::new(
                             Vec2i::new(0, 0),
                             DirMap {
                                 north: None,
@@ -251,8 +252,8 @@ pub mod tiles {
                                 south: Some(IOType::In("trace".to_owned())),
                                 west: None,
                             },
-                        )),
-                        BuiltInMachine::Produce(_) => nonempty::NonEmpty::new((
+                        ),
+                        BuiltInMachine::Produce(_) => NonEmptyIndexMap::new(
                             Vec2i::new(0, 0),
                             DirMap {
                                 north: Some(IOType::Out("output".to_owned())),
@@ -260,7 +261,7 @@ pub mod tiles {
                                 south: Some(IOType::In("trace".to_owned())),
                                 west: None,
                             },
-                        )),
+                        ),
                     },
                 },
             }
@@ -269,17 +270,17 @@ pub mod tiles {
 
     impl tilemap::Shaped for TilePhysics {
         type ExtraInfo = ();
-        fn shape(&self) -> nonempty::NonEmpty<(Vec2i, Self::ExtraInfo)> {
-            nonempty::NonEmpty::new((Vec2i::new(0, 0), ())) // assume only one tile at position (0,0)
+        fn shape(&self) -> NonEmptyIndexMap<Vec2i, Self::ExtraInfo> {
+            NonEmptyIndexMap::new(Vec2i::new(0, 0), ()) // assume only one tile at position (0,0)
         }
     }
 
     impl tilemap::Shaped for TileWorld {
         type ExtraInfo = ();
-        fn shape(&self) -> nonempty::NonEmpty<(Vec2i, Self::ExtraInfo)> {
+        fn shape(&self) -> NonEmptyIndexMap<Vec2i, Self::ExtraInfo> {
             match self {
                 TileWorld::Phys(t) => t.shape(),
-                TileWorld::Prog(t) => t.shape().map(|v| (v.0, ())),
+                TileWorld::Prog(t) => NonEmptyIndexMap::from_iterator(t.shape().into_iter().map(|(loc, _)| (loc, ()))).unwrap(),
             }
         }
     }
