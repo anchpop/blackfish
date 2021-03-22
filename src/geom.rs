@@ -550,12 +550,11 @@ pub mod tilemap {
                 "raycast out of bounds"
             );
             let (location, direction) = grid_line_dir.parts();
-            let new_location = direction.shift(location);
-            if let Some(new_location) = self.check_in_bounds_i(new_location) {
-                if let Some(hit) = self.get(new_location) {
-                    (GridLineDir::new(new_location, -direction), Some(hit))
+            if let Some(location) = self.check_in_bounds_i(location) {
+                if let Some(hit) = self.get(location) {
+                    (GridLineDir::new(location, -direction), Some(hit))
                 } else {
-                    self.raycast(GridLineDir::new(new_location, direction))
+                    self.raycast(GridLineDir::new(location, direction))
                 }
             } else {
                 (GridLineDir::new(location, -direction), None)

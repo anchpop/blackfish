@@ -39,7 +39,6 @@ pub fn evaluate(
         })
         .collect();
 
-    println!("getting outputs");
     let outputs: HashMap<uuid::Uuid, Data> = prog
         .outputs
         .iter()

@@ -1,6 +1,7 @@
 use crate::geom::direction::*;
 use crate::geom::Extent2;
 use crate::geom::Vec2;
+use crate::geom::Vec2i;
 use crate::types::data::*;
 use crate::types::tilemaps::*;
 use crate::types::tiles::*;
@@ -17,8 +18,29 @@ use velcro::hash_map;
 use crate::evaluation;
 
 pub fn default_program() -> TilemapProgram {
-    in_out_id_prog()
+    in_out_id_with_indirection_prog()
 }
+
+pub fn in_out_id_with_indirection_prog() -> TilemapProgram {
+    in_out_id_prog()
+        .try_do_to_map(|map| {
+            map.add(
+                Vec2::new(3, 0),
+                Dir::default(),
+                TileProgram::Machine(MachineInfo::BuiltIn(
+                    BuiltInMachine::Produce(()),
+                    ProgramInfo {
+                        hardcoded_inputs: btree_map! {
+                            "product".to_string(): Data::Number(3)
+                        },
+                        ..ProgramInfo::empty()
+                    },
+                )),
+            )
+        })
+        .unwrap()
+}
+
 pub fn in_out_id_prog() -> TilemapProgram {
     let clock_uuid = uuid::Uuid::new_v4();
     let audio_uuid = uuid::Uuid::new_v4();
@@ -174,7 +196,62 @@ mod tests {
         }
     }
 
-    // should probably test raycasts
+    #[cfg(test)]
+    mod gridlines {}
+
+    #[cfg(test)]
+    mod raycast {
+        use std::collections::BTreeMap;
+
+        use frunk::Monoid;
+
+        use super::*;
+        use crate::evaluation;
+
+        #[test]
+        fn test_ray_hit_edge() {
+            let prog = in_out_id_prog();
+
+            let (raycast_hit_gridline, raycast_hit) = prog
+                .spec
+                .raycast(GridLineDir::new(Vec2::new(5, 0), Dir::west));
+
+            assert_eq!(raycast_hit, None);
+            assert_eq!(
+                raycast_hit_gridline,
+                GridLineDir::new(Vec2i::new(-1, 0), Dir::east)
+            );
+        }
+
+        #[test]
+        fn test_ray_hit_machine() {
+            let prog = in_out_id_with_indirection_prog();
+
+            let (raycast_hit_gridline, raycast_hit) = prog
+                .spec
+                .raycast(GridLineDir::new(Vec2::new(5, 0), Dir::west));
+
+            assert!(raycast_hit.is_some());
+            assert_eq!(
+                raycast_hit_gridline,
+                GridLineDir::new(Vec2i::new(3, 0), Dir::east)
+            );
+        }
+        #[test]
+        fn test_ray_hit_machine_2() {
+            let prog = in_out_id_with_indirection_prog();
+
+            let (raycast_hit_gridline, raycast_hit) = prog
+                .spec
+                .raycast(GridLineDir::new(Vec2::new(6, 0), Dir::west));
+
+            assert!(raycast_hit.is_some());
+            assert_eq!(
+                raycast_hit_gridline,
+                GridLineDir::new(Vec2i::new(3, 0), Dir::east)
+            );
+        }
+    }
 
     #[cfg(test)]
     mod input_output {
@@ -189,6 +266,21 @@ mod tests {
         fn test_id_program() {
             let data = Data::Number(0);
             let prog = in_out_id_prog();
+
+            let input_uuid = prog.inputs[0].0;
+            let output_uuid = prog.outputs[0].0;
+
+            let result = evaluation::evaluate(
+                prog.clone(),
+                std::array::IntoIter::new([(input_uuid, data.clone())]).collect(),
+            );
+            assert_eq!(result.1.get(&output_uuid).unwrap(), &data);
+        }
+
+        #[test]
+        fn test_id_program_with_indirection() {
+            let data = Data::Number(0);
+            let prog = in_out_id_with_indirection_prog();
 
             let input_uuid = prog.inputs[0].0;
             let output_uuid = prog.outputs[0].0;
