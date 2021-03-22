@@ -222,6 +222,14 @@ pub mod tiles {
                 }
             }
         }
+
+        pub fn get_inputs(
+            &self,
+            location: &Vec2,
+            orientation: &Dir,
+        ) -> HashMap<String, GridLineDir> {
+            todo!()
+        }
     }
 
     impl<T> tilemap::Shaped for TileProgramF<T> {
@@ -557,7 +565,7 @@ pub mod data {
     pub enum Data {
         Nothing(GridLineDir),
         ThunkPure(GridLineDir),
-        ThunkBuiltinOp(Box<BuiltInMachine<Data>>),
+        ThunkBuiltinOp(Box<BuiltInMachine<Data>>, String),
         Number(i32),
     }
     impl Semigroup for Data {
@@ -570,7 +578,7 @@ pub mod data {
             match self {
                 Data::Nothing(hit) => format!("nothing: {:?}", hit),
                 Data::ThunkPure(dep) => format!("thunk: {:?}", dep),
-                Data::ThunkBuiltinOp(op) => format!("op: {:?}", op.name()),
+                Data::ThunkBuiltinOp(op, _) => format!("op: {:?}", op.name()),
                 Data::Number(num) => format!("{}", num),
             }
         }
@@ -578,7 +586,7 @@ pub mod data {
             match (self, t) {
                 (Data::Nothing(_), _) => true,
                 (Data::ThunkPure(_), _) => true,
-                (Data::ThunkBuiltinOp(_), _) => true,
+                (Data::ThunkBuiltinOp(_, _), _) => true,
                 (Data::Number(_), DataType::Number) => true,
             }
         }

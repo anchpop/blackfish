@@ -27,6 +27,25 @@ pub fn in_out_id_with_indirection_prog() -> TilemapProgram {
         .try_do_to_map(|map| {
             map.add(
                 Vec2::new(3, 0),
+                Dir::east,
+                TileProgram::Machine(MachineInfo::BuiltIn(
+                    BuiltInMachine::Produce(()),
+                    ProgramInfo {
+                        hardcoded_inputs: btree_map! {
+                            "product".to_string(): Data::Number(3)
+                        },
+                        ..ProgramInfo::empty()
+                    },
+                )),
+            )
+        })
+        .unwrap()
+}
+pub fn in_out_id_blocked_prog() -> TilemapProgram {
+    in_out_id_prog()
+        .try_do_to_map(|map| {
+            map.add(
+                Vec2::new(3, 0),
                 Dir::default(),
                 TileProgram::Machine(MachineInfo::BuiltIn(
                     BuiltInMachine::Produce(()),
@@ -150,6 +169,7 @@ mod tests {
     #[cfg(test)]
     mod equality {
         use super::*;
+        use pretty_assertions::{assert_eq, assert_ne};
 
         #[test]
         fn basic_tilemap_equality_empty() {
@@ -199,6 +219,7 @@ mod tests {
 
     #[cfg(test)]
     mod gridlines {
+        use pretty_assertions::{assert_eq, assert_ne};
         use std::collections::BTreeMap;
 
         use frunk::Monoid;
@@ -337,6 +358,7 @@ mod tests {
 
     #[cfg(test)]
     mod raycast {
+        use pretty_assertions::{assert_eq, assert_ne};
         use std::collections::BTreeMap;
 
         use frunk::Monoid;
@@ -373,7 +395,7 @@ mod tests {
                     Dir::east,
                     &(
                         Vec2::new(3, 0),
-                        Dir::default(),
+                        Dir::east,
                         TileProgram::Machine(MachineInfo::BuiltIn(
                             BuiltInMachine::Produce(()),
                             ProgramInfo {
@@ -402,7 +424,7 @@ mod tests {
                     Dir::east,
                     &(
                         Vec2::new(3, 0),
-                        Dir::default(),
+                        Dir::east,
                         TileProgram::Machine(MachineInfo::BuiltIn(
                             BuiltInMachine::Produce(()),
                             ProgramInfo {
@@ -432,7 +454,7 @@ mod tests {
                     Dir::west,
                     &(
                         Vec2::new(3, 0),
-                        Dir::default(),
+                        Dir::east,
                         TileProgram::Machine(MachineInfo::BuiltIn(
                             BuiltInMachine::Produce(()),
                             ProgramInfo {
@@ -461,7 +483,7 @@ mod tests {
                     Dir::west,
                     &(
                         Vec2::new(3, 0),
-                        Dir::default(),
+                        Dir::east,
                         TileProgram::Machine(MachineInfo::BuiltIn(
                             BuiltInMachine::Produce(()),
                             ProgramInfo {
@@ -479,6 +501,7 @@ mod tests {
 
     #[cfg(test)]
     mod input_output {
+        use pretty_assertions::{assert_eq, assert_ne};
         use std::collections::BTreeMap;
 
         use frunk::Monoid;
@@ -499,6 +522,26 @@ mod tests {
                 std::array::IntoIter::new([(input_uuid, data.clone())]).collect(),
             );
             assert_eq!(result.1.get(&output_uuid).unwrap(), &data);
+        }
+
+        #[test]
+        fn test_id_program_blocked_correctly() {
+            let data = Data::Number(0);
+            let prog = in_out_id_blocked_prog();
+
+            let input_uuid = prog.inputs[0].0;
+            let output_uuid = prog.outputs[0].0;
+
+            let result = evaluation::evaluate(
+                prog.clone(),
+                std::array::IntoIter::new([(input_uuid, data.clone())]).collect(),
+            );
+            match result.1.get(&output_uuid).unwrap() {
+                Data::Nothing(_) => {}
+                _ => {
+                    panic!("should be nothing, there's no input here!")
+                }
+            }
         }
 
         #[test]

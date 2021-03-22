@@ -78,6 +78,7 @@ fn force(
     to_calc_input_to: GridLineDir,
     known: &mut HashMap<GridLineDir, Data>,
 ) -> Data {
+    println!("forcing at {:?}", to_calc_input_to);
     let raycast_hit = prog.spec.raycast(-to_calc_input_to);
     match raycast_hit {
         RaycastHit::HitBorder(hit_normal) => {
@@ -89,21 +90,41 @@ fn force(
                 Data::Nothing(hit_normal)
             }
         }
-        RaycastHit::HitTile(hit_location, dir, tile_data) => {
+        RaycastHit::HitTile(hit_location, dir, (tile_center, tile_orientation, tile)) => {
+            println!("seems to be dependent on a tile");
             let hit_normal = GridLineDir::new(hit_location, dir);
 
-            let tile_positions =
-                prog.spec
-                    .get_tile_positions(&tile_data.0, &tile_data.1, &tile_data.2);
+            let tile_positions = prog
+                .spec
+                .get_tile_positions(tile_center, tile_orientation, tile);
             let tile_positions = tile_positions.expect("Invalid tile somehow >:(");
             let io_map = tile_positions
                 .get(&hit_location)
                 .expect("tile hit somehow not in result of calling tile_positions");
             let io_typ = io_map.get(&dir);
+            println!("the tile's io type is {:?}", io_typ);
+
             if let Some(io_typ) = io_typ {
                 match io_typ {
                     IOType::In(_) => Data::Nothing(hit_normal),
-                    IOType::Out(_) => Data::ThunkPure(hit_normal),
+                    IOType::Out(_) => match tile {
+                        TileProgramF::Machine(machine_info) => match machine_info {
+                            MachineInfo::BuiltIn(built_in_machine, program_info) => {
+                                match built_in_machine {
+                                    BuiltInMachine::Produce(_) => Data::ThunkBuiltinOp(
+                                        Box::new(BuiltInMachine::Produce(Data::ThunkPure(todo!()))),
+                                        "output".to_owned(),
+                                    ),
+                                    BuiltInMachine::Iffy(_, _, _) => {
+                                        todo!()
+                                    }
+                                    BuiltInMachine::Trace(_) => {
+                                        todo!()
+                                    }
+                                }
+                            }
+                        },
+                    },
                 }
             } else {
                 Data::Nothing(hit_normal)
