@@ -1,6 +1,10 @@
-use std::collections::HashMap;
+use std::{
+    borrow::{Borrow, BorrowMut},
+    collections::HashMap,
+};
 
 use crate::geom::direction::*;
+use crate::geom::tilemap::RaycastHit;
 use crate::geom::*;
 use crate::types::data::*;
 use crate::types::tilemaps::*;
@@ -75,11 +79,23 @@ fn force(
     known: &mut HashMap<GridLineDir, Data>,
 ) -> Data {
     let raycast_hit = prog.spec.raycast(-to_calc_input_to);
-    let output_to_get = raycast_hit.0;
-    if let Some(value) = known.get(&output_to_get).cloned() {
-        known.insert(to_calc_input_to, value.clone());
-        value
-    } else {
-        todo!("{:?} not found in {:?}", &output_to_get, &known)
+    match raycast_hit {
+        RaycastHit::HitBorder(hit_normal) => {
+            // Could be hitting an input - if so, it should be in the known map
+            if let Some(value) = known.get(&hit_normal).cloned() {
+                known.insert(to_calc_input_to, value.clone());
+                value
+            } else {
+                Data::Nothing(hit_normal)
+            }
+        }
+        RaycastHit::HitTile(hit_location, dir, tile_data) => {
+            let tile_positions =
+                prog.spec
+                    .get_tile_positions(&tile_data.0, &tile_data.1, &tile_data.2);
+            let tile_positions = tile_positions.expect("Invalid tile somehow >:(");
+            let io_map = tile_positions.get(&hit_location);
+            todo!()
+        }
     }
 }

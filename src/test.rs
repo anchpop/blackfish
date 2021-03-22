@@ -1,4 +1,5 @@
 use crate::geom::direction::*;
+use crate::geom::tilemap::RaycastHit;
 use crate::geom::Extent2;
 use crate::geom::Vec2;
 use crate::geom::Vec2i;
@@ -333,90 +334,149 @@ mod tests {
             assert_eq!(start, recovered_start);
         }
     }
-    /*
-       #[cfg(test)]
-       mod raycast {
-           use std::collections::BTreeMap;
 
-           use frunk::Monoid;
+    #[cfg(test)]
+    mod raycast {
+        use std::collections::BTreeMap;
 
-           use super::*;
-           use crate::evaluation;
+        use frunk::Monoid;
 
-           #[test]
-           fn test_ray_hit_edge() {
-               let prog = in_out_id_prog();
+        use super::*;
+        use crate::evaluation;
 
-               let (raycast_hit_gridline, raycast_hit) = prog
-                   .spec
-                   .raycast(GridLineDir::new(Vec2::new(5, 0), Dir::west));
+        #[test]
+        fn test_ray_hit_edge() {
+            let prog = in_out_id_prog();
 
-               assert_eq!(raycast_hit, None);
-               assert_eq!(
-                   raycast_hit_gridline,
-                   GridLineDir::new(Vec2i::new(-1, 0), Dir::east)
-               );
-           }
+            let raycast_hit = prog
+                .spec
+                .raycast(GridLineDir::new(Vec2::new(5, 0), Dir::west));
 
-           #[test]
-           fn test_ray_hit_machine() {
-               let prog = in_out_id_with_indirection_prog();
+            assert_eq!(
+                raycast_hit,
+                RaycastHit::HitBorder(GridLineDir::new(Vec2i::new(-1, 0), Dir::east))
+            );
+        }
 
-               let (raycast_hit_gridline, raycast_hit) = prog
-                   .spec
-                   .raycast(GridLineDir::new(Vec2::new(5, 0), Dir::west));
+        #[test]
+        fn test_ray_hit_machine() {
+            let prog = in_out_id_with_indirection_prog();
 
-               assert!(raycast_hit.is_some());
-               assert_eq!(
-                   raycast_hit_gridline,
-                   GridLineDir::new(Vec2i::new(3, 0), Dir::east)
-               );
-           }
-           #[test]
-           fn test_ray_hit_machine_2() {
-               let prog = in_out_id_with_indirection_prog();
+            let raycast_hit = prog
+                .spec
+                .raycast(GridLineDir::new(Vec2::new(5, 0), Dir::west));
 
-               let (raycast_hit_gridline, raycast_hit) = prog
-                   .spec
-                   .raycast(GridLineDir::new(Vec2::new(6, 0), Dir::west));
+            assert_eq!(
+                raycast_hit,
+                RaycastHit::HitTile(
+                    Vec2::new(3, 0),
+                    Dir::east,
+                    &(
+                        Vec2::new(3, 0),
+                        Dir::default(),
+                        TileProgram::Machine(MachineInfo::BuiltIn(
+                            BuiltInMachine::Produce(()),
+                            ProgramInfo {
+                                hardcoded_inputs: btree_map! {
+                                    "product".to_string(): Data::Number(3)
+                                },
+                                ..ProgramInfo::empty()
+                            },
+                        ))
+                    )
+                )
+            );
+        }
+        #[test]
+        fn test_ray_hit_machine_2() {
+            let prog = in_out_id_with_indirection_prog();
 
-               assert!(raycast_hit.is_some());
-               assert_eq!(
-                   raycast_hit_gridline,
-                   GridLineDir::new(Vec2i::new(3, 0), Dir::east)
-               );
-           }
+            let raycast_hit = prog
+                .spec
+                .raycast(GridLineDir::new(Vec2::new(6, 0), Dir::west));
 
-           #[test]
-           fn test_ray_hit_machine_other_way() {
-               let prog = in_out_id_with_indirection_prog();
+            assert_eq!(
+                raycast_hit,
+                RaycastHit::HitTile(
+                    Vec2::new(3, 0),
+                    Dir::east,
+                    &(
+                        Vec2::new(3, 0),
+                        Dir::default(),
+                        TileProgram::Machine(MachineInfo::BuiltIn(
+                            BuiltInMachine::Produce(()),
+                            ProgramInfo {
+                                hardcoded_inputs: btree_map! {
+                                    "product".to_string(): Data::Number(3)
+                                },
+                                ..ProgramInfo::empty()
+                            },
+                        ))
+                    )
+                )
+            );
+        }
 
-               let (raycast_hit_gridline, raycast_hit) = prog
-                   .spec
-                   .raycast(GridLineDir::new(Vec2::new(0, 0), Dir::east));
+        #[test]
+        fn test_ray_hit_machine_other_way() {
+            let prog = in_out_id_with_indirection_prog();
 
-               assert!(raycast_hit.is_some());
-               assert_eq!(
-                   raycast_hit_gridline,
-                   GridLineDir::new(Vec2i::new(3, 0), Dir::west)
-               );
-           }
-           #[test]
-           fn test_ray_hit_machine_other_way_2() {
-               let prog = in_out_id_with_indirection_prog();
+            let raycast_hit = prog
+                .spec
+                .raycast(GridLineDir::new(Vec2::new(0, 0), Dir::east));
 
-               let (raycast_hit_gridline, raycast_hit) = prog
-                   .spec
-                   .raycast(GridLineDir::new(Vec2::new(1, 0), Dir::east));
+            assert_eq!(
+                raycast_hit,
+                RaycastHit::HitTile(
+                    Vec2::new(3, 0),
+                    Dir::west,
+                    &(
+                        Vec2::new(3, 0),
+                        Dir::default(),
+                        TileProgram::Machine(MachineInfo::BuiltIn(
+                            BuiltInMachine::Produce(()),
+                            ProgramInfo {
+                                hardcoded_inputs: btree_map! {
+                                    "product".to_string(): Data::Number(3)
+                                },
+                                ..ProgramInfo::empty()
+                            },
+                        ))
+                    )
+                )
+            );
+        }
+        #[test]
+        fn test_ray_hit_machine_other_way_2() {
+            let prog = in_out_id_with_indirection_prog();
 
-               assert!(raycast_hit.is_some());
-               assert_eq!(
-                   raycast_hit_gridline,
-                   GridLineDir::new(Vec2i::new(3, 0), Dir::west)
-               );
-           }
-       }
-    */
+            let raycast_hit = prog
+                .spec
+                .raycast(GridLineDir::new(Vec2::new(1, 0), Dir::east));
+
+            assert_eq!(
+                raycast_hit,
+                RaycastHit::HitTile(
+                    Vec2::new(3, 0),
+                    Dir::west,
+                    &(
+                        Vec2::new(3, 0),
+                        Dir::default(),
+                        TileProgram::Machine(MachineInfo::BuiltIn(
+                            BuiltInMachine::Produce(()),
+                            ProgramInfo {
+                                hardcoded_inputs: btree_map! {
+                                    "product".to_string(): Data::Number(3)
+                                },
+                                ..ProgramInfo::empty()
+                            },
+                        ))
+                    )
+                )
+            );
+        }
+    }
+
     #[cfg(test)]
     mod input_output {
         use std::collections::BTreeMap;

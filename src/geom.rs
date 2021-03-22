@@ -436,6 +436,12 @@ pub mod tilemap {
         iter,
         num::NonZeroUsize,
     };
+
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    pub enum RaycastHit<'a, I> {
+        HitBorder(GridLineDir),
+        HitTile(Vec2, Dir, &'a (Vec2, Dir, I)),
+    }
     pub trait Shaped {
         type ExtraInfo: Rotatable;
         fn shape(&self) -> NonEmptyIndexMap<Vec2i, Self::ExtraInfo>;
@@ -484,12 +490,12 @@ pub mod tilemap {
             self.map[[location.y, location.x]] = None
         }
 
-        fn get_tile_positions(
+        pub fn get_tile_positions(
             &self,
             location: &Vec2,
             orientation: &Dir,
             tile: &I,
-        ) -> Option<Vec<(Vec2, I::ExtraInfo)>> {
+        ) -> Option<NonEmptyIndexMap<Vec2, I::ExtraInfo>> {
             let shape = tile.shape().into_iter();
             let shape = shape.map(|v| v.rotate(orientation));
             let positions = shape.map(|(vec, extra)| {
@@ -501,6 +507,8 @@ pub mod tilemap {
                     .map(|location| (location, extra))
             });
             let positions: Option<Vec<(Vec2, I::ExtraInfo)>> = positions.collect();
+            let positions = positions
+                .map(|positions| NonEmptyIndexMap::from_iterator(positions.into_iter()).unwrap());
             positions
         }
 
@@ -592,24 +600,21 @@ pub mod tilemap {
         /// Performs a raycast from the gridline in the specified direction. Returns a GridLineDir representing the location and normal direction of the hit.
         /// (Every raycast will hit something, whether it be the bounds of the map or the bounds or a tile.) Optionally also returns tile info for
         /// if one was hit.
-        pub fn raycast(
-            &self,
-            grid_line_dir: GridLineDir,
-        ) -> (GridLineDir, Option<&(Vec2, Dir, I)>) {
+        pub fn raycast(&self, grid_line_dir: GridLineDir) -> RaycastHit<I> {
             assert!(
                 self.check_grid_line_in_bounds(grid_line_dir.grid_line),
                 "raycast out of bounds"
             );
             let (location, direction) = grid_line_dir.parts();
             let new_location = direction.shift(location);
-            if let Some(location) = self.check_in_bounds_i(new_location) {
-                if let Some(hit) = self.get(location) {
-                    (GridLineDir::new(new_location, -direction), Some(hit))
+            if let Some(new_location) = self.check_in_bounds_i(new_location) {
+                if let Some(hit) = self.get(new_location) {
+                    RaycastHit::HitTile(new_location, direction, hit)
                 } else {
                     self.raycast(GridLineDir::new(new_location, direction))
                 }
             } else {
-                (GridLineDir::new(new_location, -direction), None)
+                RaycastHit::HitBorder(GridLineDir::new(new_location, -direction))
             }
         }
 
