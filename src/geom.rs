@@ -158,33 +158,6 @@ pub mod direction {
                 _ => panic!("out of bounds"),
             }
         }
-
-        pub fn rotate(&self, by: Self) -> Self {
-            Self::from_num((self.to_num() + by.to_num()) % 4)
-        }
-        pub fn rotate_vec<I: Neg + std::ops::Neg<Output = I>>(
-            &self,
-            vec: vec::Vec2<I>,
-        ) -> vec::Vec2<I> {
-            match self {
-                Self {
-                    basis: Basis::North,
-                    sign: Sign::Positive,
-                } => vec::Vec2::new(vec.x, vec.y),
-                Self {
-                    basis: Basis::East,
-                    sign: Sign::Positive,
-                } => vec::Vec2::new(vec.y, -vec.x),
-                Self {
-                    basis: Basis::North,
-                    sign: Sign::Negative,
-                } => vec::Vec2::new(-vec.x, -vec.y),
-                Self {
-                    basis: Basis::East,
-                    sign: Sign::Negative,
-                } => vec::Vec2::new(-vec.y, vec.x),
-            }
-        }
     }
     impl Neg for Dir {
         fn neg(self) -> Self::Output {
@@ -199,6 +172,16 @@ pub mod direction {
     impl Default for Dir {
         fn default() -> Self {
             Self::north
+        }
+    }
+
+    pub trait Rotatable {
+        fn rotate(self, dir: &Dir) -> Self;
+    }
+
+    impl Rotatable for Dir {
+        fn rotate(self, by: &Dir) -> Self {
+            Self::from_num((self.to_num() + by.to_num()) % 4)
         }
     }
 
@@ -339,14 +322,6 @@ pub mod direction {
                 west,
             }
         }
-
-        pub fn rotate(self, dir: &Dir) -> Self {
-            Self::deitemize({
-                let mut items = self.itemize();
-                items.rotate_right(dir.to_num());
-                items
-            })
-        }
     }
 
     impl<V> IntoIterator for DirMap<V> {
@@ -385,6 +360,55 @@ pub mod direction {
             }
         }
     }
+
+    impl<V> Rotatable for DirMap<V> {
+        fn rotate(self, by: &Dir) -> Self {
+            Self::deitemize({
+                let mut items = self.itemize();
+                items.rotate_right(by.to_num());
+                items
+            })
+        }
+    }
+    impl<I: Neg + std::ops::Neg<Output = I>> Rotatable for vek::Vec2<I> {
+        fn rotate(self, by: &Dir) -> Self {
+            match by {
+                Dir {
+                    basis: Basis::North,
+                    sign: Sign::Positive,
+                } => Self::new(self.x, self.y),
+                Dir {
+                    basis: Basis::East,
+                    sign: Sign::Positive,
+                } => Self::new(self.y, -self.x),
+                Dir {
+                    basis: Basis::North,
+                    sign: Sign::Negative,
+                } => Self::new(-self.x, -self.y),
+                Dir {
+                    basis: Basis::East,
+                    sign: Sign::Negative,
+                } => Self::new(-self.y, self.x),
+            }
+        }
+    }
+
+    impl Rotatable for () {
+        fn rotate(self, _by: &Dir) -> Self {
+            ()
+        }
+    }
+    impl<T1: Rotatable> Rotatable for (T1,) {
+        fn rotate(self, by: &Dir) -> Self {
+            (self.0.rotate(by),)
+        }
+    }
+
+    impl<T1: Rotatable, T2: Rotatable> Rotatable for (T1, T2) {
+        fn rotate(self, by: &Dir) -> Self {
+            (self.0.rotate(by), self.1.rotate(by))
+        }
+    }
 }
 
 pub mod tilemap {
@@ -400,7 +424,7 @@ pub mod tilemap {
         num::NonZeroUsize,
     };
     pub trait Shaped {
-        type ExtraInfo;
+        type ExtraInfo: Rotatable;
         fn shape(&self) -> NonEmpty<(Vec2i, Self::ExtraInfo)>;
     }
     #[derive(Debug, Clone)]
@@ -452,15 +476,18 @@ pub mod tilemap {
             location: &Vec2,
             orientation: &Dir,
             tile: &I,
-        ) -> Option<Vec<Vec2>> {
+        ) -> Option<Vec<(Vec2, I::ExtraInfo)>> {
             let shape = tile.shape().into_iter();
-            let shape = shape.map(|v| orientation.rotate_vec(v.0));
-            let positions = shape.map(|v| {
+            let shape = shape.map(|v| v.rotate(orientation));
+            let positions = shape.map(|(vec, extra)| {
                 let location: Vec2i = Vec2i::new(location.x as i64, location.y as i64);
-                location + v
+                (location + vec, extra)
             });
-            let positions = positions.map(|location| self.check_in_bounds_i(location));
-            let positions: Option<Vec<Vec2>> = positions.collect();
+            let positions = positions.map(|(location, extra)| {
+                self.check_in_bounds_i(location)
+                    .map(|location| (location, extra))
+            });
+            let positions: Option<Vec<(Vec2, I::ExtraInfo)>> = positions.collect();
             positions
         }
 
@@ -470,9 +497,12 @@ pub mod tilemap {
 
         pub fn add(mut self, location: Vec2, orientation: Dir, tile: I) -> Result<Self, Self> {
             if let Some(to_place) = self.get_tile_positions(&location, &orientation, &tile) {
-                if to_place.iter().all(|to_place| self.check_empty(*to_place)) {
+                if to_place
+                    .iter()
+                    .all(|(location, _)| self.check_empty(*location))
+                {
                     let key = self.tiles.insert((location, orientation, tile));
-                    for location in to_place {
+                    for (location, _) in to_place {
                         self.set_loc(location, key)
                     }
                     Ok(self)
@@ -496,14 +526,21 @@ pub mod tilemap {
                 if let Some(new_tile_positions) =
                     self.get_tile_positions(&new_tile.0, &new_tile.1, &new_tile.2)
                 {
-                    let new_tile_positions: HashSet<Vec2> =
-                        new_tile_positions.into_iter().collect();
+                    let new_tile_positions: HashSet<Vec2> = new_tile_positions
+                        .into_iter()
+                        .map(|(location, _)| location)
+                        .collect();
 
                     let old_tile_positions: HashSet<Vec2> = old_tile
                         .and_then(|old_tile| {
                             self.get_tile_positions(&old_tile.0, &old_tile.1, &old_tile.2)
                         })
-                        .map(|positions| positions.into_iter().collect::<HashSet<Vec2>>())
+                        .map(|positions| {
+                            positions
+                                .into_iter()
+                                .map(|(location, _)| location)
+                                .collect::<HashSet<Vec2>>()
+                        })
                         .unwrap_or(HashSet::new());
 
                     let changed_tiles = new_tile_positions.difference(&old_tile_positions);
@@ -530,8 +567,8 @@ pub mod tilemap {
                 let to_remove = self
                     .get_tile_positions(location, orientation, tile)
                     .expect("Tile should never be invalid while on the board");
-                for to_remove in to_remove {
-                    self.unset_loc(to_remove)
+                for (location, _) in to_remove {
+                    self.unset_loc(location)
                 }
                 todo!()
             } else {
