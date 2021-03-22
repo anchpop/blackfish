@@ -186,7 +186,7 @@ mod tests {
         use crate::evaluation;
 
         #[test]
-        fn get_inputs_to_coordinate() {
+        fn test_id_program() {
             let data = Data::Number(0);
             let prog = in_out_id_prog();
 

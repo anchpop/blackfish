@@ -110,20 +110,22 @@ pub mod direction {
             }
         }
 
-        pub fn shift<I: num_traits::WrappingAdd + num_traits::FromPrimitive>(
+        pub fn shift<I: 'static + num_traits::WrappingAdd + Copy>(
             &self,
             by: vek::Vec2<I>,
-        ) -> vek::Vec2<I> {
+        ) -> vek::Vec2<I>
+        where
+            i64: num_traits::AsPrimitive<I>,
+        {
+            use num_traits::AsPrimitive;
+
             let (x, y) = (by.x, by.y);
             let v = self.to_vector();
 
             // the addition here should behave correctly,
             // see https://stackoverflow.com/questions/53453628/how-do-i-add-a-signed-integer-to-an-unsigned-integer-in-rust
             // and https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=1448b2d8f02f844f72864e10dbe98049
-            vek::Vec2::new(
-                x.wrapping_add(&num_traits::FromPrimitive::from_i64(v.x).unwrap()),
-                y.wrapping_add(&num_traits::FromPrimitive::from_i64(v.y).unwrap()),
-            )
+            vek::Vec2::new(x.wrapping_add(&(v.x.as_())), y.wrapping_add(&(v.y.as_())))
         }
 
         pub fn to_num(&self) -> usize {
@@ -206,12 +208,13 @@ pub mod direction {
         pub side: Basis,
     }
     impl GridLine {
-        pub fn new<
-            I: num_traits::AsPrimitive<i64> + num_traits::FromPrimitive + num_traits::WrappingAdd,
-        >(
+        pub fn new<I: Copy + num_traits::WrappingAdd + num_traits::AsPrimitive<i64>>(
             tile: vec::Vec2<I>,
-            mut side: Dir,
-        ) -> Self {
+            side: Dir,
+        ) -> Self
+        where
+            i64: num_traits::AsPrimitive<I>,
+        {
             if side.sign == Sign::Positive {
                 let tile = Vec2i::new(tile.x.as_(), tile.y.as_());
                 Self {
@@ -246,7 +249,10 @@ pub mod direction {
         >(
             tile: vec::Vec2<I>,
             side: Dir,
-        ) -> Self {
+        ) -> Self
+        where
+            i64: num_traits::AsPrimitive<I>,
+        {
             let grid_line = GridLine::new(tile, side);
             Self {
                 grid_line,
@@ -544,15 +550,15 @@ pub mod tilemap {
                 "raycast out of bounds"
             );
             let (location, direction) = grid_line_dir.parts();
-            let new_loc = direction.shift(location);
-            if let Some(new_loc) = self.check_in_bounds_i(new_loc) {
-                if let Some(hit) = self.get(new_loc) {
-                    (GridLineDir::new(new_loc, -direction), Some(hit))
+            let new_location = direction.shift(location);
+            if let Some(new_location) = self.check_in_bounds_i(new_location) {
+                if let Some(hit) = self.get(new_location) {
+                    (GridLineDir::new(new_location, -direction), Some(hit))
                 } else {
-                    self.raycast(GridLineDir::new(new_loc, direction))
+                    self.raycast(GridLineDir::new(new_location, direction))
                 }
             } else {
-                (GridLineDir::new(new_loc, -direction), None)
+                (GridLineDir::new(location, -direction), None)
             }
         }
 

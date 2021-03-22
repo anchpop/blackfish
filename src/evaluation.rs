@@ -39,11 +39,13 @@ pub fn evaluate(
         })
         .collect();
 
+    println!("getting outputs");
     let outputs: HashMap<uuid::Uuid, Data> = prog
         .outputs
         .iter()
         .enumerate()
         .map(|(index, (uuid, _, _))| {
+            println!("");
             let data = force(
                 &prog,
                 GridLineDir::new(Vec2::new(width - 1, index), Dir::east),
@@ -79,6 +81,7 @@ fn force(
         known.insert(to_calc_input_to, value.clone());
         value
     } else {
+        println!("{:?} not found in {:?}", &output_to_get, &known);
         todo!()
     }
 }
