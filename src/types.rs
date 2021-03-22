@@ -171,6 +171,102 @@ pub mod tiles {
                 Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Produce(_), _)) => "Producer",
             }
         }
+
+        /// Since tiles are rectangles, this precisely describes each tile's inputs/outputs. The length of the first vector
+        /// determines the width and its elements determine the top and bottom inputs/outputs. The length of the second vector
+        /// determines the height and its elements determine the left and right inputs/outputs.
+        // Positive signs (top/north and right/east come first)
+        pub fn block_desc(
+            &self,
+        ) -> (
+            Vec<(Option<IOType>, Option<IOType>)>,
+            Vec<(Option<IOType>, Option<IOType>)>,
+        ) {
+            match self {
+                TileProgramF::Machine(machine_info) => match machine_info {
+                    MachineInfo::BuiltIn(builtin, _) => match builtin {
+                        BuiltInMachine::Iffy(_, _, _) => (
+                            vec![(
+                                Some(IOType::Out("output".to_owned())), // north
+                                Some(IOType::In("boolean".to_owned())), // south
+                            )],
+                            vec![(
+                                Some(IOType::In("a".to_owned())), // east
+                                Some(IOType::In("b".to_owned())), //west
+                            )],
+                        ),
+                        BuiltInMachine::Trace(_) => (
+                            vec![(
+                                None,                                 // north
+                                Some(IOType::In("trace".to_owned())), // south
+                            )],
+                            vec![(
+                                None, // east
+                                None, //west
+                            )],
+                        ),
+                        BuiltInMachine::Produce(_) => (
+                            vec![(
+                                Some(IOType::Out("output".to_owned())), // north
+                                Some(IOType::In("input".to_owned())),   // south
+                            )],
+                            vec![(
+                                None, // east
+                                None, //west
+                            )],
+                        ),
+                    },
+                },
+            }
+        }
+
+        pub fn get_center(&self) -> Vec2i {
+            Vec2i::new(0, 0)
+        }
+
+        pub fn into_tiles(&self) -> NonEmptyIndexMap<Vec2i, DirMap<Option<IOType>>> {
+            match self {
+                TileProgramF::Machine(a) => match a {
+                    MachineInfo::BuiltIn(_, _) => {
+                        let desc = self.block_desc();
+                        NonEmptyIndexMap::new(
+                            self.get_center(),
+                            DirMap {
+                                north: desc.0[0].0.clone(),
+                                east: desc.1[0].0.clone(),
+                                south: desc.0[0].1.clone(),
+                                west: desc.1[0].1.clone(),
+                            },
+                        )
+                    }
+                },
+            }
+        }
+
+        pub fn get_inputs(
+            m: NonEmptyIndexMap<Vec2, DirMap<Option<IOType>>>,
+        ) -> HashMap<String, GridLineDir> {
+            let i = m
+                .into_iter()
+                .flat_map(|(position, dir_map)| {
+                    dir_map
+                        .into_iter()
+                        .map(|(direction, iotype)| {
+                            (GridLineDir::new(position.clone(), direction), iotype)
+                        })
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                })
+                .filter_map(|(grid_line_dir, iotype)| {
+                    if let Some(IOType::In(iotype)) = iotype {
+                        Some((iotype, grid_line_dir))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            i
+        }
     }
     impl TilePhysics {
         pub fn name(&self) -> &'static str {
@@ -222,52 +318,12 @@ pub mod tiles {
                 }
             }
         }
-
-        pub fn get_inputs(
-            &self,
-            location: &Vec2,
-            orientation: &Dir,
-        ) -> HashMap<String, GridLineDir> {
-            todo!()
-        }
     }
 
     impl<T> tilemap::Shaped for TileProgramF<T> {
         type ExtraInfo = DirMap<Option<IOType>>;
         fn shape(&self) -> NonEmptyIndexMap<Vec2i, Self::ExtraInfo> {
-            match self {
-                TileProgramF::Machine(a) => match a {
-                    MachineInfo::BuiltIn(builtin, _) => match builtin {
-                        BuiltInMachine::Iffy(_, _, _) => NonEmptyIndexMap::new(
-                            Vec2i::new(0, 0),
-                            DirMap {
-                                north: Some(IOType::Out("output".to_owned())),
-                                east: Some(IOType::In("a".to_owned())),
-                                south: Some(IOType::In("boolean".to_owned())),
-                                west: Some(IOType::In("b".to_owned())),
-                            },
-                        ),
-                        BuiltInMachine::Trace(_) => NonEmptyIndexMap::new(
-                            Vec2i::new(0, 0),
-                            DirMap {
-                                north: None,
-                                east: None,
-                                south: Some(IOType::In("trace".to_owned())),
-                                west: None,
-                            },
-                        ),
-                        BuiltInMachine::Produce(_) => NonEmptyIndexMap::new(
-                            Vec2i::new(0, 0),
-                            DirMap {
-                                north: Some(IOType::Out("output".to_owned())),
-                                east: None,
-                                south: Some(IOType::In("trace".to_owned())),
-                                west: None,
-                            },
-                        ),
-                    },
-                },
-            }
+            self.into_tiles()
         }
     }
 

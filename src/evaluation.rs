@@ -110,9 +110,12 @@ fn force(
                     IOType::Out(_) => match tile {
                         TileProgramF::Machine(machine_info) => match machine_info {
                             MachineInfo::BuiltIn(built_in_machine, program_info) => {
+                                let inputs = TileProgram::get_inputs(tile_positions);
                                 match built_in_machine {
                                     BuiltInMachine::Produce(_) => Data::ThunkBuiltinOp(
-                                        Box::new(BuiltInMachine::Produce(Data::ThunkPure(todo!()))),
+                                        Box::new(BuiltInMachine::Produce(Data::ThunkPure(
+                                            inputs[&"input".to_owned()].clone(),
+                                        ))),
                                         "output".to_owned(),
                                     ),
                                     BuiltInMachine::Iffy(_, _, _) => {
