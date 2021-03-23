@@ -91,12 +91,7 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
             (
                 TileProgram::Machine(MachineInfo::BuiltIn(
                     BuiltInMachine::Produce(()),
-                    ProgramInfo {
-                        hardcoded_inputs: btree_map! {
-                            "product".to_string(): Data::Number(3)
-                        },
-                        ..ProgramInfo::empty()
-                    },
+                    ProgramInfo {},
                 ))
                 .name(),
                 materials.add(Color::rgb(0.3, 0.3, 0.3).into()),
@@ -108,12 +103,7 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
             (
                 TileProgram::Machine(MachineInfo::BuiltIn(
                     BuiltInMachine::Trace(()),
-                    ProgramInfo {
-                        hardcoded_inputs: btree_map! {
-                            "product".to_string(): Data::Number(3)
-                        },
-                        ..ProgramInfo::empty()
-                    },
+                    ProgramInfo {},
                 ))
                 .name(),
                 materials.add(Color::rgb(0.5, 0.3, 0.5).into()),
@@ -121,12 +111,7 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
             (
                 TileProgram::Machine(MachineInfo::BuiltIn(
                     BuiltInMachine::Produce(()),
-                    ProgramInfo {
-                        hardcoded_inputs: btree_map! {
-                            "product".to_string(): Data::Number(3)
-                        },
-                        ..ProgramInfo::empty()
-                    },
+                    ProgramInfo {},
                 ))
                 .name(),
                 materials.add(Color::rgb(0.3, 0.3, 0.3).into()),
@@ -353,7 +338,7 @@ fn create_map(commands: &mut Commands) {
 
     let graph = evaluation::program_to_graph(&test_prog);
     use petgraph::dot::{Config, Dot};
-    println!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
+    //println!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
 
     commands.insert_resource(test_prog);
     commands.insert_resource(test_world);

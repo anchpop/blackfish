@@ -44,10 +44,8 @@ pub mod tiles {
     use super::data::*;
     use super::*;
 
-    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-    pub struct ProgramInfo {
-        pub hardcoded_inputs: BTreeMap<String, Data>,
-    }
+    #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    pub struct ProgramInfo {}
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub struct WorldMachineInfo {
         pub program_info: ProgramInfo,
@@ -61,9 +59,7 @@ pub mod tiles {
     }
     impl Monoid for ProgramInfo {
         fn empty() -> Self {
-            ProgramInfo {
-                hardcoded_inputs: BTreeMap::new(),
-            }
+            ProgramInfo {}
         }
     }
     impl Semigroup for WorldMachineInfo {
@@ -147,11 +143,11 @@ pub mod tiles {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum MachineInfo<I> {
         BuiltIn(BuiltInMachine<()>, I),
     }
-    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum TileProgramF<I> {
         Machine(MachineInfo<I>),
     }
@@ -621,7 +617,7 @@ pub mod data {
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum Data {
         Nothing,
-        ThunkPure(NodeIndex),
+        ThunkPure(GraphNode),
         ThunkBuiltinOp(Box<BuiltInMachine<Data>>, String),
         Number(i32),
     }
@@ -651,7 +647,7 @@ pub mod data {
 
     pub type DirData = crate::geom::direction::DirMap<Option<Data>>;
 
-    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum GraphNode {
         Input(uuid::Uuid),
         Output(uuid::Uuid),
@@ -665,8 +661,8 @@ pub mod data {
         }
     }
 
-    pub type NodeIndex = petgraph::stable_graph::NodeIndex<u32>;
-    pub type Graph = petgraph::stable_graph::StableGraph<GraphNode, (), petgraph::Directed, u32>;
+    pub type GraphEdge = ();
+    pub type Graph = petgraph::graphmap::GraphMap<GraphNode, GraphEdge, petgraph::Directed>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

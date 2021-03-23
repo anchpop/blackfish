@@ -140,12 +140,26 @@ fn force(
 }
 
 pub fn program_to_graph(prog: &TilemapProgram) -> Graph {
-    fn add_to_graph(
-        graph: Graph,
+    fn add_node(
+        graph: &mut Graph,
         prog: &TilemapProgram,
-        input_to: GridLineDir,
+        to_calc_input_to: GridLineDir,
+        to_calc_input_to_node: GraphNode,
         known_nodes: HashMap<GridLineDir, GraphNode>,
     ) -> Graph {
+        let raycast_hit = prog.spec.raycast(to_calc_input_to);
+        match raycast_hit {
+            RaycastHit::HitBorder(hit_normal) => {
+                println!("hitborder {:?}", &hit_normal);
+                let (location, dir) = hit_normal.parts();
+                let hit_node = GraphNode::Nothing((location.x, location.y), dir);
+                let hit_node = graph.add_node(hit_node);
+                graph.add_edge(hit_node, to_calc_input_to_node, ());
+            }
+            RaycastHit::HitTile(_, _, _) => {
+                println!("hit tile");
+            }
+        }
         todo!()
     }
 
@@ -167,7 +181,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> Graph {
 
             let node = GraphNode::Input(uuid.clone());
 
-            graph.add_node(node.clone());
+            let node = graph.add_node(node.clone());
 
             (GridLineDir::new(Vec2i::new(-1, index), Dir::east), node)
         })
@@ -181,7 +195,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> Graph {
         .map(|(index, (uuid, _, _))| {
             let node = GraphNode::Input(uuid.clone());
             let grid_line_dir = GridLineDir::new(Vec2::new(width - 1, index), Dir::east);
-            graph.add_node(node.clone());
+            let node = graph.add_node(node.clone());
             (uuid.clone(), (grid_line_dir, node))
         })
         .collect();
@@ -199,21 +213,11 @@ pub fn program_to_graph(prog: &TilemapProgram) -> Graph {
         let inputs = TileProgram::get_inputs(tile_positions);
         for (input_name, to_calc_input_to) in inputs {
             println!("working on {}", input_name);
-            let raycast_hit = prog.spec.raycast(to_calc_input_to);
-            match raycast_hit {
-                RaycastHit::HitBorder(hit_normal) => {
-                    println!("hitborder {:?}", &hit_normal);
-                    let (location, dir) = hit_normal.parts();
-                    let hit_node = GraphNode::Nothing((location.x, location.y), dir);
-                    let hit_node = graph.add_node(hit_node);
-                    graph.add_edge(hit_node, current_node, ());
-                }
-                RaycastHit::HitTile(_, _, _) => {
-                    println!("hit tile");
-                }
-            }
+            add_node(&mut graph, prog, to_calc_input_to, todo!(), known);
         }
     }
+
+    for (uuid, (grid_line_dir, node_index)) in outputs.iter() {}
 
     graph
 }

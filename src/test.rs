@@ -30,12 +30,7 @@ pub fn in_out_id_with_indirection_prog() -> TilemapProgram {
                 Dir::east,
                 TileProgram::Machine(MachineInfo::BuiltIn(
                     BuiltInMachine::Produce(()),
-                    ProgramInfo {
-                        hardcoded_inputs: btree_map! {
-                            "product".to_string(): Data::Number(3)
-                        },
-                        ..ProgramInfo::empty()
-                    },
+                    ProgramInfo {},
                 )),
             )
         })
@@ -49,12 +44,7 @@ pub fn in_out_id_blocked_prog() -> TilemapProgram {
                 Dir::default(),
                 TileProgram::Machine(MachineInfo::BuiltIn(
                     BuiltInMachine::Produce(()),
-                    ProgramInfo {
-                        hardcoded_inputs: btree_map! {
-                            "product".to_string(): Data::Number(3)
-                        },
-                        ..ProgramInfo::empty()
-                    },
+                    ProgramInfo {},
                 )),
             )
         })
@@ -77,12 +67,7 @@ pub fn simple_program() -> TilemapProgram {
             Dir::default(),
             TileProgram::Machine(MachineInfo::BuiltIn(
                 BuiltInMachine::Produce(()),
-                ProgramInfo {
-                    hardcoded_inputs: btree_map! {
-                        "product".to_string(): Data::Number(3)
-                    },
-                    ..ProgramInfo::empty()
-                },
+                ProgramInfo {},
             )),
         )
     });
@@ -205,12 +190,7 @@ mod tests {
                 Dir::default(),
                 TileProgram::Machine(MachineInfo::BuiltIn(
                     BuiltInMachine::Produce(()),
-                    ProgramInfo {
-                        hardcoded_inputs: btree_map! {
-                            "product".to_string(): Data::Number(3)
-                        },
-                        ..ProgramInfo::empty()
-                    },
+                    ProgramInfo {},
                 )),
             ));
             assert_eq!(m1, m2);
@@ -398,12 +378,7 @@ mod tests {
                         Dir::east,
                         TileProgram::Machine(MachineInfo::BuiltIn(
                             BuiltInMachine::Produce(()),
-                            ProgramInfo {
-                                hardcoded_inputs: btree_map! {
-                                    "product".to_string(): Data::Number(3)
-                                },
-                                ..ProgramInfo::empty()
-                            },
+                            ProgramInfo {},
                         ))
                     )
                 )
@@ -427,12 +402,7 @@ mod tests {
                         Dir::east,
                         TileProgram::Machine(MachineInfo::BuiltIn(
                             BuiltInMachine::Produce(()),
-                            ProgramInfo {
-                                hardcoded_inputs: btree_map! {
-                                    "product".to_string(): Data::Number(3)
-                                },
-                                ..ProgramInfo::empty()
-                            },
+                            ProgramInfo {},
                         ))
                     )
                 )
@@ -457,12 +427,7 @@ mod tests {
                         Dir::east,
                         TileProgram::Machine(MachineInfo::BuiltIn(
                             BuiltInMachine::Produce(()),
-                            ProgramInfo {
-                                hardcoded_inputs: btree_map! {
-                                    "product".to_string(): Data::Number(3)
-                                },
-                                ..ProgramInfo::empty()
-                            },
+                            ProgramInfo {},
                         ))
                     )
                 )
@@ -486,12 +451,7 @@ mod tests {
                         Dir::east,
                         TileProgram::Machine(MachineInfo::BuiltIn(
                             BuiltInMachine::Produce(()),
-                            ProgramInfo {
-                                hardcoded_inputs: btree_map! {
-                                    "product".to_string(): Data::Number(3)
-                                },
-                                ..ProgramInfo::empty()
-                            },
+                            ProgramInfo {},
                         ))
                     )
                 )
