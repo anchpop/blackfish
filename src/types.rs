@@ -44,7 +44,7 @@ pub mod tiles {
     use super::data::*;
     use super::*;
 
-    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub struct ProgramInfo {
         pub hardcoded_inputs: BTreeMap<String, Data>,
     }
@@ -84,7 +84,7 @@ pub mod tiles {
         }
     }
 
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum BuiltInMachine<D> {
         Iffy(D, D, D),
         Trace(D),
@@ -147,11 +147,11 @@ pub mod tiles {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum MachineInfo<I> {
         BuiltIn(BuiltInMachine<()>, I),
     }
-    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum TileProgramF<I> {
         Machine(MachineInfo<I>),
     }
@@ -613,14 +613,14 @@ pub mod data {
         In(String),
         Out(String),
     }
-    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum DataType {
         Number,
     }
-    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum Data {
-        Nothing(GridLineDir),
-        ThunkPure(GridLineDir),
+        Nothing,
+        ThunkPure(petgraph::graph::NodeIndex<usize>),
         ThunkBuiltinOp(Box<BuiltInMachine<Data>>, String),
         Number(i32),
     }
@@ -632,7 +632,7 @@ pub mod data {
     impl Data {
         pub fn show(&self) -> String {
             match self {
-                Data::Nothing(hit) => format!("nothing: {:?}", hit),
+                Data::Nothing => format!("nothing"),
                 Data::ThunkPure(dep) => format!("thunk: {:?}", dep),
                 Data::ThunkBuiltinOp(op, _) => format!("op: {:?}", op.name()),
                 Data::Number(num) => format!("{}", num),
@@ -640,7 +640,7 @@ pub mod data {
         }
         pub fn check_types(&self, t: &DataType) -> bool {
             match (self, t) {
-                (Data::Nothing(_), _) => true,
+                (Data::Nothing, _) => true,
                 (Data::ThunkPure(_), _) => true,
                 (Data::ThunkBuiltinOp(_, _), _) => true,
                 (Data::Number(_), DataType::Number) => true,
@@ -649,6 +649,15 @@ pub mod data {
     }
 
     pub type DirData = crate::geom::direction::DirMap<Option<Data>>;
+
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    enum GraphNode {
+        Input(uuid::Uuid),
+        Output(uuid::Uuid),
+        Block(super::tiles::TileProgram),
+    }
+
+    type Graph = petgraph::stable_graph::StableGraph<GraphNode, (), petgraph::Directed, usize>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

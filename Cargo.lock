@@ -784,6 +784,7 @@ dependencies = [
  "ndarray",
  "non-empty-collections",
  "num-traits 0.1.43",
+ "petgraph",
  "pretty_assertions",
  "proptest",
  "rand 0.7.3",

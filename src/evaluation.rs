@@ -10,9 +10,11 @@ use crate::types::data::*;
 use crate::types::tilemaps::*;
 use crate::types::tiles::*;
 use crate::types::*;
-use bevy::ecs::Location;
+
 use frunk::monoid::Monoid;
 use std::collections::hash_map::{Entry, Entry::Occupied, OccupiedEntry};
+
+use petgraph::stable_graph::StableGraph;
 
 pub fn evaluate(
     prog: TilemapProgram,
@@ -87,7 +89,7 @@ fn force(
                 known.insert(to_calc_input_to, value.clone());
                 value
             } else {
-                Data::Nothing(hit_normal)
+                Data::Nothing
             }
         }
         RaycastHit::HitTile(hit_location, dir, (tile_center, tile_orientation, tile)) => {
@@ -106,7 +108,7 @@ fn force(
 
             if let Some(io_typ) = io_typ {
                 match io_typ {
-                    IOType::In(_) => Data::Nothing(hit_normal),
+                    IOType::In(_) => Data::Nothing,
                     IOType::Out(_) => match tile {
                         TileProgramF::Machine(machine_info) => match machine_info {
                             MachineInfo::BuiltIn(built_in_machine, program_info) => {
@@ -114,7 +116,7 @@ fn force(
                                 match built_in_machine {
                                     BuiltInMachine::Produce(_) => Data::ThunkBuiltinOp(
                                         Box::new(BuiltInMachine::Produce(Data::ThunkPure(
-                                            inputs[&"input".to_owned()].clone(),
+                                            todo!(), //inputs[&"input".to_owned()].clone(),
                                         ))),
                                         "output".to_owned(),
                                     ),
@@ -130,8 +132,13 @@ fn force(
                     },
                 }
             } else {
-                Data::Nothing(hit_normal)
+                Data::Nothing
             }
         }
     }
+}
+
+fn program_to_graph(prog: &TilemapProgram) -> StableGraph<TileProgram, ()> {
+    let graph: StableGraph<TileProgram, ()> = StableGraph::new();
+    graph
 }
