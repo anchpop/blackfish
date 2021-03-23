@@ -145,8 +145,8 @@ pub fn program_to_graph(prog: &TilemapProgram) -> Graph {
         prog: &TilemapProgram,
         to_calc_input_to: GridLineDir,
         to_calc_input_to_node: GraphNode,
-        known_nodes: HashMap<GridLineDir, GraphNode>,
-    ) -> Graph {
+        known_nodes: &HashMap<GridLineDir, GraphNode>,
+    ) {
         let raycast_hit = prog.spec.raycast(to_calc_input_to);
         match raycast_hit {
             RaycastHit::HitBorder(hit_normal) => {
@@ -160,7 +160,6 @@ pub fn program_to_graph(prog: &TilemapProgram) -> Graph {
                 println!("hit tile");
             }
         }
-        todo!()
     }
 
     let width = prog.program_dim().w;
@@ -202,8 +201,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> Graph {
 
     // machines
     for (_, tile_info) in prog.spec.tiles.iter() {
-        let current_node = GraphNode::new(tile_info.clone());
-        let current_node = graph.add_node(current_node);
+        let current_node = graph.add_node(GraphNode::new(tile_info.clone()));
 
         // ok, now to add all the edges that lead to the machines
         let (location, orientation, tile) = tile_info;
@@ -213,11 +211,11 @@ pub fn program_to_graph(prog: &TilemapProgram) -> Graph {
         let inputs = TileProgram::get_inputs(tile_positions);
         for (input_name, to_calc_input_to) in inputs {
             println!("working on {}", input_name);
-            add_node(&mut graph, prog, to_calc_input_to, todo!(), known);
+            add_node(&mut graph, prog, to_calc_input_to, current_node, &known);
         }
     }
 
-    for (uuid, (grid_line_dir, node_index)) in outputs.iter() {}
+    for (uuid, (grid_line_dir, graph_node)) in outputs.iter() {}
 
     graph
 }

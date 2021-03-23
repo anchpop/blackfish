@@ -338,7 +338,7 @@ fn create_map(commands: &mut Commands) {
 
     let graph = evaluation::program_to_graph(&test_prog);
     use petgraph::dot::{Config, Dot};
-    //println!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
+    println!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
 
     commands.insert_resource(test_prog);
     commands.insert_resource(test_world);
