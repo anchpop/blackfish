@@ -24,13 +24,91 @@ pub fn evaluate(
     todo!()
 }
 
-fn weak_head_normal_form(graph: Graph, data: Data) -> Data {
+pub fn weak_head_normal_form(graph: &Graph, data: Data) -> Data {
     match data {
         Data::Nothing => Data::Nothing,
-        Data::ThunkPure(graph_node) => {
+        Data::ThunkPure(graph_node, dependency) => {
             let inputs = graph.neighbors_directed(graph_node, Incoming);
-            inputs.filter(|a| true);
-            todo!()
+            println!(
+                "all incoming inputs: {:?}",
+                graph
+                    .neighbors_directed(graph_node, Incoming)
+                    .collect::<Vec<_>>()
+            );
+            let inputs = inputs
+                .flat_map(|node| graph.edges(node))
+                .filter(|(_, to, (_, _))| to == &graph_node)
+                .map(|(node_from, _, (connection_from, connection_to))| {
+                    (connection_to, (node_from, connection_from.clone()))
+                })
+                .collect::<HashMap<_, _>>();
+
+            match &graph_node {
+                GraphNode::Input(_) => {
+                    assert!(inputs.len() == 0, "Input node somehow has an input!");
+                    todo!()
+                }
+                GraphNode::Output(_) => {
+                    let mut inputs = inputs.into_iter();
+                    if let Some((ToConnection::GlobalOutput, (from_node, from_connection))) =
+                        inputs.next()
+                    {
+                        if let None = inputs.next() {
+                            let new_thunk = Data::ThunkPure(
+                                from_node,
+                                Dependency::from(from_connection.clone()),
+                            );
+                            weak_head_normal_form(graph, new_thunk)
+                        } else {
+                            panic!(
+                                "Global function output needs to have exactly one input, has more!"
+                            )
+                        }
+                    } else {
+                        panic!("Global function output needs to have exactly one input, has 0!")
+                    }
+                }
+                GraphNode::Block(_, _, tile) => {
+                    assert!(
+                        inputs.len() > 0,
+                        "Trying to evaluate a block but we somehow found no inputs on the graph! Inputs: {:?}",
+                        &inputs
+                    );
+                    let inputs: HashMap<_, (GraphNode, FromConnection)> =
+                        inputs
+                            .into_iter()
+                            .map(|(to_connection, output)| match to_connection {
+                                ToConnection::FunctionInput(input) => (input, output),
+                                _ => panic!(
+                                    "Trying to evaluate a block, but it had an input besides function inputs!"
+                                ),
+                            }).collect();
+                    if let Dependency::On(desired_output) = dependency {
+                        match tile {
+                            TileProgramF::Machine(m) => match m {
+                                MachineInfo::BuiltIn(built_in, _) => match built_in {
+                                    BuiltInMachine::Produce(()) => {
+                                        let data = Data::ThunkBuiltinOp(Box::new(BuiltInMachine::Produce(Data::from(inputs.get(&"a".to_owned()).expect("Needed 'a' as an input to the built-in machine 'produce', but it wasn't there >:(").clone()))), desired_output);
+                                        weak_head_normal_form(graph, data)
+                                    }
+                                    BuiltInMachine::Iffy((), (), ()) => {
+                                        todo!()
+                                    }
+                                    BuiltInMachine::Trace(()) => {
+                                        todo!()
+                                    }
+                                },
+                            },
+                        }
+                    } else {
+                        panic!("We're trying to evaluate the output from a block, but we don't have a dependency!")
+                    }
+                }
+                GraphNode::Nothing(_, _) => {
+                    assert!(inputs.len() == 0, "Nothing node somehow has an input!");
+                    todo!()
+                }
+            }
         }
         Data::Number(n) => Data::Number(n),
         Data::ThunkBuiltinOp(op, output) => match *op {
@@ -45,9 +123,7 @@ fn weak_head_normal_form(graph: Graph, data: Data) -> Data {
     }
 }
 
-pub fn program_to_graph(
-    prog: &TilemapProgram,
-) -> (Graph, HashMap<uuid::Uuid, (GridLineDir, GraphNode)>) {
+pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
     fn add_node(
         graph: &mut Graph,
         prog: &TilemapProgram,
@@ -55,31 +131,30 @@ pub fn program_to_graph(
         to_calc_input_to_node: GraphNode,
         input_grid_line_dirs: &HashMap<GridLineDir, GraphNode>,
         input_type: ToConnection,
-    ) {
-        println!(
-            "casting ray to get inputs leading to {:?}",
-            &(to_calc_input_to)
-        );
+    ) -> FromConnection {
         let raycast_hit = prog.spec.raycast(to_calc_input_to);
         match raycast_hit {
             RaycastHit::HitBorder(hit_normal) => {
                 if let Some(hit_node) = input_grid_line_dirs.get(&hit_normal) {
+                    let from_connection = FromConnection::GlobalInput;
                     graph.add_edge(
                         hit_node.clone(),
                         to_calc_input_to_node,
-                        (FromConnection::GlobalInput, input_type),
+                        (from_connection.clone(), input_type),
                     );
+                    from_connection
                 } else {
+                    let from_connection = FromConnection::Nothing;
                     let hit_node = graph.add_node(GraphNode::nothing(hit_normal));
                     graph.add_edge(
                         hit_node,
                         to_calc_input_to_node,
-                        (FromConnection::Nothing, input_type),
+                        (from_connection.clone(), input_type),
                     );
+                    from_connection
                 }
             }
             RaycastHit::HitTile(hit_location, normal, (block_center, block_orientation, block)) => {
-                println!("hit tile");
                 let hit_normal = GridLineDir::new(hit_location, normal);
 
                 let tile_positions =
@@ -92,6 +167,7 @@ pub fn program_to_graph(
 
                 match io_map.get(&normal) {
                     Some(IOType::Out(name)) => {
+                        let from_connection = FromConnection::FunctionOutput(name.clone());
                         let hit_node = graph.add_node(GraphNode::new((
                             block_center.clone(),
                             block_orientation.clone(),
@@ -100,16 +176,19 @@ pub fn program_to_graph(
                         graph.add_edge(
                             hit_node,
                             to_calc_input_to_node,
-                            (FromConnection::FunctionOutput(name.clone()), input_type),
+                            (from_connection.clone(), input_type),
                         );
+                        from_connection
                     }
                     _ => {
+                        let from_connection = FromConnection::Nothing;
                         let hit_node = graph.add_node(GraphNode::nothing(hit_normal));
                         graph.add_edge(
                             hit_node,
                             to_calc_input_to_node,
-                            (FromConnection::Nothing, input_type),
+                            (from_connection.clone(), input_type),
                         );
+                        from_connection
                     }
                 }
             }
@@ -164,7 +243,6 @@ pub fn program_to_graph(
         let tile_positions = tile_positions.expect("Invalid tile somehow >:(");
         let inputs = TileProgram::get_inputs(tile_positions);
         for (input_name, to_calc_input_to) in inputs {
-            println!("working on {}", input_name);
             add_node(
                 &mut graph,
                 prog,
@@ -176,17 +254,20 @@ pub fn program_to_graph(
         }
     }
 
-    for (uuid, (to_calc_input_to, current_node)) in outputs.iter() {
-        println!("doing output");
-        add_node(
-            &mut graph,
-            prog,
-            *to_calc_input_to,
-            *current_node,
-            &input_grid_line_dirs,
-            ToConnection::GlobalOutput,
-        )
-    }
+    let outputs = outputs
+        .iter()
+        .map(|(uuid, (to_calc_input_to, current_node))| {
+            add_node(
+                &mut graph,
+                prog,
+                *to_calc_input_to,
+                *current_node,
+                &input_grid_line_dirs,
+                ToConnection::GlobalOutput,
+            );
+            uuid.clone()
+        })
+        .collect();
 
     (graph, outputs)
 }

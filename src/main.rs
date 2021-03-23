@@ -336,9 +336,15 @@ fn create_map(commands: &mut Commands) {
      */
     let test_world = test_prog.clone().into_world(vec![], vec![]);
 
-    let (graph, _) = evaluation::program_to_graph(&test_prog);
+    let (graph, outputs) = evaluation::program_to_graph(&test_prog);
     use petgraph::dot::{Config, Dot};
     println!("{:?}", Dot::with_config(&graph, &[]));
+
+    let output = GraphNode::Output(outputs.into_iter().next().unwrap());
+    println!(
+        "output: {:?}",
+        evaluation::weak_head_normal_form(&graph, Data::ThunkPure(output, Dependency::Only)),
+    );
 
     commands.insert_resource(test_prog);
     commands.insert_resource(test_world);

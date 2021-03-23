@@ -183,12 +183,12 @@ pub mod tiles {
                     MachineInfo::BuiltIn(builtin, _) => match builtin {
                         BuiltInMachine::Iffy(_, _, _) => (
                             vec![(
-                                Some(IOType::Out("output".to_owned())), // north
+                                Some(IOType::Out("a".to_owned())),      // north
                                 Some(IOType::In("boolean".to_owned())), // south
                             )],
                             vec![(
-                                Some(IOType::In("a".to_owned())), // east
-                                Some(IOType::In("b".to_owned())), //west
+                                Some(IOType::In("a1".to_owned())), // east
+                                Some(IOType::In("a2".to_owned())), //west
                             )],
                         ),
                         BuiltInMachine::Trace(_) => (
@@ -203,8 +203,8 @@ pub mod tiles {
                         ),
                         BuiltInMachine::Produce(_) => (
                             vec![(
-                                Some(IOType::Out("output".to_owned())), // north
-                                Some(IOType::In("input".to_owned())),   // south
+                                Some(IOType::Out("a".to_owned())), // north
+                                Some(IOType::In("a".to_owned())),  // south
                             )],
                             vec![(
                                 None, // east
@@ -241,7 +241,7 @@ pub mod tiles {
 
         pub fn get_inputs(
             m: NonEmptyIndexMap<Vec2, DirMap<Option<IOType>>>,
-        ) -> HashMap<String, GridLineDir> {
+        ) -> HashMap<MachineInput, GridLineDir> {
             let i = m
                 .into_iter()
                 .flat_map(|(position, dir_map)| {
@@ -365,16 +365,16 @@ pub mod tilemaps {
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct TilemapProgram {
         pub spec: tilemap::Tilemap<KeyProgram, TileProgram>,
-        pub inputs: Vec<(uuid::Uuid, String, DataType)>,
-        pub outputs: Vec<(uuid::Uuid, String, DataType)>,
+        pub inputs: Vec<(uuid::Uuid, MachineInput, DataType)>,
+        pub outputs: Vec<(uuid::Uuid, MachineOutput, DataType)>,
         //pub functions: SlotMap<KeyFunction, TilemapProgram>, // need to make this work with alpha-equivalence
     }
 
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct TilemapWorld {
         pub world: tilemap::Tilemap<KeyWorld, TileWorld>,
-        pub inputs: Vec<(String, Option<Data>)>,
-        pub outputs: Vec<(String, Option<Data>)>,
+        pub inputs: Vec<(MachineInput, Option<Data>)>,
+        pub outputs: Vec<(MachineOutput, Option<Data>)>,
     }
 
     impl TilemapWorld {
@@ -535,8 +535,8 @@ pub mod tilemaps {
         }
         pub fn into_world(
             self,
-            inputs: Vec<(String, Option<Data>)>,
-            outputs: Vec<(String, Option<Data>)>,
+            inputs: Vec<(MachineInput, Option<Data>)>,
+            outputs: Vec<(MachineOutput, Option<Data>)>,
         ) -> TilemapWorld {
             let map = self.spec.map;
             let mut tiles = self.spec.tiles;
@@ -605,10 +605,13 @@ pub mod data {
     use frunk::monoid::Monoid;
     use frunk::semigroup::Semigroup;
 
+    pub type MachineInput = String;
+    pub type MachineOutput = String;
+
     #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
     pub enum IOType {
-        In(String),
-        Out(String),
+        In(MachineInput),
+        Out(MachineOutput),
     }
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum DataType {
@@ -617,8 +620,8 @@ pub mod data {
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum Data {
         Nothing,
-        ThunkPure(GraphNode),
-        ThunkBuiltinOp(Box<BuiltInMachine<Data>>, String),
+        ThunkPure(GraphNode, Dependency),
+        ThunkBuiltinOp(Box<BuiltInMachine<Data>>, MachineOutput),
         Number(i32),
     }
     impl Semigroup for Data {
@@ -630,7 +633,7 @@ pub mod data {
         pub fn show(&self) -> String {
             match self {
                 Data::Nothing => format!("nothing"),
-                Data::ThunkPure(dep) => format!("thunk: {:?}", dep),
+                Data::ThunkPure(dep, on) => format!("dep on {:?}'s {:?}", dep, on),
                 Data::ThunkBuiltinOp(op, _) => format!("op: {:?}", op.name()),
                 Data::Number(num) => format!("{}", num),
             }
@@ -638,10 +641,15 @@ pub mod data {
         pub fn check_types(&self, t: &DataType) -> bool {
             match (self, t) {
                 (Data::Nothing, _) => true,
-                (Data::ThunkPure(_), _) => true,
+                (Data::ThunkPure(_, _), _) => true,
                 (Data::ThunkBuiltinOp(_, _), _) => true,
                 (Data::Number(_), DataType::Number) => true,
             }
+        }
+    }
+    impl From<(GraphNode, FromConnection)> for Data {
+        fn from((graph_node, from_connection): (GraphNode, FromConnection)) -> Self {
+            Self::ThunkPure(graph_node, Dependency::from(from_connection))
         }
     }
 
@@ -668,15 +676,31 @@ pub mod data {
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum FromConnection {
         GlobalInput,
-        FunctionOutput(String),
+        FunctionOutput(MachineOutput),
         Nothing,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum ToConnection {
         GlobalOutput,
-        FunctionInput(String),
+        FunctionInput(MachineInput),
         Nothing,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    pub enum Dependency {
+        On(MachineOutput),
+        Only,
+    }
+
+    impl From<FromConnection> for Dependency {
+        fn from(item: FromConnection) -> Self {
+            match item {
+                FromConnection::GlobalInput => Dependency::Only,
+                FromConnection::FunctionOutput(output) => Dependency::On(output),
+                FromConnection::Nothing => Dependency::Only,
+            }
+        }
     }
 
     pub type GraphEdge = (FromConnection, ToConnection);
