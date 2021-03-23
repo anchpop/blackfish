@@ -336,7 +336,7 @@ fn create_map(commands: &mut Commands) {
      */
     let test_world = test_prog.clone().into_world(vec![], vec![]);
 
-    let graph = evaluation::program_to_graph(&test_prog);
+    let (graph, _) = evaluation::program_to_graph(&test_prog);
     use petgraph::dot::{Config, Dot};
     println!("{:?}", Dot::with_config(&graph, &[]));
 
