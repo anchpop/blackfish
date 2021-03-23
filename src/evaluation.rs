@@ -1,6 +1,7 @@
 use std::{
     borrow::{Borrow, BorrowMut},
     collections::HashMap,
+    thread::current,
 };
 
 use crate::geom::direction::*;
@@ -138,7 +139,81 @@ fn force(
     }
 }
 
-fn program_to_graph(prog: &TilemapProgram) -> StableGraph<TileProgram, ()> {
-    let graph: StableGraph<TileProgram, ()> = StableGraph::new();
+pub fn program_to_graph(prog: &TilemapProgram) -> Graph {
+    fn add_to_graph(
+        graph: Graph,
+        prog: &TilemapProgram,
+        input_to: GridLineDir,
+        known_nodes: HashMap<GridLineDir, GraphNode>,
+    ) -> Graph {
+        todo!()
+    }
+
+    let width = prog.program_dim().w;
+    let mut graph: Graph = Graph::new();
+
+    // Only nodes in the graph are the inputs, outputs, and machines. Let's just add them all straightaway.
+
+    // inputs
+    let known: HashMap<GridLineDir, GraphNode> = prog
+        .inputs
+        .iter()
+        .map(|(uuid, _, _)| {
+            let index = prog
+                .inputs
+                .iter()
+                .position(|(input_uuid, _, _)| uuid == input_uuid)
+                .expect("Input uuid was not in program's uuid list") as i64;
+
+            let node = GraphNode::Input(uuid.clone());
+
+            graph.add_node(node.clone());
+
+            (GridLineDir::new(Vec2i::new(-1, index), Dir::east), node)
+        })
+        .collect();
+
+    // outputs
+    let outputs: HashMap<uuid::Uuid, (GridLineDir, GraphNode)> = prog
+        .outputs
+        .iter()
+        .enumerate()
+        .map(|(index, (uuid, _, _))| {
+            let node = GraphNode::Input(uuid.clone());
+            let grid_line_dir = GridLineDir::new(Vec2::new(width - 1, index), Dir::east);
+            graph.add_node(node.clone());
+            (uuid.clone(), (grid_line_dir, node))
+        })
+        .collect();
+
+    // machines
+    for (_, tile_info) in prog.spec.tiles.iter() {
+        let current_node = GraphNode::new(tile_info.clone());
+        let current_node = graph.add_node(current_node);
+
+        // ok, now to add all the edges that lead to the machines
+        let (location, orientation, tile) = tile_info;
+
+        let tile_positions = prog.spec.get_tile_positions(location, orientation, tile);
+        let tile_positions = tile_positions.expect("Invalid tile somehow >:(");
+        let inputs = TileProgram::get_inputs(tile_positions);
+        for (input_name, to_calc_input_to) in inputs {
+            println!("working on {}", input_name);
+            let raycast_hit = prog.spec.raycast(to_calc_input_to);
+            match raycast_hit {
+                RaycastHit::HitBorder(hit_normal) => {
+                    println!("hitborder {:?}", &hit_normal);
+                    let (location, dir) = hit_normal.parts();
+                    let hit_node = GraphNode::Nothing((location.x, location.y), dir);
+                    let hit_node = graph.add_node(hit_node);
+                    graph.add_edge(hit_node, current_node, ());
+                }
+                RaycastHit::HitTile(_, _, _) => {
+                    println!("hit tile");
+                }
+            }
+        }
+    }
+
     graph
 }

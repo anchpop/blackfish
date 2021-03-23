@@ -605,6 +605,7 @@ pub mod tilemaps {
 pub mod data {
     use super::tiles::BuiltInMachine;
     use crate::geom::direction::*;
+    use crate::geom::Vec2;
     use frunk::monoid::Monoid;
     use frunk::semigroup::Semigroup;
 
@@ -620,7 +621,7 @@ pub mod data {
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum Data {
         Nothing,
-        ThunkPure(petgraph::graph::NodeIndex<usize>),
+        ThunkPure(NodeIndex),
         ThunkBuiltinOp(Box<BuiltInMachine<Data>>, String),
         Number(i32),
     }
@@ -651,13 +652,21 @@ pub mod data {
     pub type DirData = crate::geom::direction::DirMap<Option<Data>>;
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-    enum GraphNode {
+    pub enum GraphNode {
         Input(uuid::Uuid),
         Output(uuid::Uuid),
-        Block(super::tiles::TileProgram),
+        Block((usize, usize), Dir, super::tiles::TileProgram),
+        Nothing((i64, i64), Dir),
     }
 
-    type Graph = petgraph::stable_graph::StableGraph<GraphNode, (), petgraph::Directed, usize>;
+    impl GraphNode {
+        pub fn new(tile_info: (Vec2, Dir, super::tiles::TileProgram)) -> GraphNode {
+            GraphNode::Block((tile_info.0.x, tile_info.0.y), tile_info.1, tile_info.2)
+        }
+    }
+
+    pub type NodeIndex = petgraph::stable_graph::NodeIndex<u32>;
+    pub type Graph = petgraph::stable_graph::StableGraph<GraphNode, (), petgraph::Directed, u32>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
