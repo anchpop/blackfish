@@ -147,6 +147,10 @@ pub fn program_to_graph(prog: &TilemapProgram) -> Graph {
         to_calc_input_to_node: GraphNode,
         known_nodes: &HashMap<GridLineDir, GraphNode>,
     ) {
+        println!(
+            "casting ray to get inputs leading to {:?}",
+            &(to_calc_input_to)
+        );
         let raycast_hit = prog.spec.raycast(to_calc_input_to);
         match raycast_hit {
             RaycastHit::HitBorder(hit_normal) => {
@@ -192,8 +196,8 @@ pub fn program_to_graph(prog: &TilemapProgram) -> Graph {
         .iter()
         .enumerate()
         .map(|(index, (uuid, _, _))| {
-            let node = GraphNode::Input(uuid.clone());
-            let grid_line_dir = GridLineDir::new(Vec2::new(width - 1, index), Dir::east);
+            let node = GraphNode::Output(uuid.clone());
+            let grid_line_dir = GridLineDir::new(Vec2::new(width, index), Dir::west);
             let node = graph.add_node(node.clone());
             (uuid.clone(), (grid_line_dir, node))
         })
@@ -215,7 +219,10 @@ pub fn program_to_graph(prog: &TilemapProgram) -> Graph {
         }
     }
 
-    for (uuid, (grid_line_dir, graph_node)) in outputs.iter() {}
+    for (uuid, (to_calc_input_to, current_node)) in outputs.iter() {
+        println!("doing output");
+        add_node(&mut graph, prog, *to_calc_input_to, *current_node, &known)
+    }
 
     graph
 }
