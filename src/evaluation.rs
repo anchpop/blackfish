@@ -154,14 +154,39 @@ pub fn program_to_graph(prog: &TilemapProgram) -> Graph {
         let raycast_hit = prog.spec.raycast(to_calc_input_to);
         match raycast_hit {
             RaycastHit::HitBorder(hit_normal) => {
-                println!("hitborder {:?}", &hit_normal);
-                let (location, dir) = hit_normal.parts();
-                let hit_node = GraphNode::Nothing((location.x, location.y), dir);
-                let hit_node = graph.add_node(hit_node);
-                graph.add_edge(hit_node, to_calc_input_to_node, ());
+                if let Some(hit_node) = known_nodes.get(&hit_normal) {
+                    graph.add_edge(hit_node.clone(), to_calc_input_to_node, ());
+                } else {
+                    let hit_node = graph.add_node(GraphNode::nothing(hit_normal));
+                    graph.add_edge(hit_node, to_calc_input_to_node, ());
+                }
             }
-            RaycastHit::HitTile(_, _, _) => {
+            RaycastHit::HitTile(hit_location, normal, (block_center, block_orientation, block)) => {
                 println!("hit tile");
+                let hit_normal = GridLineDir::new(hit_location, normal);
+
+                let tile_positions =
+                    prog.spec
+                        .get_tile_positions(block_center, block_orientation, block);
+                let tile_positions = tile_positions.expect("Invalid tile somehow >:(");
+                let io_map = tile_positions
+                    .get(&hit_location)
+                    .expect("tile hit somehow not in result of calling tile_positions");
+
+                match io_map.get(&normal) {
+                    Some(IOType::Out(_)) => {
+                        let hit_node = graph.add_node(GraphNode::new((
+                            block_center.clone(),
+                            block_orientation.clone(),
+                            block.clone(),
+                        )));
+                        graph.add_edge(hit_node, to_calc_input_to_node, ());
+                    }
+                    _ => {
+                        let hit_node = graph.add_node(GraphNode::nothing(hit_normal));
+                        graph.add_edge(hit_node, to_calc_input_to_node, ());
+                    }
+                }
             }
         }
     }

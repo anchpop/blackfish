@@ -656,8 +656,12 @@ pub mod data {
     }
 
     impl GraphNode {
-        pub fn new(tile_info: (Vec2, Dir, super::tiles::TileProgram)) -> GraphNode {
-            GraphNode::Block((tile_info.0.x, tile_info.0.y), tile_info.1, tile_info.2)
+        pub fn new(tile_info: (Vec2, Dir, super::tiles::TileProgram)) -> Self {
+            Self::Block((tile_info.0.x, tile_info.0.y), tile_info.1, tile_info.2)
+        }
+        pub fn nothing(grid_line_dir: GridLineDir) -> Self {
+            let (location, direction) = grid_line_dir.parts();
+            Self::Nothing((location.x, location.y), direction)
         }
     }
 
