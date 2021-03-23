@@ -145,7 +145,8 @@ pub fn program_to_graph(prog: &TilemapProgram) -> Graph {
         prog: &TilemapProgram,
         to_calc_input_to: GridLineDir,
         to_calc_input_to_node: GraphNode,
-        known_nodes: &HashMap<GridLineDir, GraphNode>,
+        input_grid_line_dirs: &HashMap<GridLineDir, GraphNode>,
+        input_type: ToConnection,
     ) {
         println!(
             "casting ray to get inputs leading to {:?}",
@@ -154,11 +155,15 @@ pub fn program_to_graph(prog: &TilemapProgram) -> Graph {
         let raycast_hit = prog.spec.raycast(to_calc_input_to);
         match raycast_hit {
             RaycastHit::HitBorder(hit_normal) => {
-                if let Some(hit_node) = known_nodes.get(&hit_normal) {
-                    graph.add_edge(hit_node.clone(), to_calc_input_to_node, ());
+                if let Some(hit_node) = input_grid_line_dirs.get(&hit_normal) {
+                    graph.add_edge(
+                        hit_node.clone(),
+                        to_calc_input_to_node,
+                        (FromConnection::GlobalInput, input_type),
+                    );
                 } else {
                     let hit_node = graph.add_node(GraphNode::nothing(hit_normal));
-                    graph.add_edge(hit_node, to_calc_input_to_node, ());
+                    graph.add_edge(hit_node, to_calc_input_to_node, (FromConnection::Nothing, input_type));
                 }
             }
             RaycastHit::HitTile(hit_location, normal, (block_center, block_orientation, block)) => {
@@ -174,17 +179,17 @@ pub fn program_to_graph(prog: &TilemapProgram) -> Graph {
                     .expect("tile hit somehow not in result of calling tile_positions");
 
                 match io_map.get(&normal) {
-                    Some(IOType::Out(_)) => {
+                    Some(IOType::Out(name)) => {
                         let hit_node = graph.add_node(GraphNode::new((
                             block_center.clone(),
                             block_orientation.clone(),
                             block.clone(),
                         )));
-                        graph.add_edge(hit_node, to_calc_input_to_node, ());
+                        graph.add_edge(hit_node, to_calc_input_to_node, (FromConnection::FunctionOutput(name.clone()), input_type));
                     }
                     _ => {
                         let hit_node = graph.add_node(GraphNode::nothing(hit_normal));
-                        graph.add_edge(hit_node, to_calc_input_to_node, ());
+                        graph.add_edge(hit_node, to_calc_input_to_node, (FromConnection::Nothing, input_type));
                     }
                 }
             }
@@ -197,7 +202,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> Graph {
     // Only nodes in the graph are the inputs, outputs, and machines. Let's just add them all straightaway.
 
     // inputs
-    let known: HashMap<GridLineDir, GraphNode> = prog
+    let input_grid_line_dirs: HashMap<GridLineDir, GraphNode> = prog
         .inputs
         .iter()
         .map(|(uuid, _, _)| {
@@ -240,13 +245,27 @@ pub fn program_to_graph(prog: &TilemapProgram) -> Graph {
         let inputs = TileProgram::get_inputs(tile_positions);
         for (input_name, to_calc_input_to) in inputs {
             println!("working on {}", input_name);
-            add_node(&mut graph, prog, to_calc_input_to, current_node, &known);
+            add_node(
+                &mut graph,
+                prog,
+                to_calc_input_to,
+                current_node,
+                &input_grid_line_dirs,
+                ToConnection::FunctionInput(input_name.clone())
+            );
         }
     }
 
     for (uuid, (to_calc_input_to, current_node)) in outputs.iter() {
         println!("doing output");
-        add_node(&mut graph, prog, *to_calc_input_to, *current_node, &known)
+        add_node(
+            &mut graph,
+            prog,
+            *to_calc_input_to,
+            *current_node,
+            &input_grid_line_dirs,
+            ToConnection::GlobalOutput
+        )
     }
 
     graph

@@ -665,7 +665,21 @@ pub mod data {
         }
     }
 
-    pub type GraphEdge = ();
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    pub enum FromConnection {
+        GlobalInput,
+        FunctionOutput(String),
+        Nothing,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    pub enum ToConnection {
+        GlobalOutput,
+        FunctionInput(String),
+        Nothing,
+    }
+
+    pub type GraphEdge = (FromConnection, ToConnection);
     pub type Graph = petgraph::graphmap::GraphMap<GraphNode, GraphEdge, petgraph::Directed>;
 }
 
