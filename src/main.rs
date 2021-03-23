@@ -343,7 +343,13 @@ fn create_map(commands: &mut Commands) {
     let output = GraphNode::Output(outputs.into_iter().next().unwrap());
     println!(
         "output: {:?}",
-        evaluation::weak_head_normal_form(&graph, Data::ThunkPure(output, Dependency::Only)),
+        evaluation::weak_head_normal_form(
+            &graph,
+            Data::ThunkPure(output, Dependency::Only),
+            vec![hash_map! {
+                test_prog.inputs[0].0: Data::Number(3)
+            }]
+        ),
     );
 
     commands.insert_resource(test_prog);

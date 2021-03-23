@@ -24,7 +24,11 @@ pub fn evaluate(
     todo!()
 }
 
-pub fn weak_head_normal_form(graph: &Graph, data: Data) -> Data {
+pub fn weak_head_normal_form(
+    graph: &Graph,
+    data: Data,
+    context: Vec<HashMap<uuid::Uuid, Data>>,
+) -> Data {
     match data {
         Data::Nothing => Data::Nothing,
         Data::ThunkPure(graph_node, dependency) => {
@@ -44,9 +48,17 @@ pub fn weak_head_normal_form(graph: &Graph, data: Data) -> Data {
                 .collect::<HashMap<_, _>>();
 
             match &graph_node {
-                GraphNode::Input(_) => {
+                GraphNode::Input(uuid) => {
                     assert!(inputs.len() == 0, "Input node somehow has an input!");
-                    todo!()
+                    assert!(
+                        context.len() == 1,
+                        "Currently only support contexts with one thing in them!"
+                    );
+                    if let Some(data) = context[0].get(uuid) {
+                        weak_head_normal_form(graph, data.clone(), context)
+                    } else {
+                        panic!("uuid not in context!")
+                    }
                 }
                 GraphNode::Output(_) => {
                     let mut inputs = inputs.into_iter();
@@ -58,7 +70,7 @@ pub fn weak_head_normal_form(graph: &Graph, data: Data) -> Data {
                                 from_node,
                                 Dependency::from(from_connection.clone()),
                             );
-                            weak_head_normal_form(graph, new_thunk)
+                            weak_head_normal_form(graph, new_thunk, context)
                         } else {
                             panic!(
                                 "Global function output needs to have exactly one input, has more!"
@@ -89,7 +101,7 @@ pub fn weak_head_normal_form(graph: &Graph, data: Data) -> Data {
                                 MachineInfo::BuiltIn(built_in, _) => match built_in {
                                     BuiltInMachine::Produce(()) => {
                                         let data = Data::ThunkBuiltinOp(Box::new(BuiltInMachine::Produce(Data::from(inputs.get(&"a".to_owned()).expect("Needed 'a' as an input to the built-in machine 'produce', but it wasn't there >:(").clone()))), desired_output);
-                                        weak_head_normal_form(graph, data)
+                                        weak_head_normal_form(graph, data, context)
                                     }
                                     BuiltInMachine::Iffy((), (), ()) => {
                                         todo!()
@@ -111,15 +123,19 @@ pub fn weak_head_normal_form(graph: &Graph, data: Data) -> Data {
             }
         }
         Data::Number(n) => Data::Number(n),
-        Data::ThunkBuiltinOp(op, output) => match *op {
-            BuiltInMachine::Iffy(_, _, _) => {
-                todo!()
-            }
-            BuiltInMachine::Trace(_) => {
-                todo!()
-            }
-            BuiltInMachine::Produce(a) => a,
-        },
+        Data::ThunkBuiltinOp(op, output) => weak_head_normal_form(
+            graph,
+            match *op {
+                BuiltInMachine::Iffy(_, _, _) => {
+                    todo!()
+                }
+                BuiltInMachine::Trace(_) => {
+                    todo!()
+                }
+                BuiltInMachine::Produce(a) => a,
+            },
+            context,
+        ),
     }
 }
 
