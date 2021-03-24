@@ -679,6 +679,15 @@ pub mod data {
         FunctionOutput(GridLineDir, MachineOutput),
         Nothing(GridLineDir),
     }
+    impl FromConnection {
+        pub fn loc(&self) -> &GridLineDir {
+            match self {
+                Self::GlobalInput(loc) => loc,
+                Self::FunctionOutput(loc, _) => loc,
+                Self::Nothing(loc) => loc,
+            }
+        }
+    }
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum ToConnection {
@@ -686,19 +695,27 @@ pub mod data {
         FunctionInput(GridLineDir, MachineInput),
         Nothing(GridLineDir),
     }
+    impl ToConnection {
+        pub fn loc(&self) -> &GridLineDir {
+            match self {
+                Self::GlobalOutput(loc) => loc,
+                Self::FunctionInput(loc, _) => loc,
+                Self::Nothing(loc) => loc,
+            }
+        }
+    }
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum Dependency {
         On(MachineOutput),
         Only,
     }
-
     impl From<FromConnection> for Dependency {
         fn from(item: FromConnection) -> Self {
             match item {
-                FromConnection::GlobalInput(_) => Dependency::Only,
-                FromConnection::FunctionOutput(_, output) => Dependency::On(output),
-                FromConnection::Nothing(_) => Dependency::Only,
+                FromConnection::GlobalInput(loc) => Dependency::Only,
+                FromConnection::FunctionOutput(loc, output) => Dependency::On(output),
+                FromConnection::Nothing(loc) => Dependency::Only,
             }
         }
     }

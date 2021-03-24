@@ -340,17 +340,15 @@ fn create_map(commands: &mut Commands) {
     use petgraph::dot::{Config, Dot};
     println!("{:?}", Dot::with_config(&graph, &[]));
 
-    let output = GraphNode::Output(outputs.into_iter().next().unwrap());
-    println!(
-        "output: {:?}",
-        evaluation::weak_head_normal_form(
-            &graph,
-            Data::ThunkPure(output, Dependency::Only),
-            vec![hash_map! {
-                test_prog.inputs[0].0: Data::Number(3)
-            }]
-        ),
+    let output_node = GraphNode::Output(outputs.into_iter().next().unwrap());
+    let (output_data, lasers_produced) = evaluation::weak_head_normal_form(
+        &graph,
+        Data::ThunkPure(output_node, Dependency::Only),
+        vec![hash_map! {
+            test_prog.inputs[0].0: Data::Number(3)
+        }],
     );
+    println!("output: {:?} \nlasers:{:?}", output_data, lasers_produced);
 
     commands.insert_resource(test_prog);
     commands.insert_resource(test_world);

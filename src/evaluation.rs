@@ -28,9 +28,9 @@ pub fn weak_head_normal_form(
     graph: &Graph,
     data: Data,
     context: Vec<HashMap<uuid::Uuid, Data>>,
-) -> Data {
+) -> (Data, Vec<(GridLineDir, GridLineDir)>) {
     match data {
-        Data::Nothing => Data::Nothing,
+        Data::Nothing => (Data::Nothing, vec![]),
         Data::ThunkPure(graph_node, dependency) => {
             let inputs = graph.neighbors_directed(graph_node, Incoming);
             println!(
@@ -62,15 +62,20 @@ pub fn weak_head_normal_form(
                 }
                 GraphNode::Output(_) => {
                     let mut inputs = inputs.into_iter();
-                    if let Some((ToConnection::GlobalOutput(_), (from_node, from_connection))) =
-                        inputs.next()
+                    if let Some((
+                        ToConnection::GlobalOutput(output_location),
+                        (from_node, from_connection),
+                    )) = inputs.next()
                     {
                         if let None = inputs.next() {
                             let new_thunk = Data::ThunkPure(
                                 from_node,
                                 Dependency::from(from_connection.clone()),
                             );
-                            weak_head_normal_form(graph, new_thunk, context)
+                            let (whnm, mut lasers) =
+                                weak_head_normal_form(graph, new_thunk, context);
+                            lasers.push((from_connection.loc().clone(), output_location.clone()));
+                            (whnm, lasers)
                         } else {
                             panic!(
                                 "Global function output needs to have exactly one input, has more!"
@@ -86,11 +91,11 @@ pub fn weak_head_normal_form(
                         "Trying to evaluate a block but we somehow found no inputs on the graph! Inputs: {:?}",
                         &inputs
                     );
-                    let inputs: HashMap<_, (GraphNode, FromConnection)> =
+                    let inputs: HashMap<_, (GridLineDir, (GraphNode, FromConnection))> =
                         inputs
                             .into_iter()
-                            .map(|(to_connection, output)| match to_connection {
-                                ToConnection::FunctionInput(_, input) => (input, output),
+                            .map(|(to_connection, input)| match to_connection {
+                                ToConnection::FunctionInput(to_connection_loc, input_label) => (input_label, (to_connection_loc.clone(), input)),
                                 _ => panic!(
                                     "Trying to evaluate a block, but it had an input besides function inputs!"
                                 ),
@@ -100,8 +105,17 @@ pub fn weak_head_normal_form(
                             TileProgramF::Machine(m) => match m {
                                 MachineInfo::BuiltIn(built_in, _) => match built_in {
                                     BuiltInMachine::Produce(()) => {
-                                        let data = Data::ThunkBuiltinOp(Box::new(BuiltInMachine::Produce(Data::from(inputs.get(&"a".to_owned()).expect("Needed 'a' as an input to the built-in machine 'produce', but it wasn't there >:(").clone()))), desired_output);
-                                        weak_head_normal_form(graph, data, context)
+                                        let (to_connection_loc, input) = inputs.get(&"a".to_owned()).expect("Needed 'a' as an input to the built-in machine 'produce', but it wasn't there >:(").clone();
+                                        let data = Data::ThunkBuiltinOp(
+                                            Box::new(BuiltInMachine::Produce(Data::from(
+                                                input.clone(),
+                                            ))),
+                                            desired_output,
+                                        );
+                                        let (whnf, mut lasers) =
+                                            weak_head_normal_form(graph, data, context);
+                                        lasers.push((input.1.loc().clone(), to_connection_loc));
+                                        (whnf, lasers)
                                     }
                                     BuiltInMachine::Iffy((), (), ()) => {
                                         todo!()
@@ -122,7 +136,7 @@ pub fn weak_head_normal_form(
                 }
             }
         }
-        Data::Number(n) => Data::Number(n),
+        Data::Number(n) => (Data::Number(n), vec![]),
         Data::ThunkBuiltinOp(op, output) => weak_head_normal_form(
             graph,
             match *op {
@@ -243,7 +257,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
         .enumerate()
         .map(|(index, (uuid, _, _))| {
             let node = GraphNode::Output(uuid.clone());
-            let grid_line_dir = GridLineDir::new(Vec2::new(width - 1, index), Dir::east);
+            let grid_line_dir = GridLineDir::new(Vec2::new(width, index), Dir::west);
             let node = graph.add_node(node.clone());
             (uuid.clone(), (grid_line_dir, node))
         })
@@ -277,7 +291,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
             add_node(
                 &mut graph,
                 prog,
-                -*to_calc_input_to,
+                *to_calc_input_to,
                 *current_node,
                 &input_grid_line_dirs,
                 ToConnection::GlobalOutput(to_calc_input_to.clone()),
