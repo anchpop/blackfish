@@ -62,7 +62,7 @@ pub fn weak_head_normal_form(
                 }
                 GraphNode::Output(_) => {
                     let mut inputs = inputs.into_iter();
-                    if let Some((ToConnection::GlobalOutput, (from_node, from_connection))) =
+                    if let Some((ToConnection::GlobalOutput(_), (from_node, from_connection))) =
                         inputs.next()
                     {
                         if let None = inputs.next() {
@@ -90,7 +90,7 @@ pub fn weak_head_normal_form(
                         inputs
                             .into_iter()
                             .map(|(to_connection, output)| match to_connection {
-                                ToConnection::FunctionInput(input) => (input, output),
+                                ToConnection::FunctionInput(_, input) => (input, output),
                                 _ => panic!(
                                     "Trying to evaluate a block, but it had an input besides function inputs!"
                                 ),
@@ -145,14 +145,14 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
         prog: &TilemapProgram,
         to_calc_input_to: GridLineDir,
         to_calc_input_to_node: GraphNode,
-        input_grid_line_dirs: &HashMap<GridLineDir, GraphNode>,
+        global_inputs: &HashMap<GridLineDir, GraphNode>,
         input_type: ToConnection,
     ) -> FromConnection {
         let raycast_hit = prog.spec.raycast(to_calc_input_to);
         match raycast_hit {
             RaycastHit::HitBorder(hit_normal) => {
-                if let Some(hit_node) = input_grid_line_dirs.get(&hit_normal) {
-                    let from_connection = FromConnection::GlobalInput;
+                if let Some(hit_node) = global_inputs.get(&hit_normal) {
+                    let from_connection = FromConnection::GlobalInput(hit_normal);
                     graph.add_edge(
                         hit_node.clone(),
                         to_calc_input_to_node,
@@ -160,7 +160,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
                     );
                     from_connection
                 } else {
-                    let from_connection = FromConnection::Nothing;
+                    let from_connection = FromConnection::Nothing(hit_normal);
                     let hit_node = graph.add_node(GraphNode::nothing(hit_normal));
                     graph.add_edge(
                         hit_node,
@@ -183,7 +183,8 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
 
                 match io_map.get(&normal) {
                     Some(IOType::Out(name)) => {
-                        let from_connection = FromConnection::FunctionOutput(name.clone());
+                        let from_connection =
+                            FromConnection::FunctionOutput(hit_normal, name.clone());
                         let hit_node = graph.add_node(GraphNode::new((
                             block_center.clone(),
                             block_orientation.clone(),
@@ -197,7 +198,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
                         from_connection
                     }
                     _ => {
-                        let from_connection = FromConnection::Nothing;
+                        let from_connection = FromConnection::Nothing(hit_normal);
                         let hit_node = graph.add_node(GraphNode::nothing(hit_normal));
                         graph.add_edge(
                             hit_node,
@@ -242,7 +243,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
         .enumerate()
         .map(|(index, (uuid, _, _))| {
             let node = GraphNode::Output(uuid.clone());
-            let grid_line_dir = GridLineDir::new(Vec2::new(width, index), Dir::west);
+            let grid_line_dir = GridLineDir::new(Vec2::new(width - 1, index), Dir::east);
             let node = graph.add_node(node.clone());
             (uuid.clone(), (grid_line_dir, node))
         })
@@ -265,7 +266,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
                 to_calc_input_to,
                 current_node,
                 &input_grid_line_dirs,
-                ToConnection::FunctionInput(input_name.clone()),
+                ToConnection::FunctionInput(to_calc_input_to.clone(), input_name.clone()),
             );
         }
     }
@@ -276,10 +277,10 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
             add_node(
                 &mut graph,
                 prog,
-                *to_calc_input_to,
+                -*to_calc_input_to,
                 *current_node,
                 &input_grid_line_dirs,
-                ToConnection::GlobalOutput,
+                ToConnection::GlobalOutput(to_calc_input_to.clone()),
             );
             uuid.clone()
         })

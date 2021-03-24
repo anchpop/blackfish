@@ -675,16 +675,16 @@ pub mod data {
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum FromConnection {
-        GlobalInput,
-        FunctionOutput(MachineOutput),
-        Nothing,
+        GlobalInput(GridLineDir),
+        FunctionOutput(GridLineDir, MachineOutput),
+        Nothing(GridLineDir),
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum ToConnection {
-        GlobalOutput,
-        FunctionInput(MachineInput),
-        Nothing,
+        GlobalOutput(GridLineDir),
+        FunctionInput(GridLineDir, MachineInput),
+        Nothing(GridLineDir),
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -696,9 +696,9 @@ pub mod data {
     impl From<FromConnection> for Dependency {
         fn from(item: FromConnection) -> Self {
             match item {
-                FromConnection::GlobalInput => Dependency::Only,
-                FromConnection::FunctionOutput(output) => Dependency::On(output),
-                FromConnection::Nothing => Dependency::Only,
+                FromConnection::GlobalInput(_) => Dependency::Only,
+                FromConnection::FunctionOutput(_, output) => Dependency::On(output),
+                FromConnection::Nothing(_) => Dependency::Only,
             }
         }
     }

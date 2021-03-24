@@ -273,6 +273,19 @@ pub mod direction {
             }
         }
     }
+    impl PartialOrd for GridLineDir {
+        fn partial_cmp(&self, other: &Self) -> std::option::Option<std::cmp::Ordering> {
+            let (p1, p2) = self.parts();
+            let (o1, o2) = other.parts();
+            (p1.x, p1.y, p2).partial_cmp(&(o1.x, o1.y, o2))
+        }
+    }
+    impl Ord for GridLineDir {
+        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+            self.partial_cmp(other).unwrap()
+        }
+    }
+
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub struct DirMap<V> {
         pub north: V,
