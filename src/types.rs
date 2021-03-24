@@ -387,7 +387,7 @@ pub mod tilemaps {
             Extent2::new(dim.1, dim.0)
         }
         pub fn try_do_to_map<
-            F: Fn(
+            F: FnOnce(
                 tilemap::Tilemap<KeyWorld, TileWorld>,
             ) -> Result<
                 tilemap::Tilemap<KeyWorld, TileWorld>,
@@ -411,7 +411,7 @@ pub mod tilemaps {
             }
         }
         pub fn apply_to_map<
-            F: Fn(tilemap::Tilemap<KeyWorld, TileWorld>) -> tilemap::Tilemap<KeyWorld, TileWorld>,
+            F: FnOnce(tilemap::Tilemap<KeyWorld, TileWorld>) -> tilemap::Tilemap<KeyWorld, TileWorld>,
         >(
             self,
             f: F,
@@ -423,7 +423,7 @@ pub mod tilemaps {
             }
         }
 
-        pub fn get_from_map<A, F: Fn(&tilemap::Tilemap<KeyWorld, TileWorld>) -> A>(
+        pub fn get_from_map<A, F: FnOnce(&tilemap::Tilemap<KeyWorld, TileWorld>) -> A>(
             self,
             f: F,
         ) -> A {
@@ -537,7 +537,7 @@ pub mod tilemaps {
             self,
             inputs: Vec<(MachineInput, Option<Data>)>,
             outputs: Vec<(MachineOutput, Option<Data>)>,
-            lasers: Vec<(GridLineDir, GridLineDir)>,
+            lasers: Vec<TileLineDir>,
         ) -> TilemapWorld {
             let map = self.spec.map;
             let mut tiles = self.spec.tiles;
@@ -569,12 +569,32 @@ pub mod tilemaps {
                 outputs,
             };
             world
-                .try_do_to_map(|map| {
-                    // TODO! add lasers here
-                    // The only reason I'm not doing it right now is because I want to add a "line" type (which is a vertical or horizontal line of tiles)
-                    // and a LineDir type (which is a line with a direction), and refactor weak_head_normal_form to return a list of LineDirs
-                    // and refactor this function to take a list of LineDirs of course.
-                    // But I have bigger fish to fry right now
+                .try_do_to_map(|mut map| {
+                    for laser in lasers {
+                        for location in laser.into_iter() {
+                            if let Some(location) = map.check_in_bounds_i(location) {
+                                map = map.update(location, |tile| match tile {
+                                    None => Some((
+                                        location,
+                                        Dir::default(),
+                                        TileWorld::Phys(TilePhysics::Laser(DirMap::empty())),
+                                    )),
+                                    Some((
+                                        location,
+                                        orientation,
+                                        TileWorld::Phys(TilePhysics::Laser(a)),
+                                    )) => Some((
+                                        location.clone(),
+                                        orientation.clone(),
+                                        TileWorld::Phys(TilePhysics::Laser(a.clone())),
+                                    )),
+                                    a => a.cloned(),
+                                })?
+                            } else {
+                                panic!("Laser goes off past the map!");
+                            }
+                        }
+                    }
                     Ok(map)
                 })
                 .unwrap()

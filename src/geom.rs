@@ -215,6 +215,18 @@ pub mod direction {
                 }
             }
         }
+
+        pub fn distance(&self, other: &Self) -> usize {
+            assert_eq!(self.side, other.side);
+
+            if self.location.x == other.location.x {
+                (self.location.y as i64 - other.location.y as i64).abs() as usize
+            } else if self.location.y == other.location.y {
+                (self.location.x as i64 - other.location.x as i64).abs() as usize
+            } else {
+                panic!("to calculate a distance between grid lines, they need to be on the same column or row!")
+            }
+        }
     }
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct GridLineDir {
@@ -239,10 +251,19 @@ pub mod direction {
                 ((-dir).shift(self.grid_line.location), dir)
             }
         }
-        pub fn advance(self) -> (Vec2i, Dir, GridLineDir) {
+        pub fn next(self) -> (Vec2i, Dir) {
             let (pos, dir) = self.previous();
-            let pos = dir.shift(pos);
-            (pos, dir, GridLineDir::new(pos, dir))
+            return (dir.shift(pos), dir);
+        }
+        pub fn advance(self, dist: i64) -> GridLineDir {
+            let (mut pos, dir) = self.previous();
+            let dir = if dist < 0 { -dir } else { dir };
+            let dist = dist.abs();
+
+            for i in 0..dist {
+                pos = dir.shift(pos);
+            }
+            GridLineDir::new(pos, dir)
         }
 
         pub fn new<
@@ -438,6 +459,101 @@ pub mod direction {
     impl<T1: Rotatable, T2: Rotatable> Rotatable for (T1, T2) {
         fn rotate(self, by: &Dir) -> Self {
             (self.0.rotate(by), self.1.rotate(by))
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    pub struct TileLine {
+        pub grid_line: GridLine,
+        pub distance: usize,
+    }
+
+    impl TileLine {
+        pub fn new(from: GridLine, to: GridLine) -> Self {
+            TileLineDir::new(from, to).tile_line
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    pub struct TileLineDir {
+        pub tile_line: TileLine,
+        pub sign: Sign,
+    }
+
+    use std::cmp::min;
+    impl TileLineDir {
+        pub fn new(from: GridLine, to: GridLine) -> Self {
+            let distance = from.distance(&to);
+            let positive = if from.side == Basis::North {
+                to.location.y > from.location.y
+            } else {
+                to.location.x > from.location.x
+            };
+
+            let lower = if from.side == Basis::North {
+                Vec2i::new(
+                    from.location.x,
+                    if positive {
+                        from.location.y
+                    } else {
+                        to.location.y
+                    },
+                )
+            } else {
+                Vec2i::new(
+                    if positive {
+                        from.location.x
+                    } else {
+                        to.location.x
+                    },
+                    from.location.y,
+                )
+            };
+            TileLineDir {
+                tile_line: TileLine {
+                    grid_line: GridLine {
+                        location: lower,
+                        side: from.side,
+                    },
+                    distance,
+                },
+                sign: if positive {
+                    Sign::Positive
+                } else {
+                    Sign::Negative
+                },
+            }
+        }
+
+        pub fn get_start(&self) -> GridLineDir {
+            let dir = Dir {
+                basis: self.tile_line.grid_line.side,
+                sign: self.sign,
+            };
+            if self.sign == Sign::Positive {
+                GridLineDir {
+                    grid_line: self.tile_line.grid_line,
+                    direction: Sign::Positive,
+                }
+            } else {
+                GridLineDir {
+                    grid_line: GridLine::new(
+                        self.tile_line.grid_line.location
+                            + dir.to_vector() * (self.tile_line.distance as i64),
+                        dir,
+                    ),
+                    direction: Sign::Negative,
+                }
+            }
+        }
+
+        pub fn into_iter(mut self) -> std::vec::IntoIter<vek::Vec2<i64>> {
+            let mut v = vec![];
+            let starting_dir = self.get_start();
+            for i in 0..self.tile_line.distance {
+                v.push(starting_dir.advance(i as i64).next().0)
+            }
+            v.into_iter()
         }
     }
 }

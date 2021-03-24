@@ -28,7 +28,7 @@ pub fn weak_head_normal_form(
     graph: &Graph,
     data: Data,
     context: Vec<HashMap<uuid::Uuid, Data>>,
-) -> (Data, Vec<(GridLineDir, GridLineDir)>) {
+) -> (Data, Vec<TileLineDir>) {
     match data {
         Data::Nothing => (Data::Nothing, vec![]),
         Data::ThunkPure(graph_node, dependency) => {
@@ -74,7 +74,10 @@ pub fn weak_head_normal_form(
                             );
                             let (whnm, mut lasers) =
                                 weak_head_normal_form(graph, new_thunk, context);
-                            lasers.push((from_connection.loc().clone(), output_location.clone()));
+                            lasers.push(TileLineDir::new(
+                                from_connection.loc().grid_line,
+                                output_location.clone().grid_line,
+                            ));
                             (whnm, lasers)
                         } else {
                             panic!(
@@ -114,7 +117,10 @@ pub fn weak_head_normal_form(
                                         );
                                         let (whnf, mut lasers) =
                                             weak_head_normal_form(graph, data, context);
-                                        lasers.push((input.1.loc().clone(), to_connection_loc));
+                                        lasers.push(TileLineDir::new(
+                                            input.1.loc().clone().grid_line,
+                                            to_connection_loc.grid_line,
+                                        ));
                                         (whnf, lasers)
                                     }
                                     BuiltInMachine::Iffy((), (), ()) => {

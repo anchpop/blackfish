@@ -177,8 +177,8 @@ mod tests {
         #[test]
         fn tilemap_world_equality() {
             assert_eq!(
-                default_program().into_world(vec![], vec![]),
-                default_program().into_world(vec![], vec![])
+                default_program().into_world(vec![], vec![], vec![]),
+                default_program().into_world(vec![], vec![], vec![])
             );
         }
         #[test]
@@ -333,6 +333,88 @@ mod tests {
 
             let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).previous();
             assert_eq!(start, recovered_start);
+        }
+        #[test]
+        fn grid_line_dir_next() {
+            let start = Vec2i::new(-1, 0);
+            let dir = Dir::west;
+
+            let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).next();
+            assert_eq!(dir.shift(start), recovered_start);
+            assert_eq!(dir, recovered_dir);
+        }
+        #[test]
+        fn grid_line_dir_advance() {
+            let start = Vec2i::new(-1, 0);
+            let dir = Dir::west;
+
+            let (recovered_start, recovered_dir) =
+                GridLineDir::new(start, dir).advance(1).previous();
+            assert_eq!(dir.shift(start), recovered_start);
+            assert_eq!(dir, recovered_dir);
+        }
+    }
+
+    #[cfg(test)]
+    mod tilelines {
+        use super::*;
+        use pretty_assertions::{assert_eq, assert_ne};
+
+        #[test]
+        fn tile_line_east() {
+            let start = GridLine::new(Vec2i::new(0, 0), Dir::east);
+            let end = GridLine::new(Vec2i::new(5, 0), Dir::east);
+            let l = TileLine::new(start, end);
+            assert_eq!(l.distance, 5);
+            assert_eq!(l.grid_line, start);
+            assert_eq!(l, TileLine::new(end, start));
+        }
+        #[test]
+        fn tile_line_west() {
+            let start = GridLine::new(Vec2i::new(0, 0), Dir::east);
+            let end = GridLine::new(Vec2i::new(5, 0), Dir::west);
+            let l = TileLine::new(start, end);
+            assert_eq!(l.distance, 4);
+            assert_eq!(l.grid_line, start);
+            assert_eq!(l, TileLine::new(end, start));
+        }
+
+        #[test]
+        fn tile_line_dir_east() {
+            let start = GridLine::new(Vec2i::new(0, 0), Dir::east);
+            let end = GridLine::new(Vec2i::new(5, 0), Dir::east);
+            let l = TileLineDir::new(start, end);
+            assert_eq!(l.sign, Sign::Positive);
+        }
+        #[test]
+        fn tile_line_dir_west() {
+            let start = GridLine::new(Vec2i::new(0, 0), Dir::east);
+            let end = GridLine::new(Vec2i::new(5, 0), Dir::east);
+            let l = TileLineDir::new(end, start);
+            assert_eq!(l.sign, Sign::Negative);
+        }
+        #[test]
+        fn tile_line_dir_iter() {
+            let start = GridLine::new(Vec2i::new(0, 0), Dir::east);
+            let end = GridLine::new(Vec2i::new(5, 0), Dir::east);
+            let l = TileLineDir::new(start, end);
+            assert_eq!(
+                l.get_start(),
+                GridLineDir {
+                    grid_line: start,
+                    direction: Sign::Positive
+                }
+            );
+            assert_eq!(
+                l.into_iter().collect::<Vec<_>>(),
+                vec![
+                    Vec2i::new(1, 0),
+                    Vec2i::new(2, 0),
+                    Vec2i::new(3, 0),
+                    Vec2i::new(4, 0),
+                    Vec2i::new(5, 0),
+                ]
+            );
         }
     }
 
@@ -490,14 +572,17 @@ mod tests {
             let data = Data::Number(0);
             let prog = in_out_id_prog();
 
-            let input_uuid = prog.inputs[0].0;
-            let output_uuid = prog.outputs[0].0;
+            let (graph, outputs) = evaluation::program_to_graph(&prog);
 
-            let result = evaluation::evaluate(
-                prog.clone(),
-                std::array::IntoIter::new([(input_uuid, data.clone())]).collect(),
+            let output_node = GraphNode::Output(outputs.into_iter().next().unwrap());
+            let (output_data, lasers_produced) = evaluation::weak_head_normal_form(
+                &graph,
+                Data::ThunkPure(output_node, Dependency::Only),
+                vec![hash_map! {
+                    prog.inputs[0].0: data.clone()
+                }],
             );
-            assert_eq!(result.1.get(&output_uuid).unwrap(), &data);
+            assert_eq!(output_data, data);
         }
 
         /*
@@ -527,14 +612,17 @@ mod tests {
             let data = Data::Number(0);
             let prog = in_out_id_with_indirection_prog();
 
-            let input_uuid = prog.inputs[0].0;
-            let output_uuid = prog.outputs[0].0;
+            let (graph, outputs) = evaluation::program_to_graph(&prog);
 
-            let result = evaluation::evaluate(
-                prog.clone(),
-                std::array::IntoIter::new([(input_uuid, data.clone())]).collect(),
+            let output_node = GraphNode::Output(outputs.into_iter().next().unwrap());
+            let (output_data, lasers_produced) = evaluation::weak_head_normal_form(
+                &graph,
+                Data::ThunkPure(output_node, Dependency::Only),
+                vec![hash_map! {
+                    prog.inputs[0].0: data.clone()
+                }],
             );
-            assert_eq!(result.1.get(&output_uuid).unwrap(), &data);
+            assert_eq!(output_data, data);
         }
 
         /*
