@@ -222,7 +222,7 @@ pub mod direction {
         pub direction: Sign,
     }
     impl GridLineDir {
-        pub fn parts(self) -> (Vec2i, Dir) {
+        pub fn previous(self) -> (Vec2i, Dir) {
             if self.direction == Sign::Positive {
                 (
                     self.grid_line.location,
@@ -238,6 +238,11 @@ pub mod direction {
                 };
                 ((-dir).shift(self.grid_line.location), dir)
             }
+        }
+        pub fn advance(self) -> (Vec2i, Dir, GridLineDir) {
+            let (pos, dir) = self.previous();
+            let pos = dir.shift(pos);
+            (pos, dir, GridLineDir::new(pos, dir))
         }
 
         pub fn new<
@@ -275,8 +280,8 @@ pub mod direction {
     }
     impl PartialOrd for GridLineDir {
         fn partial_cmp(&self, other: &Self) -> std::option::Option<std::cmp::Ordering> {
-            let (p1, p2) = self.parts();
-            let (o1, o2) = other.parts();
+            let (p1, p2) = self.previous();
+            let (o1, o2) = other.previous();
             (p1.x, p1.y, p2).partial_cmp(&(o1.x, o1.y, o2))
         }
     }
@@ -618,7 +623,7 @@ pub mod tilemap {
                 self.check_grid_line_in_bounds(grid_line_dir.grid_line),
                 "raycast out of bounds"
             );
-            let (location, direction) = grid_line_dir.parts();
+            let (location, direction) = grid_line_dir.previous();
             let new_location = direction.shift(location);
             if let Some(new_location) = self.check_in_bounds_i(new_location) {
                 if let Some(hit) = self.get(new_location) {

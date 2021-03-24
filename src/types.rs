@@ -537,6 +537,7 @@ pub mod tilemaps {
             self,
             inputs: Vec<(MachineInput, Option<Data>)>,
             outputs: Vec<(MachineOutput, Option<Data>)>,
+            lasers: Vec<(GridLineDir, GridLineDir)>,
         ) -> TilemapWorld {
             let map = self.spec.map;
             let mut tiles = self.spec.tiles;
@@ -559,14 +560,24 @@ pub mod tilemaps {
                 }
                 _ => None,
             });
-            TilemapWorld {
+            let world = TilemapWorld {
                 world: tilemap::Tilemap {
                     tiles: world_tiles,
                     map: world_map,
                 },
                 inputs,
                 outputs,
-            }
+            };
+            world
+                .try_do_to_map(|map| {
+                    // TODO! add lasers here
+                    // The only reason I'm not doing it right now is because I want to add a "line" type (which is a vertical or horizontal line of tiles)
+                    // and a LineDir type (which is a line with a direction), and refactor weak_head_normal_form to return a list of LineDirs
+                    // and refactor this function to take a list of LineDirs of course.
+                    // But I have bigger fish to fry right now
+                    Ok(map)
+                })
+                .unwrap()
         }
 
         pub fn make_slotmap() -> SlotMap<KeyProgram, (Vec2, Dir, TileProgram)> {
@@ -668,7 +679,7 @@ pub mod data {
             Self::Block((tile_info.0.x, tile_info.0.y), tile_info.1, tile_info.2)
         }
         pub fn nothing(grid_line_dir: GridLineDir) -> Self {
-            let (location, direction) = grid_line_dir.parts();
+            let (location, direction) = grid_line_dir.previous();
             Self::Nothing((location.x, location.y), direction)
         }
     }

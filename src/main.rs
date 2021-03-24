@@ -334,7 +334,6 @@ fn create_map(commands: &mut Commands) {
     commands.insert_resource(test_prog);
     commands.insert_resource(test_world);
      */
-    let test_world = test_prog.clone().into_world(vec![], vec![]);
 
     let (graph, outputs) = evaluation::program_to_graph(&test_prog);
     use petgraph::dot::{Config, Dot};
@@ -349,6 +348,10 @@ fn create_map(commands: &mut Commands) {
         }],
     );
     println!("output: {:?} \nlasers:{:?}", output_data, lasers_produced);
+
+    let test_world = test_prog
+        .clone()
+        .into_world(vec![], vec![], lasers_produced); // should probably add the actual inputs and outputs here
 
     commands.insert_resource(test_prog);
     commands.insert_resource(test_world);

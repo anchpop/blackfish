@@ -307,7 +307,7 @@ mod tests {
             let start = Vec2i::new(-1, 0);
             let dir = Dir::north;
 
-            let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).parts();
+            let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).previous();
             assert_eq!(start, recovered_start);
         }
         #[test]
@@ -315,7 +315,7 @@ mod tests {
             let start = Vec2i::new(-1, 0);
             let dir = Dir::south;
 
-            let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).parts();
+            let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).previous();
             assert_eq!(start, recovered_start);
         }
         #[test]
@@ -323,7 +323,7 @@ mod tests {
             let start = Vec2i::new(-1, 0);
             let dir = Dir::east;
 
-            let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).parts();
+            let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).previous();
             assert_eq!(start, recovered_start);
         }
         #[test]
@@ -331,7 +331,7 @@ mod tests {
             let start = Vec2i::new(-1, 0);
             let dir = Dir::west;
 
-            let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).parts();
+            let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).previous();
             assert_eq!(start, recovered_start);
         }
     }
