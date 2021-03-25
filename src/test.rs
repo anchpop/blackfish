@@ -27,7 +27,7 @@ pub fn in_out_id_with_indirection_prog() -> TilemapProgram {
         .try_do_to_map(|map| {
             map.add(
                 Vec2::new(3, 0),
-                Dir::east,
+                Dir::EAST,
                 TileProgram::Machine(MachineInfo::BuiltIn(
                     BuiltInMachine::Produce(()),
                     ProgramInfo {},
@@ -214,7 +214,7 @@ mod tests {
                     location: Vec2i::new(-1, 0),
                     side: Basis::East
                 },
-                GridLine::new(Vec2i::new(-1, 0), Dir::east)
+                GridLine::new(Vec2i::new(-1, 0), Dir::EAST)
             );
         }
         #[test]
@@ -224,7 +224,7 @@ mod tests {
                     location: Vec2i::new(-1, 0),
                     side: Basis::North
                 },
-                GridLine::new(Vec2i::new(-1, 0), Dir::north)
+                GridLine::new(Vec2i::new(-1, 0), Dir::NORTH)
             );
         }
         #[test]
@@ -234,7 +234,7 @@ mod tests {
                     location: Vec2i::new(-1, -1),
                     side: Basis::North
                 },
-                GridLine::new(Vec2i::new(-1, 0), Dir::south)
+                GridLine::new(Vec2i::new(-1, 0), Dir::SOUTH)
             );
         }
         #[test]
@@ -244,7 +244,7 @@ mod tests {
                     location: Vec2i::new(-2, 0),
                     side: Basis::East
                 },
-                GridLine::new(Vec2i::new(-1, 0), Dir::west)
+                GridLine::new(Vec2i::new(-1, 0), Dir::WEST)
             );
         }
 
@@ -258,7 +258,7 @@ mod tests {
                     },
                     direction: Sign::Positive
                 },
-                GridLineDir::new(Vec2i::new(-1, 0), Dir::east)
+                GridLineDir::new(Vec2i::new(-1, 0), Dir::EAST)
             );
         }
         #[test]
@@ -271,7 +271,7 @@ mod tests {
                     },
                     direction: Sign::Positive
                 },
-                GridLineDir::new(Vec2i::new(-1, 0), Dir::north)
+                GridLineDir::new(Vec2i::new(-1, 0), Dir::NORTH)
             );
         }
         #[test]
@@ -284,7 +284,7 @@ mod tests {
                     },
                     direction: Sign::Negative
                 },
-                GridLineDir::new(Vec2i::new(-1, 0), Dir::west)
+                GridLineDir::new(Vec2i::new(-1, 0), Dir::WEST)
             );
         }
 
@@ -298,14 +298,14 @@ mod tests {
                     },
                     direction: Sign::Negative
                 },
-                GridLineDir::new(Vec2i::new(-1, 0), Dir::south)
+                GridLineDir::new(Vec2i::new(-1, 0), Dir::SOUTH)
             );
         }
 
         #[test]
         fn grid_line_dir_parts_north() {
             let start = Vec2i::new(-1, 0);
-            let dir = Dir::north;
+            let dir = Dir::NORTH;
 
             let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).previous();
             assert_eq!(start, recovered_start);
@@ -313,7 +313,7 @@ mod tests {
         #[test]
         fn grid_line_dir_parts_south() {
             let start = Vec2i::new(-1, 0);
-            let dir = Dir::south;
+            let dir = Dir::SOUTH;
 
             let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).previous();
             assert_eq!(start, recovered_start);
@@ -321,7 +321,7 @@ mod tests {
         #[test]
         fn grid_line_dir_parts_east() {
             let start = Vec2i::new(-1, 0);
-            let dir = Dir::east;
+            let dir = Dir::EAST;
 
             let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).previous();
             assert_eq!(start, recovered_start);
@@ -329,7 +329,7 @@ mod tests {
         #[test]
         fn grid_line_dir_parts_west() {
             let start = Vec2i::new(-1, 0);
-            let dir = Dir::west;
+            let dir = Dir::WEST;
 
             let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).previous();
             assert_eq!(start, recovered_start);
@@ -337,7 +337,7 @@ mod tests {
         #[test]
         fn grid_line_dir_next() {
             let start = Vec2i::new(-1, 0);
-            let dir = Dir::west;
+            let dir = Dir::WEST;
 
             let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).next();
             assert_eq!(dir.shift(start), recovered_start);
@@ -346,7 +346,7 @@ mod tests {
         #[test]
         fn grid_line_dir_advance() {
             let start = Vec2i::new(-1, 0);
-            let dir = Dir::west;
+            let dir = Dir::WEST;
 
             let (recovered_start, recovered_dir) =
                 GridLineDir::new(start, dir).advance(1).previous();
@@ -362,8 +362,8 @@ mod tests {
 
         #[test]
         fn tile_line_east() {
-            let start = GridLine::new(Vec2i::new(0, 0), Dir::east);
-            let end = GridLine::new(Vec2i::new(5, 0), Dir::east);
+            let start = GridLine::new(Vec2i::new(0, 0), Dir::EAST);
+            let end = GridLine::new(Vec2i::new(5, 0), Dir::EAST);
             let l = TileLine::new(start, end);
             assert_eq!(l.distance, 5);
             assert_eq!(l.grid_line, start);
@@ -371,8 +371,8 @@ mod tests {
         }
         #[test]
         fn tile_line_west() {
-            let start = GridLine::new(Vec2i::new(0, 0), Dir::east);
-            let end = GridLine::new(Vec2i::new(5, 0), Dir::west);
+            let start = GridLine::new(Vec2i::new(0, 0), Dir::EAST);
+            let end = GridLine::new(Vec2i::new(5, 0), Dir::WEST);
             let l = TileLine::new(start, end);
             assert_eq!(l.distance, 4);
             assert_eq!(l.grid_line, start);
@@ -381,22 +381,22 @@ mod tests {
 
         #[test]
         fn tile_line_dir_east() {
-            let start = GridLine::new(Vec2i::new(0, 0), Dir::east);
-            let end = GridLine::new(Vec2i::new(5, 0), Dir::east);
+            let start = GridLine::new(Vec2i::new(0, 0), Dir::EAST);
+            let end = GridLine::new(Vec2i::new(5, 0), Dir::EAST);
             let l = TileLineDir::new(start, end);
             assert_eq!(l.sign, Sign::Positive);
         }
         #[test]
         fn tile_line_dir_west() {
-            let start = GridLine::new(Vec2i::new(0, 0), Dir::east);
-            let end = GridLine::new(Vec2i::new(5, 0), Dir::east);
+            let start = GridLine::new(Vec2i::new(0, 0), Dir::EAST);
+            let end = GridLine::new(Vec2i::new(5, 0), Dir::EAST);
             let l = TileLineDir::new(end, start);
             assert_eq!(l.sign, Sign::Negative);
         }
         #[test]
         fn tile_line_dir_iter() {
-            let start = GridLine::new(Vec2i::new(0, 0), Dir::east);
-            let end = GridLine::new(Vec2i::new(5, 0), Dir::east);
+            let start = GridLine::new(Vec2i::new(0, 0), Dir::EAST);
+            let end = GridLine::new(Vec2i::new(5, 0), Dir::EAST);
             let l = TileLineDir::new(start, end);
             assert_eq!(
                 l.get_start(),
@@ -434,11 +434,11 @@ mod tests {
 
             let raycast_hit = prog
                 .spec
-                .raycast(GridLineDir::new(Vec2::new(5, 0), Dir::west));
+                .raycast(GridLineDir::new(Vec2::new(5, 0), Dir::WEST));
 
             assert_eq!(
                 raycast_hit,
-                RaycastHit::HitBorder(GridLineDir::new(Vec2i::new(-1, 0), Dir::east))
+                RaycastHit::HitBorder(GridLineDir::new(Vec2i::new(-1, 0), Dir::EAST))
             );
         }
 
@@ -448,16 +448,16 @@ mod tests {
 
             let raycast_hit = prog
                 .spec
-                .raycast(GridLineDir::new(Vec2::new(5, 0), Dir::west));
+                .raycast(GridLineDir::new(Vec2::new(5, 0), Dir::WEST));
 
             assert_eq!(
                 raycast_hit,
                 RaycastHit::HitTile(
                     Vec2::new(3, 0),
-                    Dir::east,
+                    Dir::EAST,
                     &(
                         Vec2::new(3, 0),
-                        Dir::east,
+                        Dir::EAST,
                         TileProgram::Machine(MachineInfo::BuiltIn(
                             BuiltInMachine::Produce(()),
                             ProgramInfo {},
@@ -472,16 +472,16 @@ mod tests {
 
             let raycast_hit = prog
                 .spec
-                .raycast(GridLineDir::new(Vec2::new(6, 0), Dir::west));
+                .raycast(GridLineDir::new(Vec2::new(6, 0), Dir::WEST));
 
             assert_eq!(
                 raycast_hit,
                 RaycastHit::HitTile(
                     Vec2::new(3, 0),
-                    Dir::east,
+                    Dir::EAST,
                     &(
                         Vec2::new(3, 0),
-                        Dir::east,
+                        Dir::EAST,
                         TileProgram::Machine(MachineInfo::BuiltIn(
                             BuiltInMachine::Produce(()),
                             ProgramInfo {},
@@ -497,16 +497,16 @@ mod tests {
 
             let raycast_hit = prog
                 .spec
-                .raycast(GridLineDir::new(Vec2::new(0, 0), Dir::east));
+                .raycast(GridLineDir::new(Vec2::new(0, 0), Dir::EAST));
 
             assert_eq!(
                 raycast_hit,
                 RaycastHit::HitTile(
                     Vec2::new(3, 0),
-                    Dir::west,
+                    Dir::WEST,
                     &(
                         Vec2::new(3, 0),
-                        Dir::east,
+                        Dir::EAST,
                         TileProgram::Machine(MachineInfo::BuiltIn(
                             BuiltInMachine::Produce(()),
                             ProgramInfo {},
@@ -521,16 +521,16 @@ mod tests {
 
             let raycast_hit = prog
                 .spec
-                .raycast(GridLineDir::new(Vec2::new(1, 0), Dir::east));
+                .raycast(GridLineDir::new(Vec2::new(1, 0), Dir::EAST));
 
             assert_eq!(
                 raycast_hit,
                 RaycastHit::HitTile(
                     Vec2::new(3, 0),
-                    Dir::west,
+                    Dir::WEST,
                     &(
                         Vec2::new(3, 0),
-                        Dir::east,
+                        Dir::EAST,
                         TileProgram::Machine(MachineInfo::BuiltIn(
                             BuiltInMachine::Produce(()),
                             ProgramInfo {},
@@ -546,7 +546,7 @@ mod tests {
 
             let raycast_hit = prog
                 .spec
-                .raycast(GridLineDir::new(Vec2::new(3, 0), Dir::east));
+                .raycast(GridLineDir::new(Vec2::new(3, 0), Dir::EAST));
 
             match raycast_hit {
                 RaycastHit::HitBorder(_) => {}

@@ -17,11 +17,71 @@ use std::collections::hash_map::{Entry, Entry::Occupied, OccupiedEntry};
 
 use petgraph::{stable_graph::StableGraph, EdgeDirection::Incoming};
 
-pub fn evaluate(
-    prog: TilemapProgram,
-    inputs: HashMap<uuid::Uuid, Data>,
-) -> (TilemapWorld, HashMap<uuid::Uuid, Data>) {
-    todo!()
+pub fn evaluate(prog: &TilemapProgram, inputs: HashMap<String, Data>) -> TilemapWorld {
+    let (graph, outputs) = program_to_graph(&prog);
+    let prog_input_labels: HashMap<uuid::Uuid, MachineInput> = prog
+        .inputs
+        .clone()
+        .into_iter()
+        .map(|(uuid, label, _)| (uuid, label))
+        .collect();
+    let prog_output_labels: HashMap<uuid::Uuid, MachineOutput> = prog
+        .outputs
+        .clone()
+        .into_iter()
+        .map(|(uuid, label, _)| (uuid, label))
+        .collect();
+
+    let output_nodes = outputs
+        .into_iter()
+        .map(|uuid| (uuid, GraphNode::Output(uuid)));
+    let outputs = output_nodes
+        .map(|(uuid, node)| {
+            (
+                uuid,
+                weak_head_normal_form(
+                    &graph,
+                    Data::ThunkPure(node, Dependency::Only),
+                    vec![prog
+                        .inputs
+                        .iter()
+                        .map(|(uuid, label, datatype)| {
+                            (uuid.clone(), inputs.get(label).unwrap().clone())
+                        })
+                        .collect()],
+                ),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    let labeled_outputs = outputs
+        .clone()
+        .into_iter()
+        .map(|(uuid, (data, _))| {
+            (
+                prog_output_labels
+                    .get(&uuid)
+                    .unwrap_or_else(|| {
+                        panic!("Couldn't find {:?} in {:?}", &uuid, &prog_input_labels)
+                    })
+                    .clone(),
+                data,
+            )
+        })
+        .collect();
+
+    let world = prog.clone().into_world(
+        prog.inputs
+            .iter()
+            .map(|(uuid, label, datatype)| (label.clone(), inputs.get(label).cloned()))
+            .collect(),
+        labeled_outputs,
+        outputs
+            .into_iter()
+            .flat_map(|(_, (_, lasers))| lasers)
+            .collect(),
+    ); // should probably add the actual inputs and outputs here
+    world
 }
 
 pub fn weak_head_normal_form(
@@ -252,7 +312,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
 
             let node = graph.add_node(node.clone());
 
-            (GridLineDir::new(Vec2i::new(-1, index), Dir::east), node)
+            (GridLineDir::new(Vec2i::new(-1, index), Dir::EAST), node)
         })
         .collect();
 
@@ -263,7 +323,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
         .enumerate()
         .map(|(index, (uuid, _, _))| {
             let node = GraphNode::Output(uuid.clone());
-            let grid_line_dir = GridLineDir::new(Vec2::new(width, index), Dir::west);
+            let grid_line_dir = GridLineDir::new(Vec2::new(width, index), Dir::WEST);
             let node = graph.add_node(node.clone());
             (uuid.clone(), (grid_line_dir, node))
         })

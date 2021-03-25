@@ -368,7 +368,7 @@ pub mod tilemaps {
     pub struct TilemapWorld {
         pub world: tilemap::Tilemap<KeyWorld, TileWorld>,
         pub inputs: Vec<(MachineInput, Option<Data>)>,
-        pub outputs: Vec<(MachineOutput, Option<Data>)>,
+        pub outputs: Vec<(MachineOutput, Data)>,
     }
 
     impl TilemapWorld {
@@ -530,7 +530,7 @@ pub mod tilemaps {
         pub fn into_world(
             self,
             inputs: Vec<(MachineInput, Option<Data>)>,
-            outputs: Vec<(MachineOutput, Option<Data>)>,
+            outputs: Vec<(MachineOutput, Data)>,
             lasers: Vec<TileLineDir>,
         ) -> TilemapWorld {
             let map = self.spec.map;

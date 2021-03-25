@@ -335,23 +335,8 @@ fn create_map(commands: &mut Commands) {
     commands.insert_resource(test_world);
      */
 
-    let (graph, outputs) = evaluation::program_to_graph(&test_prog);
-    use petgraph::dot::{Config, Dot};
-    println!("{:?}", Dot::with_config(&graph, &[]));
-
-    let output_node = GraphNode::Output(outputs.into_iter().next().unwrap());
-    let (output_data, lasers_produced) = evaluation::weak_head_normal_form(
-        &graph,
-        Data::ThunkPure(output_node, Dependency::Only),
-        vec![hash_map! {
-            test_prog.inputs[0].0: Data::Number(3)
-        }],
-    );
-    println!("output: {:?} \nlasers:{:?}", output_data, lasers_produced);
-
-    let test_world = test_prog
-        .clone()
-        .into_world(vec![], vec![], lasers_produced); // should probably add the actual inputs and outputs here
+    let test_world =
+        evaluation::evaluate(&test_prog, hash_map! {"Clock".to_owned(): Data::Number(0)});
 
     commands.insert_resource(test_prog);
     commands.insert_resource(test_world);

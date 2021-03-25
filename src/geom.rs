@@ -51,19 +51,19 @@ pub mod direction {
         pub sign: Sign,
     }
     impl Dir {
-        pub const north: Self = Self {
+        pub const NORTH: Self = Self {
             basis: Basis::North,
             sign: Sign::Positive,
         };
-        pub const east: Self = Self {
+        pub const EAST: Self = Self {
             basis: Basis::East,
             sign: Sign::Positive,
         };
-        pub const south: Self = Self {
+        pub const SOUTH: Self = Self {
             basis: Basis::North,
             sign: Sign::Negative,
         };
-        pub const west: Self = Self {
+        pub const WEST: Self = Self {
             basis: Basis::East,
             sign: Sign::Negative,
         };
@@ -151,10 +151,10 @@ pub mod direction {
 
         pub fn from_num(i: usize) -> Self {
             match i {
-                0 => Self::north,
-                1 => Self::east,
-                2 => Self::south,
-                3 => Self::west,
+                0 => Self::NORTH,
+                1 => Self::EAST,
+                2 => Self::SOUTH,
+                3 => Self::WEST,
                 _ => panic!("out of bounds"),
             }
         }
@@ -171,7 +171,7 @@ pub mod direction {
     }
     impl Default for Dir {
         fn default() -> Self {
-            Self::north
+            Self::NORTH
         }
     }
 
@@ -383,10 +383,10 @@ pub mod direction {
 
         fn into_iter(self) -> Self::IntoIter {
             vec![
-                (Dir::north, self.north),
-                (Dir::east, self.east),
-                (Dir::south, self.south),
-                (Dir::west, self.west),
+                (Dir::NORTH, self.north),
+                (Dir::EAST, self.east),
+                (Dir::SOUTH, self.south),
+                (Dir::WEST, self.west),
             ]
             .into_iter()
         }
