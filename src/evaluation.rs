@@ -93,12 +93,6 @@ pub fn weak_head_normal_form(
         Data::Nothing => (Data::Nothing, vec![]),
         Data::ThunkPure(graph_node, dependency) => {
             let inputs = graph.neighbors_directed(graph_node, Incoming);
-            println!(
-                "all incoming inputs: {:?}",
-                graph
-                    .neighbors_directed(graph_node, Incoming)
-                    .collect::<Vec<_>>()
-            );
             let inputs = inputs
                 .flat_map(|node| graph.edges(node))
                 .filter(|(_, to, (_, _))| to == &graph_node)

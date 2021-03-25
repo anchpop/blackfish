@@ -50,7 +50,13 @@ const BEATS_PER_SECOND: u64 = 1;
 struct ClockIncrementTimer(Timer);
 impl Default for ClockIncrementTimer {
     fn default() -> Self {
-        Self(Timer::new(Duration::from_millis(1000), true))
+        Self(Timer::new(
+            Duration::from_millis(
+                (1000.0 as f64 * (MusicTime::new::<bang>(1.0)).get::<beat>()
+                    / (BEATS_PER_SECOND as f64)) as u64,
+            ),
+            true,
+        ))
     }
 }
 
@@ -516,25 +522,29 @@ fn clock_increment(
     conn_out: Res<Mutex<midir::MidiOutputConnection>>,
     mut notes_to_end_queue: ResMut<NotesToEnd>,
 ) {
-    /*
     if timer.0.tick(time.delta_seconds()).finished() {
         let mut conn_out = conn_out.lock().unwrap();
         *clock = CurrentClock(clock.0 + 1);
 
-        let new_prog = tilemap_program.clone();
-        let clock_uuid = new_prog.inputs.get(0).unwrap().0;
-        let (new_world, output) = evaluate(new_prog, hash_map! {clock_uuid: Data::Number(clock.0)});
-
-        start_note(
-            &mut conn_out,
-            &mut notes_to_end_queue,
-            MusicTime::new::<beat>(1.0),
-            66,
-            0x64,
+        *tilemap_world = evaluation::evaluate(
+            &tilemap_program,
+            hash_map! {"Clock".to_owned(): Data::Number(clock.0)},
         );
-        *tilemap_world = simulate_until_stable(new_world);
+
+        if let Some((_, Data::Number(data))) = tilemap_world
+            .outputs
+            .iter()
+            .find(|(label, _)| label == "Audio")
+        {
+            start_note(
+                &mut conn_out,
+                &mut notes_to_end_queue,
+                MusicTime::new::<beat>(1.0),
+                *data as u8,
+                0x64,
+            );
+        }
     }
-     */
 }
 
 fn end_started_notes(
