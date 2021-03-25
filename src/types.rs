@@ -21,16 +21,10 @@ use std::collections::btree_map::Entry;
 use velcro::btree_map;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TilePosition {
-    pub x: usize,
-    pub y: usize,
-}
+pub struct TilePosition(pub Vec2);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TileSize {
-    pub width: usize,
-    pub height: usize,
-}
+pub struct TileSize(pub Extent2);
 
 pub struct Materials {
     pub tiles: HashMap<&'static str, Handle<ColorMaterial>>,

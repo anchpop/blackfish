@@ -383,14 +383,8 @@ fn spawn_main_tile(
         )
     {
         if let (TileType::Real, location) = location {
-            let pos = TilePosition {
-                x: location.0,
-                y: location.1,
-            };
-            let size = TileSize {
-                width: 1,
-                height: 1,
-            };
+            let pos = TilePosition(Vec2::new(location.0, location.1));
+            let size = TileSize(Extent2::new(1, 1));
             commands
                 .spawn(SpriteBundle {
                     sprite: Sprite::new(bevy::prelude::Vec2::new(10., 10.)),
@@ -435,8 +429,8 @@ fn size_scaling(
 
     for (sprite_size, mut sprite) in q.iter_mut() {
         sprite.size = bevy::prelude::Vec2::new(
-            sprite_size.width as f32 / world_extent.w as f32 * window.width() as f32,
-            sprite_size.height as f32 / world_extent.h as f32 * window.height() as f32,
+            sprite_size.0.w as f32 / world_extent.w as f32 * window.width() as f32,
+            sprite_size.0.h as f32 / world_extent.h as f32 * window.height() as f32,
         );
     }
 }
@@ -457,8 +451,8 @@ fn positioning(
 
     for (pos, mut transform) in q.iter_mut() {
         transform.translation = bevy::prelude::Vec3::new(
-            convert(pos.x, window.width() as f32, arena_extent.w as f32),
-            convert(pos.y, window.height() as f32, arena_extent.h as f32),
+            convert(pos.0.x, window.width() as f32, arena_extent.w as f32),
+            convert(pos.0.y, window.height() as f32, arena_extent.h as f32),
             0.0,
         );
     }
@@ -479,7 +473,7 @@ fn tile_appearance(
     for (tile_position, mut color_mat_handle) in q.iter_mut() {
         let tile = tilemap
             .world
-            .get(Vec2::new(tile_position.x, tile_position.y))
+            .get(Vec2::new(tile_position.0.x, tile_position.0.y))
             .map(|(_, _, t)| t);
         *color_mat_handle = get_tile_material(&tile, &materials);
     }
@@ -491,28 +485,37 @@ fn tile_text(
     tilemap: Res<TilemapWorld>,
 ) {
     for (tile_position, children) in q.iter_mut() {
-        let tile = tilemap
+        let tile_info = tilemap
             .world
-            .get(Vec2::new(tile_position.x, tile_position.y))
-            .map(|(_, _, t)| t);
+            .get(Vec2::new(tile_position.0.x, tile_position.0.y));
         for child in children.iter() {
             if let Ok(mut text) = text_q.get_mut(*child) {
-                text.sections[0].value = match tile {
-                    /*Some(TileWorld::Prog(TileProgramMachineInfo::LaserProducer(dir, data))) => {
-                        format!("{} {}", dir.to_arrow(), data.show())
-                    }*/
-                    Some(TileWorld::Prog(TileProgramMachineInfo::Machine(
-                        MachineInfo::BuiltIn(_, data),
-                    ))) => {
-                        if let Some(text) = data.display.clone() {
-                            format!("{}", text)
-                        } else {
-                            "".to_string()
+                if let Some((tile_center, tile_orientation, tile_type)) = tile_info {
+                    text.sections[0].value = match tile_type {
+                        /*Some(TileWorld::Prog(TileProgramMachineInfo::LaserProducer(dir, data))) => {
+                            format!("{} {}", dir.to_arrow(), data.show())
+                        }*/
+                        TileWorld::Prog(TileProgramMachineInfo::Machine(MachineInfo::BuiltIn(
+                            _,
+                            data,
+                        ))) => {
+                            if let Some(text) = data.display.clone() {
+                                format!("{}", text)
+                            } else {
+                                "".to_string()
+                                    + (if &tile_position.0 == tile_center {
+                                        tile_orientation.to_arrow()
+                                    } else {
+                                        ""
+                                    })
+                            }
+                            //format!("{} {}", dir.to_arrow(), data.show())
                         }
-                        //format!("{} {}", dir.to_arrow(), data.show())
-                    }
-                    _ => "".to_string(),
-                };
+                        _ => "".to_string(),
+                    };
+                } else {
+                    text.sections[0].value = "".to_string();
+                }
             }
         }
     }
