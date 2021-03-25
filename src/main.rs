@@ -17,32 +17,26 @@ use types::*;
 
 use bevy::prelude::*;
 
-use ndarray::arr2;
-use slotmap::{new_key_type, Key, SlotMap};
-
 use frunk::monoid::Monoid;
 
 use std::time::Duration;
 
-use velcro::btree_map;
 use velcro::hash_map;
 
 use std::error::Error;
 use std::io::{stdin, stdout, Write};
-use std::thread::sleep;
 
-use midir::{MidiOutput, MidiOutputConnection, MidiOutputPort};
+use midir::{MidiOutput, MidiOutputPort};
 
 use std::sync::{Mutex, MutexGuard};
 
 use test::default_program;
 
 use units::f64::*;
-use units::music_time::{bang, beat, note};
+use units::music_time::{bang, beat};
 
 const NOTE_ON_MSG: u8 = 0x90;
 const NOTE_OFF_MSG: u8 = 0x80;
-const VELOCITY: u8 = 0x64;
 
 const BEATS_PER_SECOND: u64 = 1;
 
@@ -73,10 +67,6 @@ fn main() {
         .add_startup_system(create_map.system())
         // Adding a stage lets us access resources (in this case, materials) created in the previous stage
         .add_startup_stage("game_setup", SystemStage::single(spawn_main_tile.system()))
-        /* .add_startup_stage(
-            "play_notes_test",
-            SystemStage::single(play_notes_test.system()),
-        )*/
         .add_plugins(DefaultPlugins)
         .add_system(clock_increment.system())
         .add_system(end_started_notes.system())
@@ -171,34 +161,6 @@ fn get_midi_ports(commands: &mut Commands) {
     match run(commands) {
         Ok(_) => (),
         Err(err) => println!("Error: {}", err),
-    }
-}
-
-fn play_notes_test(conn_out: Res<Mutex<midir::MidiOutputConnection>>) {
-    let mut conn_out = conn_out.lock().unwrap();
-    println!("Connection open. Listen!");
-    {
-        // Define a new scope in which the closure `play_note` borrows conn_out, so it can be called easily
-        let mut play_note = |pitch: u8, duration: u64| {
-            const NOTE_ON_MSG: u8 = 0x90;
-            const NOTE_OFF_MSG: u8 = 0x80;
-            const VELOCITY: u8 = 0x64;
-            // We're ignoring errors in here
-            let _ = conn_out.send(&[NOTE_ON_MSG, pitch, VELOCITY]);
-            sleep(Duration::from_millis(duration * 150));
-            let _ = conn_out.send(&[NOTE_OFF_MSG, pitch, VELOCITY]);
-        };
-
-        sleep(Duration::from_millis(4 * 150));
-
-        play_note(66, 4);
-        play_note(65, 3);
-        play_note(63, 1);
-        play_note(61, 6);
-        play_note(59, 2);
-        play_note(58, 4);
-        play_note(56, 4);
-        play_note(54, 4);
     }
 }
 

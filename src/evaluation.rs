@@ -1,8 +1,4 @@
-use std::{
-    borrow::{Borrow, BorrowMut},
-    collections::HashMap,
-    thread::current,
-};
+use std::collections::HashMap;
 
 use crate::geom::direction::*;
 use crate::geom::tilemap::RaycastHit;
@@ -10,12 +6,8 @@ use crate::geom::*;
 use crate::types::data::*;
 use crate::types::tilemaps::*;
 use crate::types::tiles::*;
-use crate::types::*;
 
-use frunk::monoid::Monoid;
-use std::collections::hash_map::{Entry, Entry::Occupied, OccupiedEntry};
-
-use petgraph::{stable_graph::StableGraph, EdgeDirection::Incoming};
+use petgraph::EdgeDirection::Incoming;
 
 pub fn evaluate(prog: &TilemapProgram, inputs: HashMap<String, Data>) -> TilemapWorld {
     let (graph, outputs) = program_to_graph(&prog);
@@ -192,7 +184,7 @@ pub fn weak_head_normal_form(
                 }
                 GraphNode::Nothing(_, _) => {
                     assert!(inputs.len() == 0, "Nothing node somehow has an input!");
-                    todo!()
+                    (Data::Nothing, vec![])
                 }
             }
         }

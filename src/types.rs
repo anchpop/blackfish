@@ -9,16 +9,12 @@ use crate::geom::direction::*;
 use crate::geom::*;
 
 use bevy::prelude::{ColorMaterial, Handle};
-use ndarray::{arr2, Array2};
+use ndarray::Array2;
 
-use slotmap::{new_key_type, Key, SlotMap};
+use slotmap::{new_key_type, SlotMap};
 
 use frunk::monoid::Monoid;
 use frunk::semigroup::Semigroup;
-use uuid::Uuid;
-
-use std::collections::btree_map::Entry;
-use velcro::btree_map;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TilePosition(pub Vec2);
@@ -32,7 +28,6 @@ pub struct Materials {
 }
 
 pub mod tiles {
-    use crate::geom::tilemap::Shaped;
     use non_empty_collections::index_map::NonEmptyIndexMap;
 
     use super::data::*;
@@ -424,26 +419,6 @@ pub mod tilemaps {
             f(&self.world)
         }
 
-        /*
-        pub fn add_laser(&mut self, location: Vec2, data: DirData) {
-            match self.get(location) {
-                None => self.add_tile(
-                    location,
-                    TileWorld::Phys(TilePhysics::Laser(DirMap::empty())),
-                ),
-                Some(TileWorld::Phys(TilePhysics::Laser(d2))) => {
-                    if data != d2.clone() {
-                        let d2 = d2.clone();
-                        self.set_tile(
-                            location,
-                            TileWorld::Phys(TilePhysics::Laser(data.combine(&d2))),
-                        )
-                    }
-                }
-                _ => {}
-            }
-        }*/
-
         pub fn make_slotmap() -> SlotMap<KeyWorld, (Vec2, Dir, TileWorld)> {
             SlotMap::with_key()
         }
@@ -509,13 +484,6 @@ pub mod tilemaps {
                 inputs: self.inputs,
                 outputs: self.outputs,
             }
-        }
-
-        pub fn get_from_map<A, F: Fn(&tilemap::Tilemap<KeyProgram, TileProgram>) -> A>(
-            self,
-            f: F,
-        ) -> A {
-            f(&self.spec)
         }
 
         #[allow(dead_code)]
@@ -627,7 +595,6 @@ pub mod data {
     use super::tiles::BuiltInMachine;
     use crate::geom::direction::*;
     use crate::geom::Vec2;
-    use frunk::monoid::Monoid;
     use frunk::semigroup::Semigroup;
 
     pub type MachineInput = String;
@@ -654,24 +621,7 @@ pub mod data {
             other.clone()
         }
     }
-    impl Data {
-        pub fn show(&self) -> String {
-            match self {
-                Data::Nothing => format!("nothing"),
-                Data::ThunkPure(dep, on) => format!("dep on {:?}'s {:?}", dep, on),
-                Data::ThunkBuiltinOp(op, _) => format!("op: {:?}", op.name()),
-                Data::Number(num) => format!("{}", num),
-            }
-        }
-        pub fn check_types(&self, t: &DataType) -> bool {
-            match (self, t) {
-                (Data::Nothing, _) => true,
-                (Data::ThunkPure(_, _), _) => true,
-                (Data::ThunkBuiltinOp(_, _), _) => true,
-                (Data::Number(_), DataType::Number) => true,
-            }
-        }
-    }
+
     impl From<(GraphNode, FromConnection)> for Data {
         fn from((graph_node, from_connection): (GraphNode, FromConnection)) -> Self {
             Self::ThunkPure(graph_node, Dependency::from(from_connection))
@@ -718,14 +668,13 @@ pub mod data {
     pub enum ToConnection {
         GlobalOutput(GridLineDir),
         FunctionInput(GridLineDir, MachineInput),
-        Nothing(GridLineDir),
+        //Nothing(GridLineDir), // currently we never make these with the current graph setup
     }
     impl ToConnection {
         pub fn loc(&self) -> &GridLineDir {
             match self {
                 Self::GlobalOutput(loc) => loc,
                 Self::FunctionInput(loc, _) => loc,
-                Self::Nothing(loc) => loc,
             }
         }
     }
@@ -738,9 +687,9 @@ pub mod data {
     impl From<FromConnection> for Dependency {
         fn from(item: FromConnection) -> Self {
             match item {
-                FromConnection::GlobalInput(loc) => Dependency::Only,
-                FromConnection::FunctionOutput(loc, output) => Dependency::On(output),
-                FromConnection::Nothing(loc) => Dependency::Only,
+                FromConnection::GlobalInput(_) => Dependency::Only,
+                FromConnection::FunctionOutput(_, output) => Dependency::On(output),
+                FromConnection::Nothing(_) => Dependency::Only,
             }
         }
     }

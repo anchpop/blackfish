@@ -11,7 +11,6 @@ pub mod direction {
     use frunk::semigroup::Semigroup;
 
     use super::*;
-    use num_traits::ToPrimitive;
     use std::{fmt::Debug, ops::Mul, ops::Neg};
     #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, Ord, PartialOrd)]
     pub enum Sign {
@@ -480,7 +479,6 @@ pub mod direction {
         pub sign: Sign,
     }
 
-    use std::cmp::min;
     impl TileLineDir {
         pub fn new(from: GridLine, to: GridLine) -> Self {
             let distance = from.distance(&to);
@@ -547,7 +545,7 @@ pub mod direction {
             }
         }
 
-        pub fn into_iter(mut self) -> std::vec::IntoIter<vek::Vec2<i64>> {
+        pub fn into_iter(self) -> std::vec::IntoIter<vek::Vec2<i64>> {
             let mut v = vec![];
             let starting_dir = self.get_start();
             for i in 0..self.tile_line.distance {
@@ -561,15 +559,10 @@ pub mod direction {
 pub mod tilemap {
     use super::direction::*;
     use super::{Extent2, Vec2, Vec2i};
-    use ndarray::{arr2, Array2};
+    use ndarray::Array2;
     use non_empty_collections::index_map::NonEmptyIndexMap;
-    use proptest::collection::hash_set;
-    use slotmap::{new_key_type, Key, SlotMap};
-    use std::{
-        collections::{HashMap, HashSet},
-        iter,
-        num::NonZeroUsize,
-    };
+    use slotmap::{Key, SlotMap};
+    use std::collections::{HashMap, HashSet};
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum RaycastHit<'a, I> {
@@ -844,26 +837,4 @@ pub mod tilemap {
         }
     }
     impl<K: Key, I: Eq + Shaped> Eq for Tilemap<K, I> {}
-
-    /*
-    struct IterTilemap<'a, K: 'a + Key, I: 'a + Shaped> {
-        inner: &'a Tilemap<K, I>,
-        // And there is a position used to know where you are in your iteration.
-        pos: usize,
-    }
-    impl<'a, K: 'a + Key, I: 'a + Shaped> Iterator for IterTilemap<'a, K, I> {
-        type Item = &'a (Vec2, Dir, I);
-
-        fn next(&mut self) -> Option<Self::Item> {
-            if self.pos >= self.inner.0.len() {
-                // Obviously, there isn't any more data to read so let's stop here.
-                None
-            } else {
-                // We increment the position of our iterator.
-                self.pos += 1;
-                // We return the current value pointed by our iterator.
-                self.inner.0.get(self.pos - 1)
-            }
-        }
-    } */
 }
