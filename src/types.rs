@@ -424,7 +424,51 @@ pub mod tilemaps {
         }
     }
 
+    pub type InputIndex = usize;
+    pub type OutputIndex = usize;
     impl TilemapProgram {
+        pub fn get_input_grid_line_dir(&self, index: InputIndex) -> GridLineDir {
+            GridLineDir::new(Vec2i::new(-1, index as i64), Dir::EAST)
+        }
+        pub fn get_output_grid_line_dir(&self, index: OutputIndex) -> GridLineDir {
+            GridLineDir::new(Vec2::new(self.spec.extents().w, index), Dir::WEST)
+        }
+        pub fn check_input_grid_line_dir(&self, grid_line_dir: GridLineDir) -> Option<InputIndex> {
+            let GridLineDir {
+                grid_line,
+                direction,
+            } = grid_line_dir;
+            if grid_line.location.x == -1
+                && 0 <= grid_line.location.y
+                && (grid_line.location.y as usize) < self.inputs.len()
+                && direction == Sign::Positive
+                && grid_line.side == Basis::East
+            {
+                Some(grid_line.location.y as usize)
+            } else {
+                None
+            }
+        }
+        pub fn check_output_grid_line_dir(
+            &self,
+            grid_line_dir: GridLineDir,
+        ) -> Option<OutputIndex> {
+            let GridLineDir {
+                grid_line,
+                direction,
+            } = grid_line_dir;
+            if (grid_line.location.x as usize) == self.spec.extents().w - 1
+                && 0 <= grid_line.location.y
+                && (grid_line.location.y as usize) < self.outputs.len()
+                && direction == Sign::Negative
+                && grid_line.side == Basis::East
+            {
+                Some(grid_line.location.y as usize)
+            } else {
+                None
+            }
+        }
+
         pub fn new_empty(dim: Extent2) -> Self {
             let map: Array2<Option<KeyProgram>> =
                 Array2::zeros((dim.h, dim.w)).mapv(|_: usize| None);
@@ -592,6 +636,9 @@ pub mod tilemaps {
 }
 
 pub mod data {
+    use super::tilemaps::InputIndex;
+    use super::tilemaps::OutputIndex;
+    use super::tilemaps::TilemapProgram;
     use super::tiles::BuiltInMachine;
     use crate::geom::direction::*;
     use crate::geom::Vec2;
@@ -654,31 +701,31 @@ pub mod data {
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum FromConnection {
-        GlobalInput(GridLineDir),
+        GlobalInput(OutputIndex),
         FunctionOutput(GridLineDir, MachineOutput),
         Nothing(GridLineDir),
     }
     impl FromConnection {
-        pub fn loc(&self) -> &GridLineDir {
+        pub fn loc(&self, program: &TilemapProgram) -> GridLineDir {
             match self {
-                Self::GlobalInput(loc) => loc,
-                Self::FunctionOutput(loc, _) => loc,
-                Self::Nothing(loc) => loc,
+                Self::GlobalInput(loc) => program.get_input_grid_line_dir(*loc),
+                Self::FunctionOutput(loc, _) => *loc,
+                Self::Nothing(loc) => *loc,
             }
         }
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum ToConnection {
-        GlobalOutput(GridLineDir),
+        GlobalOutput(InputIndex),
         FunctionInput(GridLineDir, MachineInput),
         //Nothing(GridLineDir), // currently we never make these with the current graph setup
     }
     impl ToConnection {
-        pub fn loc(&self) -> &GridLineDir {
+        pub fn loc(&self, program: &TilemapProgram) -> GridLineDir {
             match self {
-                Self::GlobalOutput(loc) => loc,
-                Self::FunctionInput(loc, _) => loc,
+                Self::GlobalOutput(loc) => program.get_output_grid_line_dir(*loc),
+                Self::FunctionInput(loc, _) => *loc,
             }
         }
     }

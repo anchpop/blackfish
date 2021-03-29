@@ -577,6 +577,7 @@ mod tests {
             let output_node = GraphNode::Output(outputs.into_iter().next().unwrap());
             let (output_data, lasers_produced) = evaluation::weak_head_normal_form(
                 &graph,
+                &prog,
                 Data::ThunkPure(output_node, Dependency::Only),
                 vec![hash_map! {
                     prog.inputs[0].0:  Data::Whnf(data.clone())
@@ -617,6 +618,7 @@ mod tests {
             let output_node = GraphNode::Output(outputs.into_iter().next().unwrap());
             let (output_data, lasers_produced) = evaluation::weak_head_normal_form(
                 &graph,
+                &prog,
                 Data::ThunkPure(output_node, Dependency::Only),
                 vec![hash_map! {
                     prog.inputs[0].0:  Data::Whnf(data.clone())

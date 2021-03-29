@@ -33,13 +33,12 @@ pub fn evaluate(prog: &TilemapProgram, inputs: HashMap<String, Data>) -> Tilemap
                 uuid,
                 weak_head_normal_form(
                     &graph,
+                    &prog,
                     Data::ThunkPure(node, Dependency::Only),
                     vec![prog
                         .inputs
                         .iter()
-                        .map(|(uuid, label, datatype)| {
-                            (uuid.clone(), inputs.get(label).unwrap().clone())
-                        })
+                        .map(|(uuid, label, _)| (uuid.clone(), inputs.get(label).unwrap().clone()))
                         .collect()],
                 ),
             )
@@ -78,6 +77,7 @@ pub fn evaluate(prog: &TilemapProgram, inputs: HashMap<String, Data>) -> Tilemap
 
 pub fn weak_head_normal_form(
     graph: &Graph,
+    prog: &TilemapProgram,
     data: Data,
     context: Vec<HashMap<uuid::Uuid, Data>>,
 ) -> (WhnfData, Vec<TileLineDir>) {
@@ -101,7 +101,7 @@ pub fn weak_head_normal_form(
                         "Currently only support contexts with one thing in them!"
                     );
                     if let Some(data) = context[0].get(uuid) {
-                        weak_head_normal_form(graph, data.clone(), context)
+                        weak_head_normal_form(graph, prog, data.clone(), context)
                     } else {
                         panic!("uuid not in context!")
                     }
@@ -119,10 +119,10 @@ pub fn weak_head_normal_form(
                                 Dependency::from(from_connection.clone()),
                             );
                             let (whnm, mut lasers) =
-                                weak_head_normal_form(graph, new_thunk, context);
+                                weak_head_normal_form(graph, prog, new_thunk, context);
                             lasers.push(TileLineDir::new(
-                                from_connection.loc().grid_line,
-                                output_location.clone().grid_line,
+                                from_connection.loc(prog).grid_line,
+                                prog.get_output_grid_line_dir(*output_location).grid_line,
                             ));
                             (whnm, lasers)
                         } else {
@@ -162,9 +162,9 @@ pub fn weak_head_normal_form(
                                             desired_output,
                                         );
                                         let (whnf, mut lasers) =
-                                            weak_head_normal_form(graph, data, context);
+                                            weak_head_normal_form(graph, prog, data, context);
                                         lasers.push(TileLineDir::new(
-                                            input.1.loc().clone().grid_line,
+                                            input.1.loc(prog).clone().grid_line,
                                             to_connection_loc.grid_line,
                                         ));
                                         (whnf, lasers)
@@ -191,6 +191,7 @@ pub fn weak_head_normal_form(
         Data::Whnf(WhnfData::Number(n)) => (WhnfData::Number(n), vec![]),
         Data::ThunkBuiltinOp(op, output) => weak_head_normal_form(
             graph,
+            prog,
             match *op {
                 BuiltInMachine::Iffy(_, _, _) => {
                     todo!()
@@ -211,14 +212,18 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
         prog: &TilemapProgram,
         to_calc_input_to: GridLineDir,
         to_calc_input_to_node: GraphNode,
-        global_inputs: &HashMap<GridLineDir, GraphNode>,
+        global_inputs: &HashMap<InputIndex, GraphNode>,
         input_type: ToConnection,
     ) -> FromConnection {
         let raycast_hit = prog.spec.raycast(to_calc_input_to);
         match raycast_hit {
             RaycastHit::HitBorder(hit_normal) => {
-                if let Some(hit_node) = global_inputs.get(&hit_normal) {
-                    let from_connection = FromConnection::GlobalInput(hit_normal);
+                if let Some(input_index) = prog.check_input_grid_line_dir(hit_normal) {
+                    let hit_node = global_inputs
+                        .get(&input_index)
+                        .expect("Input not provided to program_to_graph");
+
+                    let from_connection = FromConnection::GlobalInput(input_index);
                     graph.add_edge(
                         hit_node.clone(),
                         to_calc_input_to_node,
@@ -284,7 +289,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
     // Only nodes in the graph are the inputs, outputs, and machines. Let's just add them all straightaway.
 
     // inputs
-    let input_grid_line_dirs: HashMap<GridLineDir, GraphNode> = prog
+    let input_grid_line_dirs: HashMap<InputIndex, GraphNode> = prog
         .inputs
         .iter()
         .map(|(uuid, _, _)| {
@@ -292,26 +297,25 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
                 .inputs
                 .iter()
                 .position(|(input_uuid, _, _)| uuid == input_uuid)
-                .expect("Input uuid was not in program's uuid list") as i64;
+                .expect("Input uuid was not in program's uuid list");
 
             let node = GraphNode::Input(uuid.clone());
 
             let node = graph.add_node(node.clone());
 
-            (GridLineDir::new(Vec2i::new(-1, index), Dir::EAST), node)
+            (index, node)
         })
         .collect();
 
     // outputs
-    let outputs: HashMap<uuid::Uuid, (GridLineDir, GraphNode)> = prog
+    let outputs: HashMap<uuid::Uuid, (OutputIndex, GraphNode)> = prog
         .outputs
         .iter()
         .enumerate()
         .map(|(index, (uuid, _, _))| {
             let node = GraphNode::Output(uuid.clone());
-            let grid_line_dir = GridLineDir::new(Vec2::new(width, index), Dir::WEST);
             let node = graph.add_node(node.clone());
-            (uuid.clone(), (grid_line_dir, node))
+            (uuid.clone(), (index, node))
         })
         .collect();
 
@@ -339,14 +343,14 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
 
     let outputs = outputs
         .iter()
-        .map(|(uuid, (to_calc_input_to, current_node))| {
+        .map(|(uuid, (to_calc_output_to, current_node))| {
             add_node(
                 &mut graph,
                 prog,
-                *to_calc_input_to,
+                prog.get_output_grid_line_dir(*to_calc_output_to),
                 *current_node,
                 &input_grid_line_dirs,
-                ToConnection::GlobalOutput(to_calc_input_to.clone()),
+                ToConnection::GlobalOutput(*to_calc_output_to),
             );
             uuid.clone()
         })
