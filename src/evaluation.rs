@@ -57,7 +57,7 @@ pub fn evaluate(prog: &TilemapProgram, inputs: HashMap<String, Data>) -> Tilemap
                         panic!("Couldn't find {:?} in {:?}", &uuid, &prog_input_labels)
                     })
                     .clone(),
-                data,
+                Data::Whnf(data),
             )
         })
         .collect();
@@ -80,9 +80,9 @@ pub fn weak_head_normal_form(
     graph: &Graph,
     data: Data,
     context: Vec<HashMap<uuid::Uuid, Data>>,
-) -> (Data, Vec<TileLineDir>) {
+) -> (WhnfData, Vec<TileLineDir>) {
     match data {
-        Data::Nothing => (Data::Nothing, vec![]),
+        Data::Whnf(WhnfData::Nothing) => (WhnfData::Nothing, vec![]),
         Data::ThunkPure(graph_node, dependency) => {
             let inputs = graph.neighbors_directed(graph_node, Incoming);
             let inputs = inputs
@@ -184,11 +184,11 @@ pub fn weak_head_normal_form(
                 }
                 GraphNode::Nothing(_, _) => {
                     assert!(inputs.len() == 0, "Nothing node somehow has an input!");
-                    (Data::Nothing, vec![])
+                    (WhnfData::Nothing, vec![])
                 }
             }
         }
-        Data::Number(n) => (Data::Number(n), vec![]),
+        Data::Whnf(WhnfData::Number(n)) => (WhnfData::Number(n), vec![]),
         Data::ThunkBuiltinOp(op, output) => weak_head_normal_form(
             graph,
             match *op {

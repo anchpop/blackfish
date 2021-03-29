@@ -569,7 +569,7 @@ mod tests {
 
         #[test]
         fn test_id_program() {
-            let data = Data::Number(0);
+            let data = WhnfData::Number(0);
             let prog = in_out_id_prog();
 
             let (graph, outputs) = evaluation::program_to_graph(&prog);
@@ -579,7 +579,7 @@ mod tests {
                 &graph,
                 Data::ThunkPure(output_node, Dependency::Only),
                 vec![hash_map! {
-                    prog.inputs[0].0: data.clone()
+                    prog.inputs[0].0:  Data::Whnf(data.clone())
                 }],
             );
             assert_eq!(output_data, data);
@@ -609,7 +609,7 @@ mod tests {
 
         #[test]
         fn test_id_program_with_indirection() {
-            let data = Data::Number(0);
+            let data = WhnfData::Number(0);
             let prog = in_out_id_with_indirection_prog();
 
             let (graph, outputs) = evaluation::program_to_graph(&prog);
@@ -619,7 +619,7 @@ mod tests {
                 &graph,
                 Data::ThunkPure(output_node, Dependency::Only),
                 vec![hash_map! {
-                    prog.inputs[0].0: data.clone()
+                    prog.inputs[0].0:  Data::Whnf(data.clone())
                 }],
             );
             assert_eq!(output_data, data);

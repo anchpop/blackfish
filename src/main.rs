@@ -303,8 +303,10 @@ fn create_map(commands: &mut Commands) {
     commands.insert_resource(test_world);
      */
 
-    let test_world =
-        evaluation::evaluate(&test_prog, hash_map! {"Clock".to_owned(): Data::Number(0)});
+    let test_world = evaluation::evaluate(
+        &test_prog,
+        hash_map! {"Clock".to_owned(): Data::Whnf(WhnfData::Number(0))},
+    );
 
     commands.insert_resource(test_prog);
     commands.insert_resource(test_world);
@@ -490,10 +492,10 @@ fn clock_increment(
 
         *tilemap_world = evaluation::evaluate(
             &tilemap_program,
-            hash_map! {"Clock".to_owned(): Data::Number(clock.0)},
+            hash_map! {"Clock".to_owned():   Data::Whnf(WhnfData::Number(clock.0))},
         );
 
-        if let Some((_, Data::Number(data))) = tilemap_world
+        if let Some((_, Data::Whnf(WhnfData::Number(data)))) = tilemap_world
             .outputs
             .iter()
             .find(|(label, _)| label == "Audio")

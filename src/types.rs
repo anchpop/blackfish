@@ -611,9 +611,13 @@ pub mod data {
     }
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum Data {
-        Nothing,
         ThunkPure(GraphNode, Dependency),
         ThunkBuiltinOp(Box<BuiltInMachine<Data>>, MachineOutput),
+        Whnf(WhnfData),
+    }
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    pub enum WhnfData {
+        Nothing,
         Number(i32),
     }
     impl Semigroup for Data {
