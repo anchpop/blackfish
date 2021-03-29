@@ -136,9 +136,11 @@ pub mod tiles {
     pub enum MachineInfo<I> {
         BuiltIn(BuiltInMachine<()>, I),
     }
+    new_key_type! { pub struct KeyNamedConstant; }
     #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum TileProgramF<I> {
         Machine(MachineInfo<I>),
+        //Literal(KeyNamedConstant),
     }
     pub type TileProgram = TileProgramF<ProgramInfo>;
     pub type TileProgramMachineInfo = TileProgramF<WorldMachineInfo>;
@@ -354,6 +356,7 @@ pub mod tilemaps {
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct TilemapProgram {
         pub spec: tilemap::Tilemap<KeyProgram, TileProgram>,
+        //pub named_constants: SlotMap<KeyNamedConstant, NfData>,
         pub inputs: Vec<(uuid::Uuid, MachineInput, DataType)>,
         pub outputs: Vec<(uuid::Uuid, MachineOutput, DataType)>,
         //pub functions: SlotMap<KeyFunction, TilemapProgram>, // need to make this work with alpha-equivalence
@@ -667,6 +670,18 @@ pub mod data {
         Nothing,
         Number(i32),
     }
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    pub enum NfData {
+        Number(i32),
+    }
+    impl From<NfData> for WhnfData {
+        fn from(data: NfData) -> Self {
+            match data {
+                NfData::Number(a) => WhnfData::Number(a),
+            }
+        }
+    }
+
     impl Semigroup for Data {
         fn combine(&self, other: &Self) -> Self {
             other.clone()
