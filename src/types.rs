@@ -353,10 +353,10 @@ pub mod tilemaps {
     new_key_type! { pub struct KeyWorld; }
     new_key_type! { pub struct KeyFunction; }
 
-    #[derive(Debug, Clone, PartialEq, Eq)]
+    #[derive(Debug, Clone)]
     pub struct TilemapProgram {
         pub spec: tilemap::Tilemap<KeyProgram, TileProgram>,
-        //pub named_constants: SlotMap<KeyNamedConstant, NfData>,
+        pub constants: SlotMap<KeyNamedConstant, NfData>,
         pub inputs: Vec<(uuid::Uuid, MachineInput, DataType)>,
         pub outputs: Vec<(uuid::Uuid, MachineOutput, DataType)>,
         //pub functions: SlotMap<KeyFunction, TilemapProgram>, // need to make this work with alpha-equivalence
@@ -483,6 +483,7 @@ pub mod tilemaps {
                 },
                 inputs: vec![],
                 outputs: vec![],
+                constants: SlotMap::with_key(),
             }
         }
 
@@ -491,6 +492,7 @@ pub mod tilemaps {
                 spec: tilemap,
                 inputs: vec![],
                 outputs: vec![],
+                constants: SlotMap::with_key(),
             }
         }
 
@@ -506,16 +508,8 @@ pub mod tilemaps {
             f: F,
         ) -> Result<Self, Self> {
             match f(self.spec) {
-                Ok(spec) => Ok(Self {
-                    spec,
-                    inputs: self.inputs,
-                    outputs: self.outputs,
-                }),
-                Err(spec) => Err(Self {
-                    spec,
-                    inputs: self.inputs,
-                    outputs: self.outputs,
-                }),
+                Ok(spec) => Ok(Self { spec, ..self }),
+                Err(spec) => Err(Self { spec, ..self }),
             }
         }
         pub fn apply_to_map<
@@ -528,8 +522,7 @@ pub mod tilemaps {
         ) -> Self {
             Self {
                 spec: f(self.spec),
-                inputs: self.inputs,
-                outputs: self.outputs,
+                ..self
             }
         }
 

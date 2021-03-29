@@ -158,20 +158,16 @@ mod tests {
 
         #[test]
         fn basic_tilemap_equality_empty() {
-            assert_eq!(empty_program(), empty_program());
+            assert_eq!(empty_program().spec, empty_program().spec);
         }
         #[test]
         fn basic_tilemap_equality_simple() {
-            assert_eq!(simple_program(), simple_program());
+            assert_eq!(simple_program().spec, simple_program().spec);
         }
-        #[test]
-        fn basic_tilemap_inequality_default() {
-            // the default programs should have different UUIDs making them different
-            assert_ne!(default_program(), default_program());
-        }
+
         #[test]
         fn basic_tilemap_inequality_default_2() {
-            assert_ne!(default_program(), empty_program());
+            assert_ne!(default_program().spec, empty_program().spec);
         }
 
         #[test]
@@ -193,7 +189,7 @@ mod tests {
                     ProgramInfo {},
                 )),
             ));
-            assert_eq!(m1, m2);
+            assert_eq!(m1.spec, m2.spec);
         }
     }
 
