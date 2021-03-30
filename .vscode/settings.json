@@ -6,6 +6,7 @@
         "mapv",
         "ndarray",
         "slotmap",
-        "tilemap"
+        "tilemap",
+        "whnf"
     ]
 }

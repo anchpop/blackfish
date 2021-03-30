@@ -140,7 +140,7 @@ pub mod tiles {
     #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum TileProgramF<I> {
         Machine(MachineInfo<I>),
-        //Literal(KeyNamedConstant),
+        Literal(KeyNamedConstant),
     }
     pub type TileProgram = TileProgramF<ProgramInfo>;
     pub type TileProgramMachineInfo = TileProgramF<WorldMachineInfo>;
@@ -156,6 +156,7 @@ pub mod tiles {
                 Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Iffy(_, _, _), _)) => "Iffy",
                 Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Trace(_), _)) => "Trace",
                 Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Produce(_), _)) => "Producer",
+                Self::Literal(_) => "Constant",
             }
         }
 
@@ -174,12 +175,12 @@ pub mod tiles {
                     MachineInfo::BuiltIn(builtin, _) => match builtin {
                         BuiltInMachine::Iffy(_, _, _) => (
                             vec![(
-                                Some(IOType::Out("a".to_owned())),      // north
+                                Some(IOType::OutLong("a".to_owned())),  // north
                                 Some(IOType::In("boolean".to_owned())), // south
                             )],
                             vec![(
                                 Some(IOType::In("a1".to_owned())), // east
-                                Some(IOType::In("a2".to_owned())), //west
+                                Some(IOType::In("a2".to_owned())), // west
                             )],
                         ),
                         BuiltInMachine::Trace(_) => (
@@ -189,21 +190,31 @@ pub mod tiles {
                             )],
                             vec![(
                                 None, // east
-                                None, //west
+                                None, // west
                             )],
                         ),
                         BuiltInMachine::Produce(_) => (
                             vec![(
-                                Some(IOType::Out("a".to_owned())), // north
-                                Some(IOType::In("a".to_owned())),  // south
+                                Some(IOType::OutLong("a".to_owned())), // north
+                                Some(IOType::In("a".to_owned())),      // south
                             )],
                             vec![(
                                 None, // east
-                                None, //west
+                                None, // west
                             )],
                         ),
                     },
                 },
+                TileProgramF::Literal(_) => (
+                    vec![(
+                        Some(IOType::OutShort("n".to_owned())), // north
+                        Some(IOType::OutShort("s".to_owned())), // south
+                    )],
+                    vec![(
+                        Some(IOType::OutShort("e".to_owned())), // east
+                        Some(IOType::OutShort("w".to_owned())), // west
+                    )],
+                ),
             }
         }
 
@@ -227,6 +238,18 @@ pub mod tiles {
                         )
                     }
                 },
+                TileProgramF::Literal(_) => {
+                    let desc = self.block_desc();
+                    NonEmptyIndexMap::new(
+                        self.get_center(),
+                        DirMap {
+                            north: desc.0[0].0.clone(),
+                            east: desc.1[0].0.clone(),
+                            south: desc.0[0].1.clone(),
+                            west: desc.1[0].1.clone(),
+                        },
+                    )
+                }
             }
         }
 
@@ -276,16 +299,17 @@ pub mod tiles {
         }
 
         #[allow(dead_code)]
-        pub fn size(&self) -> Vec2 {
+        pub fn size(&self) -> Extent2 {
             match self {
-                Self::Phys(TilePhysics::Laser(_)) => Vec2::new(1, 1),
+                Self::Phys(TilePhysics::Laser(_)) => Extent2::new(1, 1),
                 Self::Prog(TileProgramMachineInfo::Machine(MachineInfo::BuiltIn(b, _))) => {
                     match b {
-                        BuiltInMachine::Iffy(_, _, _) => Vec2::new(1, 1),
-                        BuiltInMachine::Trace(_) => Vec2::new(1, 1),
-                        BuiltInMachine::Produce(_) => Vec2::new(1, 1),
+                        BuiltInMachine::Iffy(_, _, _) => Extent2::new(1, 1),
+                        BuiltInMachine::Trace(_) => Extent2::new(1, 1),
+                        BuiltInMachine::Produce(_) => Extent2::new(1, 1),
                     }
                 }
+                Self::Prog(TileProgramMachineInfo::Literal(_)) => Extent2::new(1, 1),
             }
         }
     }
@@ -303,6 +327,7 @@ pub mod tiles {
                         ),
                     })
                 }
+                TileProgram::Literal(lit) => TileProgramMachineInfo::Literal(lit),
             }
         }
     }
@@ -646,7 +671,8 @@ pub mod data {
     #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
     pub enum IOType {
         In(MachineInput),
-        Out(MachineOutput),
+        OutLong(MachineOutput),
+        OutShort(MachineOutput),
     }
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum DataType {
@@ -658,12 +684,12 @@ pub mod data {
         ThunkBuiltinOp(Box<BuiltInMachine<Data>>, MachineOutput),
         Whnf(WhnfData),
     }
-    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum WhnfData {
         Nothing,
         Number(i32),
     }
-    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum NfData {
         Number(i32),
     }

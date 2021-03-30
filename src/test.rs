@@ -22,6 +22,23 @@ pub fn default_program() -> TilemapProgram {
     in_out_id_with_indirection_prog()
 }
 
+pub fn const_prog() -> TilemapProgram {
+    let mut prog = in_out_id_prog();
+    let data = prog.constants.insert(NfData::Number(10));
+    prog.try_do_to_map(|map| {
+        let map = map.add(
+            Vec2::new(3, 0),
+            Dir::EAST,
+            TileProgram::Machine(MachineInfo::BuiltIn(
+                BuiltInMachine::Produce(()),
+                ProgramInfo {},
+            )),
+        )?;
+        map.add(Vec2::new(2, 0), Dir::NORTH, TileProgram::Literal(data))
+    })
+    .unwrap()
+}
+
 pub fn in_out_id_with_indirection_prog() -> TilemapProgram {
     in_out_id_prog()
         .try_do_to_map(|map| {
@@ -621,6 +638,58 @@ mod tests {
                 }],
             );
             assert_eq!(output_data, data);
+        }
+
+        #[test]
+        fn test_get_value_from_literal() {
+            let data = WhnfData::Number(0);
+            let prog = const_prog();
+
+            let (graph, outputs) = evaluation::program_to_graph(&prog);
+
+            let output_node = GraphNode::Output(outputs.into_iter().next().unwrap());
+            let (output_data, lasers_produced) = evaluation::weak_head_normal_form(
+                &graph,
+                &prog,
+                Data::ThunkPure(output_node, Dependency::Only),
+                vec![hash_map! {
+                    prog.inputs[0].0:  Data::Whnf(data.clone())
+                }],
+            );
+            assert_eq!(output_data, WhnfData::Number(10));
+        }
+        #[test]
+        fn test_literal_doesnt_work_at_distance() {
+            let mut prog = in_out_id_prog();
+            let data = prog.constants.insert(NfData::Number(10));
+            let prog = prog
+                .try_do_to_map(|map| {
+                    let map = map.add(
+                        Vec2::new(3, 0),
+                        Dir::EAST,
+                        TileProgram::Machine(MachineInfo::BuiltIn(
+                            BuiltInMachine::Produce(()),
+                            ProgramInfo {},
+                        )),
+                    )?;
+                    map.add(Vec2::new(1, 0), Dir::NORTH, TileProgram::Literal(data))
+                })
+                .unwrap();
+
+            let (graph, outputs) = evaluation::program_to_graph(&prog);
+
+            let data = WhnfData::Number(0);
+
+            let output_node = GraphNode::Output(outputs.into_iter().next().unwrap());
+            let (output_data, lasers_produced) = evaluation::weak_head_normal_form(
+                &graph,
+                &prog,
+                Data::ThunkPure(output_node, Dependency::Only),
+                vec![hash_map! {
+                    prog.inputs[0].0:  Data::Whnf(data.clone())
+                }],
+            );
+            assert_eq!(output_data, WhnfData::Nothing);
         }
     }
 }

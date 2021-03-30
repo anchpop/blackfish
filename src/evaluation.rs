@@ -135,11 +135,6 @@ pub fn weak_head_normal_form(
                     }
                 }
                 GraphNode::Block(_, _, tile) => {
-                    assert!(
-                        inputs.len() > 0,
-                        "Trying to evaluate a block but we somehow found no inputs on the graph! Inputs: {:?}",
-                        &inputs
-                    );
                     let inputs: HashMap<_, (GridLineDir, (GraphNode, FromConnection))> =
                         inputs
                             .into_iter()
@@ -177,6 +172,9 @@ pub fn weak_head_normal_form(
                                     }
                                 },
                             },
+                            TileProgramF::Literal(l) => {
+                                (WhnfData::from(prog.constants[*l]), vec![])
+                            }
                         }
                     } else {
                         panic!("We're trying to evaluate the output from a block, but we don't have a dependency!")
@@ -253,7 +251,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
                     .expect("tile hit somehow not in result of calling tile_positions");
 
                 match io_map.get(&normal) {
-                    Some(IOType::Out(name)) => {
+                    Some(IOType::OutLong(name)) => {
                         let from_connection =
                             FromConnection::FunctionOutput(hit_normal, name.clone());
                         let hit_node = graph.add_node(GraphNode::new((
@@ -267,6 +265,32 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
                             (from_connection.clone(), input_type),
                         );
                         from_connection
+                    }
+                    Some(IOType::OutShort(name)) => {
+                        if hit_normal.grid_line.distance(&to_calc_input_to.grid_line) == 0 {
+                            let from_connection =
+                                FromConnection::FunctionOutput(hit_normal, name.clone());
+                            let hit_node = graph.add_node(GraphNode::new((
+                                block_center.clone(),
+                                block_orientation.clone(),
+                                block.clone(),
+                            )));
+                            graph.add_edge(
+                                hit_node,
+                                to_calc_input_to_node,
+                                (from_connection.clone(), input_type),
+                            );
+                            from_connection
+                        } else {
+                            let from_connection = FromConnection::Nothing(hit_normal);
+                            let hit_node = graph.add_node(GraphNode::nothing(hit_normal));
+                            graph.add_edge(
+                                hit_node,
+                                to_calc_input_to_node,
+                                (from_connection.clone(), input_type),
+                            );
+                            from_connection
+                        }
                     }
                     _ => {
                         let from_connection = FromConnection::Nothing(hit_normal);
