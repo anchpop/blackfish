@@ -250,8 +250,11 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
                     .get(&hit_location)
                     .expect("tile hit somehow not in result of calling tile_positions");
 
-                match io_map.get(&normal) {
-                    Some(IOType::OutLong(name)) => {
+                match (
+                    io_map.get(&normal),
+                    hit_normal.grid_line.distance(&to_calc_input_to.grid_line),
+                ) {
+                    (Some(IOType::OutLong(name)), _) | (Some(IOType::OutShort(name)), 0) => {
                         let from_connection =
                             FromConnection::FunctionOutput(hit_normal, name.clone());
                         let hit_node = graph.add_node(GraphNode::new((
@@ -265,32 +268,6 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
                             (from_connection.clone(), input_type),
                         );
                         from_connection
-                    }
-                    Some(IOType::OutShort(name)) => {
-                        if hit_normal.grid_line.distance(&to_calc_input_to.grid_line) == 0 {
-                            let from_connection =
-                                FromConnection::FunctionOutput(hit_normal, name.clone());
-                            let hit_node = graph.add_node(GraphNode::new((
-                                block_center.clone(),
-                                block_orientation.clone(),
-                                block.clone(),
-                            )));
-                            graph.add_edge(
-                                hit_node,
-                                to_calc_input_to_node,
-                                (from_connection.clone(), input_type),
-                            );
-                            from_connection
-                        } else {
-                            let from_connection = FromConnection::Nothing(hit_normal);
-                            let hit_node = graph.add_node(GraphNode::nothing(hit_normal));
-                            graph.add_edge(
-                                hit_node,
-                                to_calc_input_to_node,
-                                (from_connection.clone(), input_type),
-                            );
-                            from_connection
-                        }
                     }
                     _ => {
                         let from_connection = FromConnection::Nothing(hit_normal);
