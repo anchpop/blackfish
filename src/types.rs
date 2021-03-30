@@ -684,19 +684,27 @@ pub mod data {
         ThunkBuiltinOp(Box<BuiltInMachine<Data>>, MachineOutput),
         Whnf(WhnfData),
     }
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    type RowLabel = String;
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum WhnfData {
         Nothing,
         Number(i32),
+        Product(Vec<(RowLabel, Data)>),
     }
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum NfData {
         Number(i32),
+        Product(Vec<(RowLabel, NfData)>),
     }
     impl From<NfData> for WhnfData {
         fn from(data: NfData) -> Self {
             match data {
                 NfData::Number(a) => WhnfData::Number(a),
+                NfData::Product(l) => WhnfData::Product(
+                    l.into_iter()
+                        .map(|(label, data)| (label, Data::Whnf(WhnfData::from(data))))
+                        .collect(),
+                ),
             }
         }
     }

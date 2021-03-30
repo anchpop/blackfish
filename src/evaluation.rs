@@ -83,6 +83,8 @@ pub fn weak_head_normal_form(
 ) -> (WhnfData, Vec<TileLineDir>) {
     match data {
         Data::Whnf(WhnfData::Nothing) => (WhnfData::Nothing, vec![]),
+        Data::Whnf(n @ WhnfData::Number(_)) => (n, vec![]),
+        Data::Whnf(p @ WhnfData::Product(_)) => (p, vec![]),
         Data::ThunkPure(graph_node, dependency) => {
             let inputs = graph.neighbors_directed(graph_node, Incoming);
             let inputs = inputs
@@ -173,7 +175,7 @@ pub fn weak_head_normal_form(
                                 },
                             },
                             TileProgramF::Literal(l) => {
-                                (WhnfData::from(prog.constants[*l]), vec![])
+                                (WhnfData::from(prog.constants[*l].clone()), vec![])
                             }
                         }
                     } else {
@@ -186,7 +188,6 @@ pub fn weak_head_normal_form(
                 }
             }
         }
-        Data::Whnf(WhnfData::Number(n)) => (WhnfData::Number(n), vec![]),
         Data::ThunkBuiltinOp(op, output) => weak_head_normal_form(
             graph,
             prog,
