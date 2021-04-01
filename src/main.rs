@@ -98,12 +98,12 @@ fn main() {
         .run();
 }
 
-fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     commands.insert_resource(CurrentClock(0));
 
     commands.insert_resource(ClearColor(Color::rgb(0.118, 0.122, 0.149)));
 
-    commands.spawn(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.insert_resource(TileMaterials {
         empty: materials.add(Color::rgb(0.29019607, 0.3058, 0.3019).into()),
         tiles: [
@@ -141,8 +141,8 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
     });
 }
 
-fn get_midi_ports(commands: &mut Commands) {
-    fn run(commands: &mut Commands) -> Result<(), Box<dyn Error>> {
+fn get_midi_ports(mut commands: Commands) {
+    fn run(mut commands: Commands) -> Result<(), Box<dyn Error>> {
         let midi_out = MidiOutput::new("Blackfish Midi Output")?;
 
         // Get an output port (read from console if multiple are available)
@@ -186,7 +186,7 @@ fn get_midi_ports(commands: &mut Commands) {
     }
 }
 
-fn create_map(commands: &mut Commands) {
+fn create_map(mut commands: Commands) {
     let test_prog = default_program();
 
     let test_world = evaluation::evaluate(
@@ -199,7 +199,7 @@ fn create_map(commands: &mut Commands) {
 }
 
 fn spawn_main_tilemap(
-    commands: &mut Commands,
+    mut commands: Commands,
     tilemap: Res<TilemapWorld>,
     asset_server: Res<AssetServer>,
 ) {
@@ -234,34 +234,36 @@ fn spawn_main_tilemap(
     {
         let pos = TileFromMap(location);
         commands
-            .spawn(SpriteBundle {
+            .spawn_bundle(SpriteBundle {
                 sprite: Sprite::new(bevy::prelude::Vec2::new(10., 10.)),
                 ..Default::default()
             })
-            .with(pos)
+            .insert(pos)
             .with_children(|parent| {
-                parent.spawn(text_bundle.clone());
+                parent.spawn_bundle(text_bundle.clone());
             });
     }
     for location in (0..tilemap.world_dim().h).flat_map(|i| {
         array::IntoIter::new([TileFromBorder(i, Dir::EAST), TileFromBorder(i, Dir::WEST)])
     }) {
         commands
-            .spawn(SpriteBundle {
+            .spawn_bundle(SpriteBundle {
                 sprite: Sprite::new(bevy::prelude::Vec2::new(10., 10.)),
                 ..Default::default()
             })
-            .with(location)
+            .insert(location)
             .with_children(|parent| {
-                parent.spawn(text_bundle.clone());
+                parent.spawn_bundle(text_bundle.clone());
             });
     }
 }
 
 fn positioning(
     windows: Res<Windows>,
-    mut q_map: Query<(&TileFromMap, &mut Transform, &mut Sprite)>,
-    mut q_border: Query<(&TileFromBorder, &mut Transform, &mut Sprite)>,
+    mut q: QuerySet<(
+        Query<(&TileFromMap, &mut Transform, &mut Sprite)>,
+        Query<(&TileFromBorder, &mut Transform, &mut Sprite)>,
+    )>,
     tilemap: Res<TilemapWorld>,
 ) {
     let world_extent = tilemap.world_dim();
@@ -277,7 +279,7 @@ fn positioning(
         convert(pos + 1, bound_window, bound_game)
     }
 
-    for (TileFromMap(pos), mut transform, mut sprite) in q_map.iter_mut() {
+    for (TileFromMap(pos), mut transform, mut sprite) in q.q0_mut().iter_mut() {
         // Position
         transform.translation = bevy::prelude::Vec3::new(
             convert_squished(pos.x, window.width() as f32, world_extent.w as f32),
@@ -292,7 +294,7 @@ fn positioning(
         );
     }
 
-    for (TileFromBorder(index, dir), mut transform, mut sprite) in q_border.iter_mut() {
+    for (TileFromBorder(index, dir), mut transform, mut sprite) in q.q1_mut().iter_mut() {
         // Position
         let pos = if dir.basis == Basis::East {
             Vec2::new(
@@ -339,12 +341,14 @@ fn get_tile_material(
 }
 
 fn tile_appearance(
-    mut q_map: Query<(&TileFromMap, &mut Handle<ColorMaterial>)>,
-    mut q_border: Query<(&TileFromBorder, &mut Handle<ColorMaterial>)>,
+    mut q: QuerySet<(
+        Query<(&TileFromMap, &mut Handle<ColorMaterial>)>,
+        Query<(&TileFromBorder, &mut Handle<ColorMaterial>)>,
+    )>,
     materials: Res<TileMaterials>,
     tilemap: Res<TilemapWorld>,
 ) {
-    for (tile_position, mut color_mat_handle) in q_map.iter_mut() {
+    for (tile_position, mut color_mat_handle) in q.q0_mut().iter_mut() {
         let tile = tilemap
             .world
             .get(Vec2::new(tile_position.0.x, tile_position.0.y))
@@ -352,7 +356,7 @@ fn tile_appearance(
         *color_mat_handle = get_tile_material(&tile, &materials);
     }
 
-    for (TileFromBorder(index, direction), mut color_mat_handle) in q_border.iter_mut() {
+    for (TileFromBorder(index, direction), mut color_mat_handle) in q.q1_mut().iter_mut() {
         if direction.basis == Basis::East {
             if direction.sign == Sign::Negative {
                 if *index < tilemap.inputs.len() {
@@ -459,7 +463,7 @@ fn clock_increment(
     conn_out: Res<Mutex<midir::MidiOutputConnection>>,
     mut notes_to_end_queue: ResMut<NotesToEnd>,
 ) {
-    if timer.0.tick(time.delta_seconds()).finished() {
+    if timer.0.tick(time.delta()).finished() {
         let mut conn_out = conn_out.lock().unwrap();
         *clock = CurrentClock(clock.0 + 1);
 
@@ -497,7 +501,7 @@ fn end_started_notes(
             .0
             .into_iter()
             .filter_map(|(mut timer, pitch, velocity)| {
-                if timer.tick(time.delta_seconds()).finished() {
+                if timer.tick(time.delta()).finished() {
                     end_note(&mut conn_out, pitch, velocity);
                     None
                 } else {
