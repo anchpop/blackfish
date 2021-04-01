@@ -1,8 +1,4 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    iter,
-    num::NonZeroUsize,
-};
+use std::iter;
 use std::{fmt::Debug, ops::Neg};
 
 use crate::geom::direction::*;
@@ -16,22 +12,13 @@ use slotmap::{new_key_type, SlotMap};
 use frunk::monoid::Monoid;
 use frunk::semigroup::Semigroup;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TilePosition(pub Vec2);
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TileSize(pub Extent2);
-
-pub struct Materials {
-    pub tiles: HashMap<&'static str, Handle<ColorMaterial>>,
-    pub empty: Handle<ColorMaterial>,
-}
-
 pub mod tiles {
     use non_empty_collections::index_map::NonEmptyIndexMap;
 
     use super::data::*;
     use super::*;
+
+    use std::collections::HashMap;
 
     #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub struct ProgramInfo {}
@@ -365,6 +352,8 @@ pub mod tilemaps {
     use super::tiles::*;
     use super::*;
 
+    use std::collections::HashSet;
+
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum Edit {
         AddTile(Vec2, TileWorld),
@@ -392,13 +381,17 @@ pub mod tilemaps {
         pub world: tilemap::Tilemap<KeyWorld, TileWorld>,
         pub inputs: Vec<(MachineInput, Option<Data>)>,
         pub outputs: Vec<(MachineOutput, Data)>,
+        pub connections: HashSet<TileLineDir>,
     }
 
     impl TilemapWorld {
-        #[allow(dead_code)]
-        pub fn world(self) -> Array2<Option<KeyWorld>> {
-            self.world.map
+        pub fn get_input_grid_line_dir(&self, index: InputIndex) -> GridLineDir {
+            GridLineDir::new(Vec2i::new(-1, index as i64), Dir::EAST)
         }
+        pub fn get_output_grid_line_dir(&self, index: OutputIndex) -> GridLineDir {
+            GridLineDir::new(Vec2::new(self.world.extents().w, index), Dir::WEST)
+        }
+
         pub fn world_dim(&self) -> Extent2 {
             let dim = self.world.map.dim();
             Extent2::new(dim.1, dim.0)
@@ -415,16 +408,8 @@ pub mod tilemaps {
             f: F,
         ) -> Result<Self, Self> {
             match f(self.world) {
-                Ok(world) => Ok(Self {
-                    world,
-                    inputs: self.inputs,
-                    outputs: self.outputs,
-                }),
-                Err(world) => Err(Self {
-                    world,
-                    inputs: self.inputs,
-                    outputs: self.outputs,
-                }),
+                Ok(world) => Ok(Self { world, ..self }),
+                Err(world) => Err(Self { world, ..self }),
             }
         }
         pub fn apply_to_map<
@@ -435,8 +420,7 @@ pub mod tilemaps {
         ) -> Self {
             Self {
                 world: f(self.world),
-                inputs: self.inputs,
-                outputs: self.outputs,
+                ..self
             }
         }
 
@@ -564,7 +548,7 @@ pub mod tilemaps {
             self,
             inputs: Vec<(MachineInput, Option<Data>)>,
             outputs: Vec<(MachineOutput, Data)>,
-            lasers: Vec<TileLineDir>,
+            lasers: HashSet<TileLineDir>,
         ) -> TilemapWorld {
             let map = self.spec.map;
             let mut tiles = self.spec.tiles;
@@ -594,6 +578,7 @@ pub mod tilemaps {
                 },
                 inputs,
                 outputs,
+                connections: lasers.clone(),
             };
             world
                 .try_do_to_map(|mut map| {

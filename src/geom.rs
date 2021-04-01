@@ -524,16 +524,21 @@ pub mod direction {
         }
 
         pub fn get_start(&self) -> GridLineDir {
+            self.get_parts().0
+        }
+        pub fn get_end(&self) -> GridLineDir {
+            self.get_parts().1
+        }
+        pub fn get_parts(&self) -> (GridLineDir, GridLineDir) {
             let dir = Dir {
                 basis: self.tile_line.grid_line.side,
                 sign: self.sign,
             };
-            if self.sign == Sign::Positive {
+            let unordered_parts = (
                 GridLineDir {
                     grid_line: self.tile_line.grid_line,
                     direction: Sign::Positive,
-                }
-            } else {
+                },
                 GridLineDir {
                     grid_line: GridLine::new(
                         self.tile_line.grid_line.location
@@ -541,7 +546,12 @@ pub mod direction {
                         dir,
                     ),
                     direction: Sign::Negative,
-                }
+                },
+            );
+            if self.sign == Sign::Positive {
+                unordered_parts
+            } else {
+                (unordered_parts.1, unordered_parts.0)
             }
         }
 

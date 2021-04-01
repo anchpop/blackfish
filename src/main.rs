@@ -10,6 +10,7 @@ use crate::geom::direction::*;
 use evaluation::evaluate;
 use geom::Extent2;
 use geom::Vec2;
+use geom::Vec2i;
 use types::data::*;
 use types::tilemaps::*;
 use types::tiles::*;
@@ -35,10 +36,28 @@ use test::{const_prog, default_program};
 use units::f64::*;
 use units::music_time::{bang, beat};
 
+use std::collections::HashMap;
+
 const NOTE_ON_MSG: u8 = 0x90;
 const NOTE_OFF_MSG: u8 = 0x80;
 
 const BEATS_PER_SECOND: u64 = 1;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TileSize(pub Extent2);
+
+pub struct TileMaterials {
+    pub tiles: HashMap<&'static str, Handle<ColorMaterial>>,
+    pub empty: Handle<ColorMaterial>,
+    pub io_empty: Handle<ColorMaterial>,
+    pub io_used: Handle<ColorMaterial>,
+    pub transparent: Handle<ColorMaterial>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TileFromBorder(usize, Dir);
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TileFromMap(Vec2);
 
 #[derive(Debug, Clone)]
 struct ClockIncrementTimer(Timer);
@@ -66,11 +85,13 @@ fn main() {
         .add_startup_system(setup.system())
         .add_startup_system(create_map.system())
         // Adding a stage lets us access resources (in this case, materials) created in the previous stage
-        .add_startup_stage("game_setup", SystemStage::single(spawn_main_tile.system()))
+        .add_startup_stage(
+            "game_setup",
+            SystemStage::single(spawn_main_tilemap.system()),
+        )
         .add_plugins(DefaultPlugins)
         .add_system(clock_increment.system())
         .add_system(end_started_notes.system())
-        .add_system(size_scaling.system())
         .add_system(positioning.system())
         .add_system(tile_appearance.system())
         .add_system(tile_text.system())
@@ -83,7 +104,7 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
     commands.insert_resource(ClearColor(Color::rgb(0.118, 0.122, 0.149)));
 
     commands.spawn(OrthographicCameraBundle::new_2d());
-    commands.insert_resource(Materials {
+    commands.insert_resource(TileMaterials {
         empty: materials.add(Color::rgb(0.29019607, 0.3058, 0.3019).into()),
         tiles: [
             (
@@ -114,6 +135,9 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
         .iter()
         .cloned()
         .collect(),
+        io_empty: materials.add(Color::rgb(0.25019607, 0.2558, 0.2519).into()),
+        io_used: materials.add(Color::rgb(0.996, 0.5411, 0.4431).into()),
+        transparent: materials.add(Color::rgba(0., 0., 0., 0.).into()),
     });
 }
 
@@ -174,108 +198,140 @@ fn create_map(commands: &mut Commands) {
     commands.insert_resource(test_world);
 }
 
-fn spawn_main_tile(
+fn spawn_main_tilemap(
     commands: &mut Commands,
     tilemap: Res<TilemapWorld>,
     asset_server: Res<AssetServer>,
 ) {
-    enum TileType {
-        Real,
-        Borderland,
-    }
+    use std::array;
+
+    let text_bundle = Text2dBundle {
+        text: Text::with_section(
+            "".to_owned(),
+            TextStyle {
+                font: asset_server.load("fonts/FiraCode/FiraCode-Light.ttf"),
+                font_size: 45.0,
+                color: Color::WHITE,
+            },
+            TextAlignment {
+                vertical: VerticalAlign::Center,
+                horizontal: HorizontalAlign::Center,
+            },
+        ),
+        transform: Transform {
+            translation: Vec3::new(0., 0., 2.),
+            rotation: Quat::identity(),
+            scale: Vec3::new(0., 0., 0.),
+        },
+        ..Default::default()
+    };
+
     for location in tilemap
         .world
         .map
         .indexed_iter()
-        .map(|(index, _)| (TileType::Real, (index.1, index.0)))
-        .chain((0..tilemap.world.map.dim().1).map(|x| (TileType::Borderland, (x, 0))))
-        .chain(
-            (0..tilemap.world.map.dim().1)
-                .map(|x| (TileType::Borderland, (x, tilemap.world.map.dim().0 - 1))),
-        )
-        .chain((1..tilemap.world.map.dim().0 - 1).map(|y| (TileType::Borderland, (0, y))))
-        .chain(
-            (1..tilemap.world.map.dim().0 - 1)
-                .map(|y| (TileType::Borderland, (tilemap.world.map.dim().1 - 1, y))),
-        )
+        .map(|(index, _)| (Vec2::new(index.1, index.0)))
     {
-        if let (TileType::Real, location) = location {
-            let pos = TilePosition(Vec2::new(location.0, location.1));
-            let size = TileSize(Extent2::new(1, 1));
-            commands
-                .spawn(SpriteBundle {
-                    sprite: Sprite::new(bevy::prelude::Vec2::new(10., 10.)),
-                    ..Default::default()
-                })
-                .with(pos)
-                .with(size)
-                .with_children(|parent| {
-                    parent.spawn(Text2dBundle {
-                        text: Text::with_section(
-                            format!("{}, {}", location.0, location.1),
-                            TextStyle {
-                                font: asset_server.load("fonts/FiraCode/FiraCode-Light.ttf"),
-                                font_size: 45.0,
-                                color: Color::WHITE,
-                            },
-                            TextAlignment {
-                                vertical: VerticalAlign::Center,
-                                horizontal: HorizontalAlign::Center,
-                            },
-                        ),
-                        transform: Transform {
-                            translation: Vec3::new(0., 0., 2.),
-                            rotation: Quat::identity(),
-                            scale: Vec3::new(0., 0., 0.),
-                        },
-                        ..Default::default()
-                    });
-                });
-        }
+        let pos = TileFromMap(location);
+        commands
+            .spawn(SpriteBundle {
+                sprite: Sprite::new(bevy::prelude::Vec2::new(10., 10.)),
+                ..Default::default()
+            })
+            .with(pos)
+            .with_children(|parent| {
+                parent.spawn(text_bundle.clone());
+            });
+    }
+    for location in (0..tilemap.world_dim().h).flat_map(|i| {
+        array::IntoIter::new([TileFromBorder(i, Dir::EAST), TileFromBorder(i, Dir::WEST)])
+    }) {
+        commands
+            .spawn(SpriteBundle {
+                sprite: Sprite::new(bevy::prelude::Vec2::new(10., 10.)),
+                ..Default::default()
+            })
+            .with(location)
+            .with_children(|parent| {
+                parent.spawn(text_bundle.clone());
+            });
     }
 }
 
-fn size_scaling(
+fn positioning(
     windows: Res<Windows>,
-    mut q: Query<(&TileSize, &mut Sprite)>,
+    mut q_map: Query<(&TileFromMap, &mut Transform, &mut Sprite)>,
+    mut q_border: Query<(&TileFromBorder, &mut Transform, &mut Sprite)>,
     tilemap: Res<TilemapWorld>,
 ) {
     let world_extent = tilemap.world_dim();
     let world_extent = world_extent + Extent2::new(2, 2);
     let window = windows.get_primary().unwrap();
 
-    for (sprite_size, mut sprite) in q.iter_mut() {
-        sprite.size = bevy::prelude::Vec2::new(
-            sprite_size.0.w as f32 / world_extent.w as f32 * window.width() as f32,
-            sprite_size.0.h as f32 / world_extent.h as f32 * window.height() as f32,
-        );
-    }
-}
-
-fn positioning(
-    windows: Res<Windows>,
-    mut q: Query<(&TilePosition, &mut Transform)>,
-    tilemap: Res<TilemapWorld>,
-) {
-    let arena_extent = tilemap.world_dim();
-    let arena_extent = arena_extent + Extent2::new(2, 2);
-    let window = windows.get_primary().unwrap();
-
     fn convert(pos: usize, bound_window: f32, bound_game: f32) -> f32 {
         let tile_size = bound_window / bound_game;
-        ((pos + 1) as f32) / bound_game * bound_window - (bound_window / 2.) + (tile_size / 2.)
+        ((pos) as f32) / bound_game * bound_window - (bound_window / 2.) + (tile_size / 2.)
     }
 
-    for (pos, mut transform) in q.iter_mut() {
+    fn convert_squished(pos: usize, bound_window: f32, bound_game: f32) -> f32 {
+        convert(pos + 1, bound_window, bound_game)
+    }
+
+    for (TileFromMap(pos), mut transform, mut sprite) in q_map.iter_mut() {
+        // Position
         transform.translation = bevy::prelude::Vec3::new(
-            convert(pos.0.x, window.width() as f32, arena_extent.w as f32),
-            convert(pos.0.y, window.height() as f32, arena_extent.h as f32),
+            convert_squished(pos.x, window.width() as f32, world_extent.w as f32),
+            convert_squished(pos.y, window.height() as f32, world_extent.h as f32),
             0.0,
+        );
+
+        // Size
+        sprite.size = bevy::prelude::Vec2::new(
+            1 as f32 / world_extent.w as f32 * window.width() as f32,
+            1 as f32 / world_extent.h as f32 * window.height() as f32,
+        );
+    }
+
+    for (TileFromBorder(index, dir), mut transform, mut sprite) in q_border.iter_mut() {
+        // Position
+        let pos = if dir.basis == Basis::East {
+            Vec2::new(
+                if dir.sign == Sign::Positive {
+                    world_extent.w - 1
+                } else {
+                    0
+                },
+                *index + 1,
+            )
+        } else {
+            Vec2::new(
+                *index + 1,
+                if dir.sign == Sign::Positive {
+                    world_extent.h - 1
+                } else {
+                    0
+                },
+            )
+        };
+
+        transform.translation = bevy::prelude::Vec3::new(
+            convert(pos.x, window.width() as f32, world_extent.w as f32),
+            convert(pos.y, window.height() as f32, world_extent.h as f32),
+            0.0,
+        );
+
+        // Size
+        sprite.size = bevy::prelude::Vec2::new(
+            1 as f32 / world_extent.w as f32 * window.width() as f32,
+            1 as f32 / world_extent.h as f32 * window.height() as f32,
         );
     }
 }
 
-fn get_tile_material(tile: &Option<&TileWorld>, materials: &Materials) -> Handle<ColorMaterial> {
+fn get_tile_material(
+    tile: &Option<&TileWorld>,
+    materials: &TileMaterials,
+) -> Handle<ColorMaterial> {
     match tile {
         None => materials.empty.clone(),
         Some(t) => materials.tiles[t.name()].clone(),
@@ -283,21 +339,52 @@ fn get_tile_material(tile: &Option<&TileWorld>, materials: &Materials) -> Handle
 }
 
 fn tile_appearance(
-    mut q: Query<(&TilePosition, &mut Handle<ColorMaterial>)>,
-    materials: Res<Materials>,
+    mut q_map: Query<(&TileFromMap, &mut Handle<ColorMaterial>)>,
+    mut q_border: Query<(&TileFromBorder, &mut Handle<ColorMaterial>)>,
+    materials: Res<TileMaterials>,
     tilemap: Res<TilemapWorld>,
 ) {
-    for (tile_position, mut color_mat_handle) in q.iter_mut() {
+    for (tile_position, mut color_mat_handle) in q_map.iter_mut() {
         let tile = tilemap
             .world
             .get(Vec2::new(tile_position.0.x, tile_position.0.y))
             .map(|(_, _, t)| t);
         *color_mat_handle = get_tile_material(&tile, &materials);
     }
+
+    for (TileFromBorder(index, direction), mut color_mat_handle) in q_border.iter_mut() {
+        if direction.basis == Basis::East {
+            if direction.sign == Sign::Negative {
+                if *index < tilemap.inputs.len() {
+                    if tilemap.connections.iter().any(|connection| {
+                        connection.get_start() == tilemap.get_input_grid_line_dir(*index)
+                    }) {
+                        *color_mat_handle = materials.io_used.clone();
+                    } else {
+                        *color_mat_handle = materials.io_empty.clone();
+                    }
+                } else {
+                    *color_mat_handle = materials.transparent.clone();
+                }
+            } else {
+                if *index < tilemap.outputs.len() {
+                    if tilemap.connections.iter().any(|connection| {
+                        connection.get_end() == tilemap.get_output_grid_line_dir(*index)
+                    }) {
+                        *color_mat_handle = materials.io_used.clone();
+                    } else {
+                        *color_mat_handle = materials.io_empty.clone();
+                    }
+                } else {
+                    *color_mat_handle = materials.transparent.clone();
+                }
+            }
+        }
+    }
 }
 
 fn tile_text(
-    mut q: Query<(&TilePosition, &Children)>,
+    mut q: Query<(&TileFromMap, &Children)>,
     mut text_q: Query<&mut Text>,
     tilemap: Res<TilemapWorld>,
 ) {
