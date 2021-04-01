@@ -15,6 +15,7 @@ use ndarray::arr2;
 
 use velcro::btree_map;
 use velcro::hash_map;
+use velcro::hash_set;
 
 use crate::evaluation;
 
@@ -190,8 +191,8 @@ mod tests {
         #[test]
         fn tilemap_world_equality() {
             assert_eq!(
-                default_program().into_world(vec![], vec![], vec![]),
-                default_program().into_world(vec![], vec![], vec![])
+                default_program().into_world(vec![], vec![], hash_set![]),
+                default_program().into_world(vec![], vec![], hash_set![])
             );
         }
         #[test]
