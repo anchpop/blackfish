@@ -694,6 +694,18 @@ pub mod data {
         }
     }
 
+    impl WhnfData {
+        pub fn show(&self) -> String {
+            match self {
+                WhnfData::Nothing => "".to_owned(),
+                WhnfData::Number(n) => n.to_string(),
+                WhnfData::Product(_) => {
+                    todo!()
+                }
+            }
+        }
+    }
+
     impl Semigroup for Data {
         fn combine(&self, other: &Self) -> Self {
             other.clone()

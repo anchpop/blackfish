@@ -210,7 +210,7 @@ fn spawn_main_tilemap(
             "".to_owned(),
             TextStyle {
                 font: asset_server.load("fonts/FiraCode/FiraCode-Light.ttf"),
-                font_size: 45.0,
+                font_size: 35.0,
                 color: Color::WHITE,
             },
             TextAlignment {
@@ -384,11 +384,12 @@ fn tile_appearance(
 }
 
 fn tile_text(
-    mut q: Query<(&TileFromMap, &Children)>,
+    mut q_map: Query<(&TileFromMap, &Children)>,
+    mut q_border: Query<(&TileFromBorder, &Children)>,
     mut text_q: Query<&mut Text>,
     tilemap: Res<TilemapWorld>,
 ) {
-    for (tile_position, children) in q.iter_mut() {
+    for (tile_position, children) in q_map.iter_mut() {
         let tile_info = tilemap
             .world
             .get(Vec2::new(tile_position.0.x, tile_position.0.y));
@@ -419,6 +420,29 @@ fn tile_text(
                     };
                 } else {
                     text.sections[0].value = "".to_string();
+                }
+            }
+        }
+    }
+    for (TileFromBorder(index, direction), children) in q_border.iter_mut() {
+        for child in children.iter() {
+            if let Ok(mut text) = text_q.get_mut(*child) {
+                text.sections[0].value = if direction.basis == Basis::East {
+                    if direction.sign == Sign::Negative {
+                        if let Some((_, Some(Data::Whnf(whnf_data)))) = tilemap.inputs.get(*index) {
+                            format!("{} {}", whnf_data.show(), Dir::EAST.to_arrow())
+                        } else {
+                            "".to_owned()
+                        }
+                    } else {
+                        if let Some((_, Data::Whnf(whnf_data))) = tilemap.outputs.get(*index) {
+                            format!("{} {}", Dir::EAST.to_arrow(), whnf_data.show())
+                        } else {
+                            "".to_owned()
+                        }
+                    }
+                } else {
+                    "".to_owned()
                 }
             }
         }
