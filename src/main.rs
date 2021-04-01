@@ -30,7 +30,7 @@ use midir::{MidiOutput, MidiOutputPort};
 
 use std::sync::{Mutex, MutexGuard};
 
-use test::default_program;
+use test::{const_prog, default_program};
 
 use units::f64::*;
 use units::music_time::{bang, beat};
@@ -80,9 +80,11 @@ fn main() {
 fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     commands.insert_resource(CurrentClock(0));
 
+    commands.insert_resource(ClearColor(Color::rgb(0.118, 0.122, 0.149)));
+
     commands.spawn(OrthographicCameraBundle::new_2d());
     commands.insert_resource(Materials {
-        empty: materials.add(Color::rgb(0.1, 0.1, 0.1).into()),
+        empty: materials.add(Color::rgb(0.29019607, 0.3058, 0.3019).into()),
         tiles: [
             (
                 TileProgram::Machine(MachineInfo::BuiltIn(
@@ -90,11 +92,11 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
                     ProgramInfo {},
                 ))
                 .name(),
-                materials.add(Color::rgb(0.3, 0.3, 0.3).into()),
+                materials.add(Color::rgb(0.0549, 0.60392, 0.6549).into()),
             ),
             (
                 TileWorld::Phys(TilePhysics::Laser(DirMap::empty())).name(),
-                materials.add(Color::rgb(0.9, 0.3, 0.3).into()),
+                materials.add(Color::rgb(0.996, 0.5411, 0.4431).into()),
             ),
             (
                 TileProgram::Machine(MachineInfo::BuiltIn(
@@ -105,12 +107,8 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>) 
                 materials.add(Color::rgb(0.5, 0.3, 0.5).into()),
             ),
             (
-                TileProgram::Machine(MachineInfo::BuiltIn(
-                    BuiltInMachine::Produce(()),
-                    ProgramInfo {},
-                ))
-                .name(),
-                materials.add(Color::rgb(0.3, 0.3, 0.3).into()),
+                "Constant",
+                materials.add(Color::rgb(0.96470, 0.80392, 0.3803).into()),
             ),
         ]
         .iter()
@@ -166,142 +164,6 @@ fn get_midi_ports(commands: &mut Commands) {
 
 fn create_map(commands: &mut Commands) {
     let test_prog = default_program();
-
-    /*
-    let mut tiles = TilemapProgram::make_slotmap();
-    let north_laser = tiles.insert(TileProgram::Machine(
-        Dir::default(),
-        MachineInfo::BuiltIn(
-            BuiltInMachines::Produce,
-            ProgramInfo {
-                hardcoded_inputs: btree_map! {
-                    "product".to_string(): Data::Number(3)
-                },
-                ..ProgramInfo::empty()
-            },
-        ),
-    ));
-    let west_laser = tiles.insert(TileProgram::Machine(
-        Dir::West,
-        MachineInfo::BuiltIn(
-            BuiltInMachines::Produce,
-            ProgramInfo {
-                hardcoded_inputs: btree_map! {
-                    "product".to_string(): Data::Number(3)
-                },
-                ..ProgramInfo::empty()
-            },
-        ),
-    ));
-    let west_laser_2 = tiles.insert(TileProgram::Machine(
-        Dir::West,
-        MachineInfo::BuiltIn(
-            BuiltInMachines::Produce,
-            ProgramInfo {
-                hardcoded_inputs: btree_map! {
-                    "product".to_string(): Data::Number(3)
-                },
-                ..ProgramInfo::empty()
-            },
-        ),
-    ));
-    let laser_machine_test = tiles.insert(TileProgram::Machine(
-        Dir::East,
-        MachineInfo::BuiltIn(
-            BuiltInMachines::Produce,
-            ProgramInfo {
-                hardcoded_inputs: btree_map! {
-                    "product".to_string(): Data::Number(3)
-                },
-                ..ProgramInfo::empty()
-            },
-        ),
-    ));
-
-    let id_laser_test = tiles.insert(TileProgram::Machine(
-        Dir::East,
-        MachineInfo::BuiltIn(
-            BuiltInMachines::Produce,
-            ProgramInfo {
-                hardcoded_inputs: btree_map! {},
-                ..ProgramInfo::empty()
-            },
-        ),
-    ));
-
-    let tracer2 = tiles.insert(TileProgram::Machine(
-        Dir::West,
-        MachineInfo::BuiltIn(BuiltInMachines::Trace, ProgramInfo::empty()),
-    ));
-
-    let clock_uuid = uuid::Uuid::new_v4();
-    let audio_uuid = uuid::Uuid::new_v4();
-
-    let test_prog = TilemapProgram {
-        spec: Tilemap {
-            tiles,
-            map: arr2(&[
-                [
-                    None,
-                    None,
-                    None,
-                    None,
-                    Some(id_laser_test),
-                    None,
-                    None,
-                    None,
-                    None,
-                ],
-                [
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    Some(laser_machine_test),
-                    None,
-                ],
-                [
-                    None,
-                    None,
-                    None,
-                    Some(north_laser),
-                    None,
-                    Some(west_laser),
-                    None,
-                    None,
-                    None,
-                ],
-                [None, None, None, None, None, None, None, None, None],
-                [None, None, None, None, None, None, None, None, None],
-                [None, None, None, None, None, None, None, None, None],
-                [None, None, None, None, None, None, None, None, None],
-                [
-                    Some(tracer2),
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    Some(west_laser_2),
-                    None,
-                ],
-                [None, None, None, None, None, None, None, None, None],
-                [None, None, None, None, None, None, None, None, None],
-            ]),
-        },
-        inputs: vec![(clock_uuid, "clock".to_owned(), DataType::Number)],
-        outputs: vec![(audio_uuid, "audio".to_owned(), DataType::Number)],
-    };
-
-    let test_world = evaluate(test_prog.clone(), hash_map! {clock_uuid: Data::Number(0)}).0;
-
-    commands.insert_resource(test_prog);
-    commands.insert_resource(test_world);
-     */
 
     let test_world = evaluation::evaluate(
         &test_prog,
