@@ -1,10 +1,10 @@
 use std::iter;
-use std::{fmt::Debug, ops::Neg};
+use std::{fmt::Debug};
 
 use crate::geom::direction::*;
 use crate::geom::*;
 
-use bevy::prelude::{ColorMaterial, Handle};
+
 use ndarray::Array2;
 
 use slotmap::{new_key_type, SlotMap};

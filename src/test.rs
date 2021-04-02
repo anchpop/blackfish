@@ -1,23 +1,23 @@
 use crate::geom::direction::*;
-use crate::geom::tilemap::RaycastHit;
+
 use crate::geom::Extent2;
 use crate::geom::Vec2;
-use crate::geom::Vec2i;
+
 use crate::types::data::*;
 use crate::types::tilemaps::*;
 use crate::types::tiles::*;
-use crate::types::*;
 
-use frunk::monoid::Monoid;
-use frunk::semigroup::Semigroup;
 
-use ndarray::arr2;
 
-use velcro::btree_map;
-use velcro::hash_map;
-use velcro::hash_set;
 
-use crate::evaluation;
+
+
+
+
+
+
+
+
 
 pub fn default_program() -> TilemapProgram {
     in_out_id_with_indirection_prog()
@@ -213,13 +213,13 @@ mod tests {
 
     #[cfg(test)]
     mod gridlines {
-        use pretty_assertions::{assert_eq, assert_ne};
-        use std::collections::BTreeMap;
+        use pretty_assertions::{assert_eq};
+        
 
-        use frunk::Monoid;
+        
 
         use super::*;
-        use crate::evaluation;
+        
 
         #[test]
         fn grid_line_east() {
@@ -321,7 +321,7 @@ mod tests {
             let start = Vec2i::new(-1, 0);
             let dir = Dir::NORTH;
 
-            let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).previous();
+            let (recovered_start, _recovered_dir) = GridLineDir::new(start, dir).previous();
             assert_eq!(start, recovered_start);
         }
         #[test]
@@ -329,7 +329,7 @@ mod tests {
             let start = Vec2i::new(-1, 0);
             let dir = Dir::SOUTH;
 
-            let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).previous();
+            let (recovered_start, _recovered_dir) = GridLineDir::new(start, dir).previous();
             assert_eq!(start, recovered_start);
         }
         #[test]
@@ -337,7 +337,7 @@ mod tests {
             let start = Vec2i::new(-1, 0);
             let dir = Dir::EAST;
 
-            let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).previous();
+            let (recovered_start, _recovered_dir) = GridLineDir::new(start, dir).previous();
             assert_eq!(start, recovered_start);
         }
         #[test]
@@ -345,7 +345,7 @@ mod tests {
             let start = Vec2i::new(-1, 0);
             let dir = Dir::WEST;
 
-            let (recovered_start, recovered_dir) = GridLineDir::new(start, dir).previous();
+            let (recovered_start, _recovered_dir) = GridLineDir::new(start, dir).previous();
             assert_eq!(start, recovered_start);
         }
         #[test]
@@ -372,7 +372,7 @@ mod tests {
     #[cfg(test)]
     mod tilelines {
         use super::*;
-        use pretty_assertions::{assert_eq, assert_ne};
+        use pretty_assertions::{assert_eq};
 
         #[test]
         fn tile_line_east() {
@@ -434,13 +434,13 @@ mod tests {
 
     #[cfg(test)]
     mod raycast {
-        use pretty_assertions::{assert_eq, assert_ne};
-        use std::collections::BTreeMap;
+        use pretty_assertions::{assert_eq};
+        
 
-        use frunk::Monoid;
+        
 
         use super::*;
-        use crate::evaluation;
+        
 
         #[test]
         fn test_ray_hit_edge() {
@@ -573,10 +573,10 @@ mod tests {
 
     #[cfg(test)]
     mod input_output {
-        use pretty_assertions::{assert_eq, assert_ne};
-        use std::collections::BTreeMap;
+        use pretty_assertions::{assert_eq};
+        
 
-        use frunk::Monoid;
+        
 
         use super::*;
         use crate::evaluation;
@@ -589,7 +589,7 @@ mod tests {
             let (graph, outputs) = evaluation::program_to_graph(&prog);
 
             let output_node = GraphNode::Output(outputs.into_iter().next().unwrap());
-            let (output_data, lasers_produced) = evaluation::weak_head_normal_form(
+            let (output_data, _lasers_produced) = evaluation::weak_head_normal_form(
                 &graph,
                 &prog,
                 Data::ThunkPure(output_node, Dependency::Only),
@@ -630,7 +630,7 @@ mod tests {
             let (graph, outputs) = evaluation::program_to_graph(&prog);
 
             let output_node = GraphNode::Output(outputs.into_iter().next().unwrap());
-            let (output_data, lasers_produced) = evaluation::weak_head_normal_form(
+            let (output_data, _lasers_produced) = evaluation::weak_head_normal_form(
                 &graph,
                 &prog,
                 Data::ThunkPure(output_node, Dependency::Only),
@@ -649,7 +649,7 @@ mod tests {
             let (graph, outputs) = evaluation::program_to_graph(&prog);
 
             let output_node = GraphNode::Output(outputs.into_iter().next().unwrap());
-            let (output_data, lasers_produced) = evaluation::weak_head_normal_form(
+            let (output_data, _lasers_produced) = evaluation::weak_head_normal_form(
                 &graph,
                 &prog,
                 Data::ThunkPure(output_node, Dependency::Only),
@@ -682,7 +682,7 @@ mod tests {
             let data = WhnfData::Number(0);
 
             let output_node = GraphNode::Output(outputs.into_iter().next().unwrap());
-            let (output_data, lasers_produced) = evaluation::weak_head_normal_form(
+            let (output_data, _lasers_produced) = evaluation::weak_head_normal_form(
                 &graph,
                 &prog,
                 Data::ThunkPure(output_node, Dependency::Only),

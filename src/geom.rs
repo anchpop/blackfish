@@ -259,7 +259,7 @@ pub mod direction {
             let dir = if dist < 0 { -dir } else { dir };
             let dist = dist.abs();
 
-            for i in 0..dist {
+            for _i in 0..dist {
                 pos = dir.shift(pos);
             }
             GridLineDir::new(pos, dir)

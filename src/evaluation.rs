@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::geom::direction::*;
 use crate::geom::tilemap::RaycastHit;
-use crate::geom::*;
+
 use crate::types::data::*;
 use crate::types::tilemaps::*;
 use crate::types::tiles::*;
@@ -64,7 +64,7 @@ pub fn evaluate(prog: &TilemapProgram, inputs: HashMap<String, Data>) -> Tilemap
     let world = prog.clone().into_world(
         prog.inputs
             .iter()
-            .map(|(uuid, label, datatype)| (label.clone(), inputs.get(label).cloned()))
+            .map(|(_uuid, label, _datatype)| (label.clone(), inputs.get(label).cloned()))
             .collect(),
         labeled_outputs,
         outputs
@@ -188,7 +188,7 @@ pub fn weak_head_normal_form(
                 }
             }
         }
-        Data::ThunkBuiltinOp(op, output) => weak_head_normal_form(
+        Data::ThunkBuiltinOp(op, _output) => weak_head_normal_form(
             graph,
             prog,
             match *op {
@@ -285,7 +285,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
         }
     }
 
-    let width = prog.program_dim().w;
+    let _width = prog.program_dim().w;
     let mut graph: Graph = Graph::new();
 
     // Only nodes in the graph are the inputs, outputs, and machines. Let's just add them all straightaway.

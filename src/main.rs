@@ -7,38 +7,24 @@ mod units;
 extern crate uom;
 
 use crate::geom::direction::*;
-use evaluation::evaluate;
-use geom::Extent2;
-use geom::Vec2;
-use geom::Vec2i;
-use types::data::*;
-use types::tilemaps::*;
-use types::tiles::*;
-use types::*;
-
-use bevy::prelude::*;
-
+use bevy::{prelude::*, render::camera::Camera};
 use frunk::monoid::Monoid;
-
-use std::time::Duration;
-
-use velcro::hash_map;
-
-use std::error::Error;
-use std::io::{stdin, stdout, Write};
-
+use geom::{Extent2, Vec2};
 use midir::{MidiOutput, MidiOutputPort};
-
-use std::sync::{Mutex, MutexGuard};
-
-use test::{const_prog, default_program};
-
-use units::f64::*;
-use units::music_time::{bang, beat};
-
-use std::collections::HashMap;
-
-use bevy::render::camera::Camera;
+use std::{
+    collections::HashMap,
+    error::Error,
+    io::{stdin, stdout, Write},
+    sync::{Mutex, MutexGuard},
+    time::Duration,
+};
+use test::default_program;
+use types::{data::*, tilemaps::*, tiles::*};
+use units::{
+    f64::*,
+    music_time::{bang, beat},
+};
+use velcro::hash_map;
 
 const NOTE_ON_MSG: u8 = 0x90;
 const NOTE_OFF_MSG: u8 = 0x80;
@@ -545,7 +531,7 @@ fn follow(
 ) {
     if let Ok((camera, camera_transform)) = q_camera.single() {
         if let Some(cursor) = evr_cursor.iter().next() {
-            let point: Option<Vec3> =
+            let _point: Option<Vec3> =
                 Camera::screen_to_point_2d(cursor.position, &windows, camera, camera_transform);
         }
     }

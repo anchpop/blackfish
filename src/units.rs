@@ -1,4 +1,3 @@
-#[macro_use]
 pub mod music_time {
     quantity! {
         quantity: MusicTime; "music time";
