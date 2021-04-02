@@ -97,7 +97,7 @@ fn main() {
         .add_system(positioning.system())
         .add_system(tile_appearance.system())
         .add_system(tile_text.system())
-        .add_system(my_cursor_system.system())
+        .add_system(follow.system())
         .run();
 }
 
