@@ -1,23 +1,8 @@
 use crate::geom::direction::*;
 
-use crate::geom::Extent2;
-use crate::geom::Vec2;
+use crate::geom::{Extent2, Vec2};
 
-use crate::types::data::*;
-use crate::types::tilemaps::*;
-use crate::types::tiles::*;
-
-
-
-
-
-
-
-
-
-
-
-
+use crate::types::{data::*, tilemaps::*, tiles::*};
 
 pub fn default_program() -> TilemapProgram {
     in_out_id_with_indirection_prog()
@@ -173,6 +158,7 @@ mod tests {
     mod equality {
         use super::*;
         use pretty_assertions::{assert_eq, assert_ne};
+        use velcro::hash_set;
 
         #[test]
         fn basic_tilemap_equality_empty() {
@@ -213,13 +199,9 @@ mod tests {
 
     #[cfg(test)]
     mod gridlines {
-        use pretty_assertions::{assert_eq};
-        
-
-        
-
         use super::*;
-        
+        use crate::geom::{Vec2, Vec2i};
+        use pretty_assertions::assert_eq;
 
         #[test]
         fn grid_line_east() {
@@ -372,7 +354,8 @@ mod tests {
     #[cfg(test)]
     mod tilelines {
         use super::*;
-        use pretty_assertions::{assert_eq};
+        use crate::geom::{Vec2, Vec2i};
+        use pretty_assertions::assert_eq;
 
         #[test]
         fn tile_line_east() {
@@ -434,13 +417,10 @@ mod tests {
 
     #[cfg(test)]
     mod raycast {
-        use pretty_assertions::{assert_eq};
-        
-
-        
+        use crate::geom::{tilemap::RaycastHit, Vec2, Vec2i};
+        use pretty_assertions::assert_eq;
 
         use super::*;
-        
 
         #[test]
         fn test_ray_hit_edge() {
@@ -573,13 +553,11 @@ mod tests {
 
     #[cfg(test)]
     mod input_output {
-        use pretty_assertions::{assert_eq};
-        
-
-        
+        use pretty_assertions::assert_eq;
 
         use super::*;
         use crate::evaluation;
+        use velcro::hash_map;
 
         #[test]
         fn test_id_program() {
