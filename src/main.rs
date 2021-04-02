@@ -38,6 +38,8 @@ use units::music_time::{bang, beat};
 
 use std::collections::HashMap;
 
+use bevy::render::camera::Camera;
+
 const NOTE_ON_MSG: u8 = 0x90;
 const NOTE_OFF_MSG: u8 = 0x80;
 
@@ -95,6 +97,7 @@ fn main() {
         .add_system(positioning.system())
         .add_system(tile_appearance.system())
         .add_system(tile_text.system())
+        .add_system(my_cursor_system.system())
         .run();
 }
 
@@ -533,4 +536,17 @@ fn start_note(
 fn end_note(conn_out: &mut MutexGuard<midir::MidiOutputConnection>, pitch: u8, velocity: u8) {
     // We're ignoring errors in here
     let _ = conn_out.send(&[NOTE_OFF_MSG, pitch, velocity]);
+}
+
+fn follow(
+    q_camera: Query<(&Camera, &GlobalTransform)>,
+    windows: Res<Windows>,
+    mut evr_cursor: EventReader<CursorMoved>,
+) {
+    if let Ok((camera, camera_transform)) = q_camera.single() {
+        if let Some(cursor) = evr_cursor.iter().next() {
+            let point: Option<Vec3> =
+                Camera::screen_to_point_2d(cursor.position, &windows, camera, camera_transform);
+        }
+    }
 }
