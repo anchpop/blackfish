@@ -46,6 +46,10 @@ pub struct TileMaterials {
 pub struct TileFromBorder(usize, Dir);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TileFromMap(Vec2);
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TileForPicking(Vec2);
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Placing(Option<Vec2>, Dir, TileProgram);
 
 #[derive(Debug, Clone)]
 struct ClockIncrementTimer(Timer);
@@ -92,7 +96,8 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
 
     commands.insert_resource(ClearColor(Color::rgb(0.118, 0.122, 0.149)));
 
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    let cam = commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+
     commands.insert_resource(TileMaterials {
         empty: materials.add(Color::rgb(0.29019607, 0.3058, 0.3019).into()),
         tiles: [
@@ -128,6 +133,14 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
         io_used: materials.add(Color::rgb(0.996, 0.5411, 0.4431).into()),
         transparent: materials.add(Color::rgba(0., 0., 0., 0.).into()),
     });
+    commands.insert_resource(Placing(
+        Some(Vec2::new(5, 5)),
+        Dir::default(),
+        TileProgram::Machine(MachineInfo::BuiltIn(
+            BuiltInMachine::Produce(()),
+            ProgramInfo,
+        )),
+    ))
 }
 
 fn get_midi_ports(mut commands: Commands) {
@@ -209,7 +222,7 @@ fn spawn_main_tilemap(
         ),
         transform: Transform {
             translation: Vec3::new(0., 0., 2.),
-            rotation: Quat::identity(),
+            rotation: Quat::IDENTITY,
             scale: Vec3::new(0., 0., 0.),
         },
         ..Default::default()
@@ -231,7 +244,17 @@ fn spawn_main_tilemap(
             .with_children(|parent| {
                 parent.spawn_bundle(text_bundle.clone());
             });
+        commands
+            .spawn_bundle(SpriteBundle {
+                sprite: Sprite::new(bevy::prelude::Vec2::new(10., 10.)),
+                ..Default::default()
+            })
+            .insert(TileForPicking(location))
+            .with_children(|parent| {
+                parent.spawn_bundle(text_bundle.clone());
+            });
     }
+
     for location in (0..tilemap.world_dim().h).flat_map(|i| {
         array::IntoIter::new([TileFromBorder(i, Dir::EAST), TileFromBorder(i, Dir::WEST)])
     }) {
@@ -251,6 +274,7 @@ fn positioning(
     windows: Res<Windows>,
     mut q: QuerySet<(
         Query<(&TileFromMap, &mut Transform, &mut Sprite)>,
+        Query<(&TileForPicking, &mut Transform, &mut Sprite)>,
         Query<(&TileFromBorder, &mut Transform, &mut Sprite)>,
     )>,
     tilemap: Res<TilemapWorld>,
@@ -283,7 +307,22 @@ fn positioning(
         );
     }
 
-    for (TileFromBorder(index, dir), mut transform, mut sprite) in q.q1_mut().iter_mut() {
+    for (TileForPicking(pos), mut transform, mut sprite) in q.q1_mut().iter_mut() {
+        // Position
+        transform.translation = bevy::prelude::Vec3::new(
+            convert_squished(pos.x, window.width() as f32, world_extent.w as f32),
+            convert_squished(pos.y, window.height() as f32, world_extent.h as f32),
+            1.0,
+        );
+
+        // Size
+        sprite.size = bevy::prelude::Vec2::new(
+            1 as f32 / world_extent.w as f32 * window.width() as f32,
+            1 as f32 / world_extent.h as f32 * window.height() as f32,
+        );
+    }
+
+    for (TileFromBorder(index, dir), mut transform, mut sprite) in q.q2_mut().iter_mut() {
         // Position
         let pos = if dir.basis == Basis::East {
             Vec2::new(
@@ -332,20 +371,23 @@ fn get_tile_material(
 fn tile_appearance(
     mut q: QuerySet<(
         Query<(&TileFromMap, &mut Handle<ColorMaterial>)>,
+        Query<(&TileForPicking, &mut Handle<ColorMaterial>)>,
         Query<(&TileFromBorder, &mut Handle<ColorMaterial>)>,
     )>,
+    placing: Res<Placing>,
+    tilemap_program: Res<TilemapProgram>,
     materials: Res<TileMaterials>,
     tilemap: Res<TilemapWorld>,
 ) {
-    for (tile_position, mut color_mat_handle) in q.q0_mut().iter_mut() {
+    for (TileFromMap(position), mut color_mat_handle) in q.q0_mut().iter_mut() {
         let tile = tilemap
             .world
-            .get(Vec2::new(tile_position.0.x, tile_position.0.y))
+            .get(Vec2::new(position.x, position.y))
             .map(|(_, _, t)| t);
         *color_mat_handle = get_tile_material(&tile, &materials);
     }
 
-    for (TileFromBorder(index, direction), mut color_mat_handle) in q.q1_mut().iter_mut() {
+    for (TileFromBorder(index, direction), mut color_mat_handle) in q.q2_mut().iter_mut() {
         if direction.basis == Basis::East {
             if direction.sign == Sign::Negative {
                 if *index < tilemap.inputs.len() {
@@ -370,6 +412,25 @@ fn tile_appearance(
                     }
                 } else {
                     *color_mat_handle = materials.transparent.clone();
+                }
+            }
+        }
+    }
+
+    for (TileForPicking(position), mut color_mat_handle) in q.q1_mut().iter_mut() {
+        *color_mat_handle = materials.transparent.clone();
+    }
+
+    let Placing(center, orientation, tile) = *placing;
+    if let Some(center) = center {
+        let positions = tilemap_program
+            .spec
+            .get_tile_positions(&center, &orientation, &tile);
+        if let Some(positions) = positions {
+            let positions: HashMap<_, _> = positions.into_iter().collect();
+            for (TileForPicking(position), mut color_mat_handle) in q.q1_mut().iter_mut() {
+                if let Some(_) = positions.get(position) {
+                    *color_mat_handle = get_tile_material(&Some(&tile.into_world()), &materials);
                 }
             }
         }
@@ -528,11 +589,37 @@ fn follow(
     q_camera: Query<(&Camera, &GlobalTransform)>,
     windows: Res<Windows>,
     mut evr_cursor: EventReader<CursorMoved>,
+    mut placing: ResMut<Placing>,
+    tilemap_world: Res<TilemapWorld>,
 ) {
+    let map_extents = tilemap_world.world_dim();
+    let window = windows.get_primary().unwrap();
+
+    fn invert(pos: f32, bound_window: f32, bound_game: f32) -> usize {
+        let tile_size = bound_window / bound_game;
+
+        (((pos - (tile_size / 2.) + (bound_window / 2.)) / bound_window) * bound_game).round()
+            as usize
+    }
+
+    fn invert_squished(pos: f32, bound_window: f32, bound_game: f32) -> Option<usize> {
+        invert(pos, bound_window, bound_game + 2.).checked_sub(1)
+    }
+
     if let Ok((camera, camera_transform)) = q_camera.single() {
         if let Some(cursor) = evr_cursor.iter().next() {
-            let _point: Option<Vec3> =
-                Camera::screen_to_point_2d(cursor.position, &windows, camera, camera_transform);
+            let point =
+                Camera::screen_to_point_2d(cursor.position, &windows, camera, camera_transform)
+                    .unwrap();
+
+            if let (Some(x), Some(y)) = (
+                invert_squished(point.x, window.width(), (map_extents.w) as f32),
+                invert_squished(point.y, window.height(), (map_extents.h) as f32),
+            ) {
+                placing.0 = Some(Vec2::new(x, y));
+            } else {
+                placing.0 = None;
+            }
         }
     }
 }

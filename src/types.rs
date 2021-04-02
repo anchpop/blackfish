@@ -1,27 +1,22 @@
-use std::iter;
-use std::{fmt::Debug};
+use std::{fmt::Debug, iter};
 
-use crate::geom::direction::*;
-use crate::geom::*;
-
+use crate::geom::{direction::*, *};
 
 use ndarray::Array2;
 
 use slotmap::{new_key_type, SlotMap};
 
-use frunk::monoid::Monoid;
-use frunk::semigroup::Semigroup;
+use frunk::{monoid::Monoid, semigroup::Semigroup};
 
 pub mod tiles {
     use non_empty_collections::index_map::NonEmptyIndexMap;
 
-    use super::data::*;
-    use super::*;
+    use super::{data::*, *};
 
     use std::collections::HashMap;
 
     #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-    pub struct ProgramInfo {}
+    pub struct ProgramInfo;
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub struct WorldMachineInfo {
         pub program_info: ProgramInfo,
@@ -64,52 +59,6 @@ pub mod tiles {
     }
 
     impl<D> BuiltInMachine<D> {
-        /*
-        pub fn io(&self) -> BTreeMap<Dir, IOType> {
-            match self {
-                BuiltInMachine::Iffy => {
-                    todo!()
-                }
-                BuiltInMachine::Trace => {
-                    btree_map! {
-                        Dir::south: IOType::In("observe".to_string())
-                    }
-                }
-                BuiltInMachine::Produce => {
-                    btree_map! {
-                        Dir::south: IOType::In("product".to_string())
-                    }
-                }
-            }
-        }
-
-        pub fn inputs(&self) -> BTreeMap<Dir, String> {
-            self.io()
-                .into_iter()
-                .filter_map(|(dir, iotype)| {
-                    if let IOType::In(io) = iotype {
-                        Some((dir, io))
-                    } else {
-                        None
-                    }
-                })
-                .collect()
-        }
-
-        pub fn outputs(&self) -> BTreeMap<Dir, String> {
-            self.io()
-                .into_iter()
-                .filter_map(|(dir, iotype)| {
-                    if let IOType::Out(io) = iotype {
-                        Some((dir, io))
-                    } else {
-                        None
-                    }
-                })
-                .collect()
-        }
-         */
-
         pub fn name(&self) -> &str {
             match self {
                 Self::Produce(_) => "id",
@@ -317,6 +266,10 @@ pub mod tiles {
                 TileProgram::Literal(lit) => TileProgramMachineInfo::Literal(lit),
             }
         }
+
+        pub fn into_world(self) -> TileWorld {
+            TileWorld::Prog(self.create_machine_info())
+        }
     }
 
     impl<T> tilemap::Shaped for TileProgramF<T> {
@@ -348,9 +301,7 @@ pub mod tiles {
 }
 
 pub mod tilemaps {
-    use super::data::*;
-    use super::tiles::*;
-    use super::*;
+    use super::{data::*, tiles::*, *};
 
     use std::collections::HashSet;
 
@@ -642,12 +593,11 @@ pub mod tilemaps {
 }
 
 pub mod data {
-    use super::tilemaps::InputIndex;
-    use super::tilemaps::OutputIndex;
-    use super::tilemaps::TilemapProgram;
-    use super::tiles::BuiltInMachine;
-    use crate::geom::direction::*;
-    use crate::geom::Vec2;
+    use super::{
+        tilemaps::{InputIndex, OutputIndex, TilemapProgram},
+        tiles::BuiltInMachine,
+    };
+    use crate::geom::{direction::*, Vec2};
     use frunk::semigroup::Semigroup;
 
     pub type MachineInput = String;

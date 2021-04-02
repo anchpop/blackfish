@@ -578,28 +578,6 @@ mod tests {
             assert_eq!(output_data, data);
         }
 
-        /*
-        #[test]
-        fn test_id_program_blocked_correctly() {
-            let data = Data::Number(0);
-            let prog = in_out_id_blocked_prog();
-
-            let input_uuid = prog.inputs[0].0;
-            let output_uuid = prog.outputs[0].0;
-
-            let result = evaluation::evaluate(
-                prog.clone(),
-                std::array::IntoIter::new([(input_uuid, data.clone())]).collect(),
-            );
-            match result.1.get(&output_uuid).unwrap() {
-                Data::Nothing(_, _) => {}
-                _ => {
-                    panic!("should be nothing, there's no input here!")
-                }
-            }
-        }
-        */
-
         #[test]
         fn test_id_program_with_indirection() {
             let data = WhnfData::Number(0);
