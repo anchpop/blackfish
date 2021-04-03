@@ -213,6 +213,30 @@ pub mod tiles {
                 .collect();
             i
         }
+        pub fn get_outputs(
+            m: NonEmptyIndexMap<Vec2, DirMap<Option<IOType>>>,
+        ) -> HashMap<MachineInput, GridLineDir> {
+            let i = m
+                .into_iter()
+                .flat_map(|(position, dir_map)| {
+                    dir_map
+                        .into_iter()
+                        .map(|(direction, iotype)| {
+                            (GridLineDir::new(position.clone(), direction), iotype)
+                        })
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                })
+                .filter_map(|(grid_line_dir, iotype)| {
+                    if let Some(IOType::OutLong(iotype)) = iotype {
+                        Some((iotype, grid_line_dir))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            i
+        }
     }
     impl TilePhysics {
         pub fn name(&self) -> &'static str {
@@ -303,7 +327,7 @@ pub mod tiles {
 pub mod tilemaps {
     use super::{data::*, tiles::*, *};
 
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum Edit {
@@ -565,6 +589,56 @@ pub mod tilemaps {
 
         pub fn make_slotmap() -> SlotMap<KeyProgram, (Vec2, Dir, TileProgram)> {
             SlotMap::with_key()
+        }
+
+        pub fn get_all_connections(&self) -> HashSet<TileLineDir> {
+            fn get_con(prog: &TilemapProgram, grid_line_dir: GridLineDir) -> GridLineDir {
+                match prog.spec.raycast(grid_line_dir) {
+                    tilemap::RaycastHit::HitBorder(grid_line_dir) => grid_line_dir,
+                    tilemap::RaycastHit::HitTile(location, dir, _) => {
+                        GridLineDir::new(location, dir)
+                    }
+                }
+            }
+
+            let machines = self
+                .spec
+                .tiles
+                .iter()
+                .flat_map(|(_, (location, orientation, tile))| {
+                    let tile_positions = self.spec.get_tile_positions(location, orientation, tile);
+                    let tile_positions = tile_positions.expect("Invalid tile somehow >:(");
+                    let inputs = TileProgram::get_inputs(tile_positions.clone())
+                        .into_iter()
+                        .map(|(_, grid_line_dir)| {
+                            TileLineDir::new(
+                                get_con(self, grid_line_dir).grid_line,
+                                grid_line_dir.grid_line,
+                            )
+                        });
+                    let outputs = TileProgram::get_outputs(tile_positions).into_iter().map(
+                        |(_, grid_line_dir)| {
+                            TileLineDir::new(
+                                grid_line_dir.grid_line,
+                                get_con(self, grid_line_dir).grid_line,
+                            )
+                        },
+                    );
+
+                    let connections = inputs.chain(outputs);
+                    connections
+                });
+
+            let inputs = self.inputs.iter().enumerate().map(|(index, _)| {
+                let grid_line = self.get_input_grid_line_dir(index);
+                TileLineDir::new(grid_line.grid_line, get_con(self, grid_line).grid_line)
+            });
+            let outputs = self.outputs.iter().enumerate().map(|(index, _)| {
+                let grid_line = self.get_output_grid_line_dir(index);
+                TileLineDir::new(get_con(self, grid_line).grid_line, grid_line.grid_line)
+            });
+
+            machines.chain(inputs).chain(outputs).collect()
         }
     }
 

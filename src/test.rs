@@ -413,6 +413,17 @@ mod tests {
                 ]
             );
         }
+
+        #[test]
+        fn tile_line_contains() {
+            let start = GridLine::new(Vec2i::new(0, 0), Dir::EAST);
+            let end = GridLine::new(Vec2i::new(5, 0), Dir::EAST);
+            let l = TileLine::new(start, end);
+
+            assert!(l.contains(Vec2i::new(4, 0)));
+            assert!(l.contains(Vec2i::new(5, 0)));
+            assert!(!l.contains(Vec2i::new(0, 0)));
+        }
     }
 
     #[cfg(test)]

@@ -9,10 +9,10 @@ extern crate uom;
 use crate::geom::direction::*;
 use bevy::{input::keyboard::KeyboardInput, prelude::*, render::camera::Camera};
 use frunk::monoid::Monoid;
-use geom::{Extent2, Vec2};
+use geom::{Extent2, Vec2, Vec2i};
 use midir::{MidiOutput, MidiOutputPort};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     error::Error,
     io::{stdin, stdout, Write},
     sync::{Mutex, MutexGuard},
@@ -130,7 +130,7 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
         .iter()
         .cloned()
         .collect(),
-        io_empty: materials.add(Color::rgb(0.25019607, 0.2558, 0.2519).into()),
+        io_empty: materials.add(Color::rgb(201. / 255., 120. / 255., 102. / 255.).into()),
         io_used: materials.add(Color::rgb(0.996, 0.5411, 0.4431).into()),
         transparent: materials.add(Color::rgba(0., 0., 0., 0.).into()),
     });
@@ -361,10 +361,22 @@ fn positioning(
 
 fn get_tile_material(
     tile: &Option<&TileWorld>,
+    location: Vec2,
     materials: &TileMaterials,
+    connections: &HashSet<TileLineDir>,
 ) -> Handle<ColorMaterial> {
     match tile {
-        None => materials.empty.clone(),
+        None => {
+            if connections.iter().any(|connection| {
+                connection
+                    .tile_line
+                    .contains(Vec2i::new(location.x as i64, location.y as i64))
+            }) {
+                materials.io_empty.clone()
+            } else {
+                materials.empty.clone()
+            }
+        }
         Some(t) => materials.tiles[t.name()].clone(),
     }
 }
@@ -378,22 +390,32 @@ fn tile_appearance(
     placing: Res<Placing>,
     tilemap_program: Res<TilemapProgram>,
     materials: Res<TileMaterials>,
-    tilemap: Res<TilemapWorld>,
+    tilemap_world: Res<TilemapWorld>,
 ) {
+    let connections = if let Placing(Some(location), orientation, tile) = *placing {
+        tilemap_program
+            .clone()
+            .try_do_to_map(|map| map.add(location, orientation, tile))
+            .unwrap_or(tilemap_program.clone())
+            .get_all_connections()
+    } else {
+        tilemap_program.get_all_connections()
+    };
+
     for (TileFromMap(position), mut color_mat_handle) in q.q0_mut().iter_mut() {
-        let tile = tilemap
+        let tile = tilemap_world
             .world
             .get(Vec2::new(position.x, position.y))
             .map(|(_, _, t)| t);
-        *color_mat_handle = get_tile_material(&tile, &materials);
+        *color_mat_handle = get_tile_material(&tile, *position, &materials, &connections);
     }
 
     for (TileFromBorder(index, direction), mut color_mat_handle) in q.q2_mut().iter_mut() {
         if direction.basis == Basis::East {
             if direction.sign == Sign::Negative {
-                if *index < tilemap.inputs.len() {
-                    if tilemap.connections.iter().any(|connection| {
-                        connection.get_start() == tilemap.get_input_grid_line_dir(*index)
+                if *index < tilemap_world.inputs.len() {
+                    if tilemap_world.connections.iter().any(|connection| {
+                        connection.get_start() == tilemap_world.get_input_grid_line_dir(*index)
                     }) {
                         *color_mat_handle = materials.io_used.clone();
                     } else {
@@ -403,9 +425,9 @@ fn tile_appearance(
                     *color_mat_handle = materials.transparent.clone();
                 }
             } else {
-                if *index < tilemap.outputs.len() {
-                    if tilemap.connections.iter().any(|connection| {
-                        connection.get_end() == tilemap.get_output_grid_line_dir(*index)
+                if *index < tilemap_world.outputs.len() {
+                    if tilemap_world.connections.iter().any(|connection| {
+                        connection.get_end() == tilemap_world.get_output_grid_line_dir(*index)
                     }) {
                         *color_mat_handle = materials.io_used.clone();
                     } else {
@@ -431,7 +453,12 @@ fn tile_appearance(
             let positions: HashMap<_, _> = positions.into_iter().collect();
             for (TileForPicking(position), mut color_mat_handle) in q.q1_mut().iter_mut() {
                 if let Some(_) = positions.get(position) {
-                    *color_mat_handle = get_tile_material(&Some(&tile.into_world()), &materials);
+                    *color_mat_handle = get_tile_material(
+                        &Some(&tile.into_world()),
+                        *position,
+                        &materials,
+                        &connections,
+                    );
                 }
             }
         }
@@ -613,7 +640,12 @@ fn picker_follow_mouse(
                 invert_squished(point.x, window.width(), (map_extents.w) as f32),
                 invert_squished(point.y, window.height(), (map_extents.h) as f32),
             ) {
-                placing.0 = Some(Vec2::new(x, y));
+                let location = Vec2::new(x, y);
+                if tilemap_world.world.check_in_bounds(location) {
+                    placing.0 = Some(location);
+                } else {
+                    placing.0 = None;
+                }
             } else {
                 placing.0 = None;
             }

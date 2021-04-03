@@ -470,6 +470,21 @@ pub mod direction {
     }
 
     impl TileLine {
+        pub fn contains(&self, location: Vec2i) -> bool {
+            (0..self.distance).any(|i| {
+                location
+                    == (GridLineDir {
+                        grid_line: self.grid_line,
+                        direction: Sign::Positive,
+                    })
+                    .advance(i as i64)
+                    .next()
+                    .0
+            })
+        }
+    }
+
+    impl TileLine {
         pub fn new(from: GridLine, to: GridLine) -> Self {
             TileLineDir::new(from, to).tile_line
         }
@@ -763,8 +778,8 @@ pub mod tilemap {
         }
 
         pub fn check_in_bounds(&self, location: Vec2) -> bool {
-            let location = Vec2::new(location.x as usize, location.y as usize);
-            if Vec2::partial_min(location, self.extents()) != location {
+            let extents = self.extents();
+            if location.x < extents.w && location.y < extents.h {
                 true
             } else {
                 false
