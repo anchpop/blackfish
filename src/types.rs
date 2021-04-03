@@ -215,7 +215,7 @@ pub mod tiles {
         }
         pub fn get_outputs(
             m: NonEmptyIndexMap<Vec2, DirMap<Option<IOType>>>,
-        ) -> HashMap<MachineInput, GridLineDir> {
+        ) -> HashMap<(MachineInput, bool), GridLineDir> {
             let i = m
                 .into_iter()
                 .flat_map(|(position, dir_map)| {
@@ -227,12 +227,10 @@ pub mod tiles {
                         .collect::<Vec<_>>()
                         .into_iter()
                 })
-                .filter_map(|(grid_line_dir, iotype)| {
-                    if let Some(IOType::OutLong(iotype)) = iotype {
-                        Some((iotype, grid_line_dir))
-                    } else {
-                        None
-                    }
+                .filter_map(|(grid_line_dir, iotype)| match iotype {
+                    Some(IOType::OutLong(iotype)) => Some(((iotype, true), grid_line_dir)),
+                    Some(IOType::OutShort(iotype)) => Some(((iotype, false), grid_line_dir)),
+                    _ => None,
                 })
                 .collect();
             i
@@ -590,56 +588,6 @@ pub mod tilemaps {
         pub fn make_slotmap() -> SlotMap<KeyProgram, (Vec2, Dir, TileProgram)> {
             SlotMap::with_key()
         }
-
-        pub fn get_all_connections(&self) -> HashSet<TileLineDir> {
-            fn get_con(prog: &TilemapProgram, grid_line_dir: GridLineDir) -> GridLineDir {
-                match prog.spec.raycast(grid_line_dir) {
-                    tilemap::RaycastHit::HitBorder(grid_line_dir) => grid_line_dir,
-                    tilemap::RaycastHit::HitTile(location, dir, _) => {
-                        GridLineDir::new(location, dir)
-                    }
-                }
-            }
-
-            let machines = self
-                .spec
-                .tiles
-                .iter()
-                .flat_map(|(_, (location, orientation, tile))| {
-                    let tile_positions = self.spec.get_tile_positions(location, orientation, tile);
-                    let tile_positions = tile_positions.expect("Invalid tile somehow >:(");
-                    let inputs = TileProgram::get_inputs(tile_positions.clone())
-                        .into_iter()
-                        .map(|(_, grid_line_dir)| {
-                            TileLineDir::new(
-                                get_con(self, grid_line_dir).grid_line,
-                                grid_line_dir.grid_line,
-                            )
-                        });
-                    let outputs = TileProgram::get_outputs(tile_positions).into_iter().map(
-                        |(_, grid_line_dir)| {
-                            TileLineDir::new(
-                                grid_line_dir.grid_line,
-                                get_con(self, grid_line_dir).grid_line,
-                            )
-                        },
-                    );
-
-                    let connections = inputs.chain(outputs);
-                    connections
-                });
-
-            let inputs = self.inputs.iter().enumerate().map(|(index, _)| {
-                let grid_line = self.get_input_grid_line_dir(index);
-                TileLineDir::new(grid_line.grid_line, get_con(self, grid_line).grid_line)
-            });
-            let outputs = self.outputs.iter().enumerate().map(|(index, _)| {
-                let grid_line = self.get_output_grid_line_dir(index);
-                TileLineDir::new(get_con(self, grid_line).grid_line, grid_line.grid_line)
-            });
-
-            machines.chain(inputs).chain(outputs).collect()
-        }
     }
 
     impl Semigroup for Edit {
@@ -671,7 +619,7 @@ pub mod data {
         tilemaps::{InputIndex, OutputIndex, TilemapProgram},
         tiles::BuiltInMachine,
     };
-    use crate::geom::{direction::*, Vec2};
+    use crate::geom::{direction::*, tilemap::Tilemap, Vec2};
     use frunk::semigroup::Semigroup;
 
     pub type MachineInput = String;
@@ -790,13 +738,14 @@ pub mod data {
     pub enum ToConnection {
         GlobalOutput(InputIndex),
         FunctionInput(GridLineDir, MachineInput),
-        //Nothing(GridLineDir), // currently we never make these with the current graph setup
+        Nothing(GridLineDir),
     }
     impl ToConnection {
         pub fn loc(&self, program: &TilemapProgram) -> GridLineDir {
             match self {
                 Self::GlobalOutput(loc) => program.get_output_grid_line_dir(*loc),
                 Self::FunctionInput(loc, _) => *loc,
+                Self::Nothing(loc) => *loc,
             }
         }
     }
@@ -818,6 +767,25 @@ pub mod data {
 
     pub type GraphEdge = (FromConnection, ToConnection);
     pub type Graph = petgraph::graphmap::GraphMap<GraphNode, GraphEdge, petgraph::Directed>;
+
+    pub fn graph_edge_to_tile_lines(edge: &GraphEdge, prog: &TilemapProgram) -> Vec<TileLineDir> {
+        let (from, to) = edge;
+        let from_grid_line_dir = match from {
+            FromConnection::GlobalInput(index) => prog.get_input_grid_line_dir(*index),
+            FromConnection::FunctionOutput(grid_line_dir, _) => *grid_line_dir,
+            FromConnection::Nothing(grid_line_dir) => *grid_line_dir,
+        };
+        let to_grid_line_dir = match to {
+            ToConnection::GlobalOutput(index) => prog.get_output_grid_line_dir(*index),
+            ToConnection::FunctionInput(grid_line_dir, _) => *grid_line_dir,
+            ToConnection::Nothing(grid_line_dir) => *grid_line_dir,
+        };
+
+        vec![TileLineDir::new(
+            from_grid_line_dir.grid_line,
+            to_grid_line_dir.grid_line,
+        )]
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

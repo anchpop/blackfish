@@ -1,10 +1,9 @@
-use std::collections::HashMap;
-
-use crate::geom::{direction::*, tilemap::RaycastHit};
-
-use crate::types::{data::*, tilemaps::*, tiles::*};
-
+use crate::{
+    geom::{direction::*, tilemap::RaycastHit},
+    types::{data::*, tilemaps::*, tiles::*},
+};
 use petgraph::EdgeDirection::Incoming;
+use std::collections::{HashMap, HashSet};
 
 pub fn evaluate(prog: &TilemapProgram, inputs: HashMap<String, Data>) -> TilemapWorld {
     let (graph, outputs) = program_to_graph(&prog);
@@ -128,11 +127,11 @@ pub fn weak_head_normal_form(
                             (whnm, lasers)
                         } else {
                             panic!(
-                                "Global function output needs to have exactly one input, has more!"
+                                "Global function output needs to have exactly one input, has more!\nGraph:\n{}", get_graph_str(graph)
                             )
                         }
                     } else {
-                        panic!("Global function output needs to have exactly one input, has 0!")
+                        panic!("Global function output needs to have exactly one input, has 0!\nGraph:\n{}", get_graph_str(graph))
                     }
                 }
                 GraphNode::Block(_, _, tile) => {
@@ -142,7 +141,7 @@ pub fn weak_head_normal_form(
                             .map(|(to_connection, input)| match to_connection {
                                 ToConnection::FunctionInput(to_connection_loc, input_label) => (input_label, (to_connection_loc.clone(), input)),
                                 _ => panic!(
-                                    "Trying to evaluate a block, but it had an input besides function inputs!"
+                                    "Trying to evaluate a block, but it had an input besides function inputs!\nGraph:\n{}", get_graph_str(graph)
                                 ),
                             }).collect();
                     if let Dependency::On(desired_output) = dependency {
@@ -207,157 +206,310 @@ pub fn weak_head_normal_form(
 }
 
 pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
-    fn add_node(
+    
+    fn add_edge(
         graph: &mut Graph,
+        from_connections: &HashMap<GridLineDir, (FromConnection, GraphNode)>,
+        to_connections: &HashMap<GridLineDir, (ToConnection, GraphNode)>,
+        from: GridLineDir,
+        to: GridLineDir,
+    ) {
+        let (from_connection, from_node) = from_connections.get(&from).cloned().unwrap_or({
+            let (from_vec, from_dir) = to.previous();
+            let nothing_node = GraphNode::Nothing((from_vec.x, from_vec.y), from_dir);
+            (FromConnection::Nothing(to), nothing_node)
+        });
+        let (to_connection, to_node) = to_connections.get(&to).cloned().unwrap_or({
+            let (to_vec, to_dir) = to.previous();
+            let nothing_node = GraphNode::Nothing((to_vec.x, to_vec.y), to_dir);
+            (ToConnection::Nothing(to), nothing_node)
+        });
+
+        graph.add_edge(from_node, to_node, (from_connection, to_connection));
+    }
+
+    fn add_edge_from(
         prog: &TilemapProgram,
-        to_calc_input_to: GridLineDir,
-        to_calc_input_to_node: GraphNode,
-        global_inputs: &HashMap<InputIndex, GraphNode>,
-        input_type: ToConnection,
-    ) -> FromConnection {
-        let raycast_hit = prog.spec.raycast(to_calc_input_to);
-        match raycast_hit {
-            RaycastHit::HitBorder(hit_normal) => {
-                if let Some(input_index) = prog.check_input_grid_line_dir(hit_normal) {
-                    let hit_node = global_inputs
-                        .get(&input_index)
-                        .expect("Input not provided to program_to_graph");
+        graph: &mut Graph,
+        from_connections: &HashMap<GridLineDir, (FromConnection, GraphNode)>,
+        to_connections: &HashMap<GridLineDir, (ToConnection, GraphNode)>,
+        from: GridLineDir,
+        long: bool,
+    ) {
+        add_edge(
+            graph,
+            from_connections,
+            to_connections,
+            from,
+            if long {
+                prog.spec.raycast(from).to_normal()
+            } else {
+                -from
+            },
+        )
+    }
+    fn add_edge_to(
+        prog: &TilemapProgram,
+        graph: &mut Graph,
+        from_connections: &HashMap<GridLineDir, (FromConnection, GraphNode)>,
+        to_connections: &HashMap<GridLineDir, (ToConnection, GraphNode)>,
+        to: GridLineDir,
+    ) {
+        add_edge(
+            graph,
+            from_connections,
+            to_connections,
+            prog.spec.raycast(to).to_normal(),
+            to,
+        )
+    }
 
-                    let from_connection = FromConnection::GlobalInput(input_index);
-                    graph.add_edge(
-                        hit_node.clone(),
-                        to_calc_input_to_node,
-                        (from_connection.clone(), input_type),
-                    );
-                    from_connection
-                } else {
-                    let from_connection = FromConnection::Nothing(hit_normal);
-                    let hit_node = graph.add_node(GraphNode::nothing(hit_normal));
-                    graph.add_edge(
-                        hit_node,
-                        to_calc_input_to_node,
-                        (from_connection.clone(), input_type),
-                    );
-                    from_connection
-                }
-            }
-            RaycastHit::HitTile(hit_location, normal, (block_center, block_orientation, block)) => {
-                let hit_normal = GridLineDir::new(hit_location, normal);
+    pub fn create_graph_nodes(
+        prog: &TilemapProgram,
+    ) -> (
+        Graph,
+        HashMap<GridLineDir, (ToConnection, GraphNode)>,
+        HashMap<GridLineDir, (FromConnection, GraphNode)>,
+    ) {
+        let mut graph: Graph = Graph::new();
 
-                let tile_positions =
-                    prog.spec
-                        .get_tile_positions(block_center, block_orientation, block);
+        // inputs
+        let global_input_grid_line_dirs: HashMap<GridLineDir, (FromConnection, GraphNode)> = prog
+            .inputs
+            .iter()
+            .map(|(uuid, _, _)| {
+                let index: InputIndex = prog
+                    .inputs
+                    .iter()
+                    .position(|(input_uuid, _, _)| uuid == input_uuid)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Input uuid {:?} was not in program's input list {:?}",
+                            uuid, prog.inputs
+                        )
+                    });
+
+                let node = GraphNode::Input(uuid.clone());
+
+                let node = graph.add_node(node.clone());
+
+                (
+                    prog.get_input_grid_line_dir(index),
+                    (FromConnection::GlobalInput(index), node),
+                )
+            })
+            .collect();
+
+        // outputs
+        let global_output_grid_line_dirs: HashMap<GridLineDir, (ToConnection, GraphNode)> = prog
+            .outputs
+            .iter()
+            .map(|(uuid, _, _)| {
+                let index: OutputIndex = prog
+                    .outputs
+                    .iter()
+                    .position(|(output_uuid, _, _)| uuid == output_uuid)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "output uuid {:?} was not in program's output list {:?}",
+                            uuid, prog.outputs
+                        )
+                    });
+
+                let node = GraphNode::Output(uuid.clone());
+
+                let node = graph.add_node(node.clone());
+
+                (
+                    prog.get_output_grid_line_dir(index),
+                    (ToConnection::GlobalOutput(index), node),
+                )
+            })
+            .collect();
+
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+        enum InOrOut {
+            In((ToConnection, GraphNode)),
+            Out((FromConnection, GraphNode)),
+        }
+        let machine_io_grid_line_dirs: HashMap<GridLineDir, InOrOut> = prog
+            .spec
+            .tiles
+            .values()
+            .flat_map(|tile_info| {
+                let current_node = graph.add_node(GraphNode::new(tile_info.clone()));
+
+                let (location, orientation, tile) = tile_info;
+
+                let tile_positions = prog.spec.get_tile_positions(location, orientation, tile);
                 let tile_positions = tile_positions.expect("Invalid tile somehow >:(");
-                let io_map = tile_positions
-                    .get(&hit_location)
-                    .expect("tile hit somehow not in result of calling tile_positions");
+                let inputs = TileProgram::get_inputs(tile_positions.clone());
+                let outputs = TileProgram::get_outputs(tile_positions);
 
-                match (
-                    io_map.get(&normal),
-                    hit_normal.grid_line.distance(&to_calc_input_to.grid_line),
-                ) {
-                    (Some(IOType::OutLong(name)), _) | (Some(IOType::OutShort(name)), 0) => {
-                        let from_connection =
-                            FromConnection::FunctionOutput(hit_normal, name.clone());
-                        let hit_node = graph.add_node(GraphNode::new((
-                            block_center.clone(),
-                            block_orientation.clone(),
-                            block.clone(),
-                        )));
-                        graph.add_edge(
-                            hit_node,
-                            to_calc_input_to_node,
-                            (from_connection.clone(), input_type),
-                        );
-                        from_connection
-                    }
-                    _ => {
-                        let from_connection = FromConnection::Nothing(hit_normal);
-                        let hit_node = graph.add_node(GraphNode::nothing(hit_normal));
-                        graph.add_edge(
-                            hit_node,
-                            to_calc_input_to_node,
-                            (from_connection.clone(), input_type),
-                        );
-                        from_connection
-                    }
-                }
+                let input_info = inputs
+                    .into_iter()
+                    .map(|(label, grid_line_dir)| {
+                        (
+                            grid_line_dir,
+                            (
+                                ToConnection::FunctionInput(grid_line_dir, label),
+                                current_node,
+                            ),
+                        )
+                    })
+                    .collect::<HashMap<_, _>>();
+
+                let output_info = outputs
+                    .into_iter()
+                    .map(|((label, _), grid_line_dir)| {
+                        (
+                            grid_line_dir,
+                            (
+                                FromConnection::FunctionOutput(grid_line_dir, label),
+                                current_node,
+                            ),
+                        )
+                    })
+                    .collect::<HashMap<_, _>>();
+
+                // Could have just made the HashSet directly, but I wanted to assert that there were no inputs that were also outputs or w/e
+                let relevant_grid_line_dirs = {
+                    let v = input_info
+                        .keys()
+                        .chain(output_info.keys())
+                        .cloned()
+                        .collect::<Vec<_>>();
+                    let s = v.iter().cloned().collect::<HashSet<_>>();
+                    assert_eq!(v.len(), s.len());
+                    s
+                };
+
+                relevant_grid_line_dirs
+                    .into_iter()
+                    .map(move |grid_line_dir| {
+                        (
+                            grid_line_dir,
+                            if let Some(info) = input_info.get(&grid_line_dir) {
+                                InOrOut::In(info.clone())
+                            } else {
+                                InOrOut::Out(output_info.get(&grid_line_dir).unwrap().clone())
+                            },
+                        )
+                    })
+            })
+            .collect();
+
+        let machine_inputs = machine_io_grid_line_dirs.iter().filter_map(
+            |(grid_line_dir, in_or_out)| match in_or_out {
+                InOrOut::In(a) => Some((grid_line_dir.clone(), a.clone())),
+                InOrOut::Out(_) => None,
+            },
+        );
+
+        let machine_outputs = machine_io_grid_line_dirs.iter().filter_map(
+            |(grid_line_dir, in_or_out)| match in_or_out {
+                InOrOut::In(_) => None,
+                InOrOut::Out(a) => Some((grid_line_dir.clone(), a.clone())),
+            },
+        );
+
+        let all_from_connections = global_input_grid_line_dirs
+            .into_iter()
+            .chain(machine_outputs)
+            .collect();
+
+        let all_to_connections = global_output_grid_line_dirs
+            .into_iter()
+            .chain(machine_inputs)
+            .collect();
+
+        (graph, all_to_connections, all_from_connections)
+    }
+
+    pub fn create_edges(
+        prog: &TilemapProgram,
+        graph: &mut Graph,
+        from_connections: &HashMap<GridLineDir, (FromConnection, GraphNode)>,
+        to_connections: &HashMap<GridLineDir, (ToConnection, GraphNode)>,
+    ) {
+        // Create edges for inputs
+        for (input_index, _) in prog.inputs.iter().enumerate() {
+            add_edge_from(
+                prog,
+                graph,
+                from_connections,
+                to_connections,
+                prog.get_input_grid_line_dir(input_index),
+                true,
+            )
+        }
+
+        // Create edges for outputs
+        for (output_index, _) in prog.outputs.iter().enumerate() {
+            add_edge_to(
+                prog,
+                graph,
+                from_connections,
+                to_connections,
+                prog.get_output_grid_line_dir(output_index),
+            )
+        }
+
+        // Create edges for machines :p
+        for (_, tile_info) in prog.spec.tiles.iter() {
+            let (location, orientation, tile) = tile_info;
+
+            let tile_positions = prog.spec.get_tile_positions(location, orientation, tile);
+            let tile_positions = tile_positions.expect("Invalid tile somehow >:(");
+            let inputs = TileProgram::get_inputs(tile_positions.clone());
+            let outputs = TileProgram::get_outputs(tile_positions);
+            for (_, to_calc_input_to) in inputs {
+                add_edge_to(
+                    prog,
+                    graph,
+                    from_connections,
+                    to_connections,
+                    to_calc_input_to,
+                );
+            }
+            for ((_, long), to_calc_output_for) in outputs {
+                add_edge_from(
+                    prog,
+                    graph,
+                    from_connections,
+                    to_connections,
+                    to_calc_output_for,
+                    long,
+                );
             }
         }
     }
 
-    let _width = prog.program_dim().w;
-    let mut graph: Graph = Graph::new();
+    let (mut graph, to_connections, from_connections) = create_graph_nodes(prog);
+    create_edges(&prog, &mut graph, &from_connections, &to_connections);
 
-    // Only nodes in the graph are the inputs, outputs, and machines. Let's just add them all straightaway.
+    (
+        graph,
+        prog.outputs
+            .iter()
+            .map(|(uuid, _, _)| uuid)
+            .cloned()
+            .collect(),
+    )
+}
 
-    // inputs
-    let input_grid_line_dirs: HashMap<InputIndex, GraphNode> = prog
-        .inputs
-        .iter()
-        .map(|(uuid, _, _)| {
-            let index = prog
-                .inputs
-                .iter()
-                .position(|(input_uuid, _, _)| uuid == input_uuid)
-                .expect("Input uuid was not in program's uuid list");
+pub type AllConnections = Vec<(GraphNode, GraphNode, (FromConnection, ToConnection))>;
 
-            let node = GraphNode::Input(uuid.clone());
+pub fn get_all_connections(prog: &TilemapProgram) -> AllConnections {
+    let (graph, _) = program_to_graph(prog);
+    graph
+        .all_edges()
+        .map(|(f, t, c)| (f, t, c.clone()))
+        .collect()
+}
 
-            let node = graph.add_node(node.clone());
+pub fn get_graph_str(graph: &Graph) -> String {
+    use petgraph::dot::{Config, Dot};
 
-            (index, node)
-        })
-        .collect();
-
-    // outputs
-    let outputs: HashMap<uuid::Uuid, (OutputIndex, GraphNode)> = prog
-        .outputs
-        .iter()
-        .enumerate()
-        .map(|(index, (uuid, _, _))| {
-            let node = GraphNode::Output(uuid.clone());
-            let node = graph.add_node(node.clone());
-            (uuid.clone(), (index, node))
-        })
-        .collect();
-
-    // machines
-    for (_, tile_info) in prog.spec.tiles.iter() {
-        let current_node = graph.add_node(GraphNode::new(tile_info.clone()));
-
-        // ok, now to add all the edges that lead to the machines
-        let (location, orientation, tile) = tile_info;
-
-        let tile_positions = prog.spec.get_tile_positions(location, orientation, tile);
-        let tile_positions = tile_positions.expect("Invalid tile somehow >:(");
-        let inputs = TileProgram::get_inputs(tile_positions);
-        for (input_name, to_calc_input_to) in inputs {
-            add_node(
-                &mut graph,
-                prog,
-                to_calc_input_to,
-                current_node,
-                &input_grid_line_dirs,
-                ToConnection::FunctionInput(to_calc_input_to.clone(), input_name.clone()),
-            );
-        }
-    }
-
-    let outputs = outputs
-        .iter()
-        .map(|(uuid, (to_calc_output_to, current_node))| {
-            add_node(
-                &mut graph,
-                prog,
-                prog.get_output_grid_line_dir(*to_calc_output_to),
-                *current_node,
-                &input_grid_line_dirs,
-                ToConnection::GlobalOutput(*to_calc_output_to),
-            );
-            uuid.clone()
-        })
-        .collect();
-
-    (graph, outputs)
+    format!("{:?}", Dot::with_config(&graph, &[]))
 }

@@ -349,6 +349,16 @@ mod tests {
             assert_eq!(dir.shift(start), recovered_start);
             assert_eq!(dir, recovered_dir);
         }
+
+        #[test]
+        fn grid_line_dir_directionally_neutral() {
+            let loc = Vec2::new(3, 3);
+            let dir = Dir::EAST;
+
+            let a = GridLineDir::new(loc, dir);
+            let b = GridLineDir::new(dir.shift(loc), -dir);
+            assert_eq!(a.grid_line, b.grid_line);
+        }
     }
 
     #[cfg(test)]
@@ -430,6 +440,7 @@ mod tests {
     mod raycast {
         use crate::geom::{tilemap::RaycastHit, Vec2, Vec2i};
         use pretty_assertions::assert_eq;
+        use vek::Ray;
 
         use super::*;
 
@@ -558,6 +569,113 @@ mod tests {
                 RaycastHit::HitTile(_, _, _) => {
                     panic!()
                 }
+            }
+        }
+
+        #[test]
+        fn ray_east_edge_value_correct() {
+            let prog = empty_program();
+
+            let raycast_hit_east = prog
+                .spec
+                .raycast(GridLineDir::new(Vec2::new(2, 0), Dir::EAST));
+
+            assert_eq!(
+                raycast_hit_east,
+                RaycastHit::HitBorder(GridLineDir::new(
+                    Vec2::new(prog.program_dim().w, 0),
+                    Dir::WEST
+                ))
+            )
+        }
+        #[test]
+        fn ray_west_edge_value_correct() {
+            let prog = empty_program();
+
+            let raycast_hit_west = prog
+                .spec
+                .raycast(GridLineDir::new(Vec2::new(2, 0), Dir::WEST));
+
+            assert_eq!(
+                raycast_hit_west,
+                RaycastHit::HitBorder(GridLineDir::new(Vec2i::new(-1, 0), Dir::EAST))
+            )
+        }
+
+        #[test]
+        fn get_output_grid_line_dir_faces_inwards() {
+            let prog = empty_program();
+
+            let dir = prog.get_output_grid_line_dir(0);
+
+            assert_eq!(
+                dir,
+                GridLineDir::new(Vec2::new(prog.program_dim().w, 0), Dir::WEST)
+            )
+        }
+        #[test]
+        fn get_input_grid_line_dir_faces_inwards() {
+            let prog = empty_program();
+
+            let dir = prog.get_input_grid_line_dir(0);
+
+            assert_eq!(dir, GridLineDir::new(Vec2i::new(-1, 0), Dir::EAST))
+        }
+
+        #[test]
+        fn raycast_hit_equals_input() {
+            let prog = empty_program();
+
+            let raycast_hit_input = prog
+                .spec
+                .raycast(GridLineDir::new(Vec2::new(2, 0), Dir::WEST));
+
+            assert_eq!(
+                raycast_hit_input.to_normal(),
+                prog.get_input_grid_line_dir(0)
+            );
+        }
+        #[test]
+        fn raycast_hit_equals_output() {
+            let prog = empty_program();
+
+            let raycast_hit_output = prog
+                .spec
+                .raycast(GridLineDir::new(Vec2::new(2, 0), Dir::EAST));
+
+            match raycast_hit_output {
+                RaycastHit::HitBorder(normal) => {
+                    assert_eq!(normal, prog.get_output_grid_line_dir(0));
+                }
+                RaycastHit::HitTile(_, _, _) => {
+                    panic!("shouldn't hit a tile on an empty map! duh!")
+                }
+            }
+        }
+        #[test]
+        fn output_next_in_bounds() {
+            let prog = empty_program();
+
+            let loc = prog.get_output_grid_line_dir(0).next().0;
+
+            match prog.spec.check_in_bounds_i(loc) {
+                Some(_) => {}
+                None => {
+                    panic!("{} should be in bounds", loc)
+                }
+            }
+        }
+        #[test]
+        fn output_prev_not_in_bounds() {
+            let prog = empty_program();
+
+            let loc = prog.get_output_grid_line_dir(0).previous().0;
+
+            match prog.spec.check_in_bounds_i(loc) {
+                Some(_) => {
+                    panic!("{} shouldn't be in bounds", loc)
+                }
+                None => {}
             }
         }
     }

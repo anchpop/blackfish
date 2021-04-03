@@ -363,14 +363,19 @@ fn get_tile_material(
     tile: &Option<&TileWorld>,
     location: Vec2,
     materials: &TileMaterials,
-    connections: &HashSet<TileLineDir>,
+    connections: &evaluation::AllConnections,
+    program: &TilemapProgram,
 ) -> Handle<ColorMaterial> {
     match tile {
         None => {
-            if connections.iter().any(|connection| {
-                connection
-                    .tile_line
-                    .contains(Vec2i::new(location.x as i64, location.y as i64))
+            if connections.iter().any(|(_, _, connection)| {
+                graph_edge_to_tile_lines(connection, program)
+                    .iter()
+                    .any(|tile_line_dir| {
+                        tile_line_dir
+                            .tile_line
+                            .contains(Vec2i::new(location.x as i64, location.y as i64))
+                    })
             }) {
                 materials.io_empty.clone()
             } else {
@@ -392,22 +397,23 @@ fn tile_appearance(
     materials: Res<TileMaterials>,
     tilemap_world: Res<TilemapWorld>,
 ) {
-    let connections = if let Placing(Some(location), orientation, tile) = *placing {
+    let connection_map = if let Placing(Some(location), orientation, tile) = *placing {
         tilemap_program
             .clone()
             .try_do_to_map(|map| map.add(location, orientation, tile))
             .unwrap_or(tilemap_program.clone())
-            .get_all_connections()
     } else {
-        tilemap_program.get_all_connections()
+        tilemap_program.clone()
     };
+    let connections = evaluation::get_all_connections(&connection_map);
 
     for (TileFromMap(position), mut color_mat_handle) in q.q0_mut().iter_mut() {
         let tile = tilemap_world
             .world
             .get(Vec2::new(position.x, position.y))
             .map(|(_, _, t)| t);
-        *color_mat_handle = get_tile_material(&tile, *position, &materials, &connections);
+        *color_mat_handle =
+            get_tile_material(&tile, *position, &materials, &connections, &tilemap_program);
     }
 
     for (TileFromBorder(index, direction), mut color_mat_handle) in q.q2_mut().iter_mut() {
@@ -458,6 +464,7 @@ fn tile_appearance(
                         *position,
                         &materials,
                         &connections,
+                        &tilemap_program,
                     );
                 }
             }

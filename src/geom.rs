@@ -595,6 +595,17 @@ pub mod tilemap {
         HitBorder(GridLineDir),
         HitTile(Vec2, Dir, &'a (Vec2, Dir, I)),
     }
+    impl<'a, I> RaycastHit<'a, I> {
+        pub fn to_normal(self) -> GridLineDir {
+            match self {
+                RaycastHit::HitBorder(normal) => normal,
+                RaycastHit::HitTile(location, normal_direction, _) => {
+                    GridLineDir::new(location, normal_direction)
+                }
+            }
+        }
+    }
+
     pub trait Shaped {
         type ExtraInfo: Rotatable;
         fn shape(&self) -> NonEmptyIndexMap<Vec2i, Self::ExtraInfo>;
@@ -764,8 +775,8 @@ pub mod tilemap {
                 self.check_grid_line_in_bounds(grid_line_dir.grid_line),
                 "raycast out of bounds"
             );
-            let (location, direction) = grid_line_dir.previous();
-            let new_location = direction.shift(location);
+            let (old_location, _) = grid_line_dir.previous();
+            let (new_location, direction) = grid_line_dir.next();
             if let Some(new_location) = self.check_in_bounds_i(new_location) {
                 if let Some(hit) = self.get(new_location) {
                     RaycastHit::HitTile(new_location, -direction, hit)
@@ -786,9 +797,10 @@ pub mod tilemap {
             }
         }
         pub fn check_in_bounds_i(&self, location: Vec2i) -> Option<Vec2> {
+            let extents = self.extents();
             if !location.is_any_negative() {
                 let location = Vec2::new(location.x as usize, location.y as usize);
-                if Vec2::partial_min(location, self.extents()) == location {
+                if location.x < extents.w && location.y < extents.h {
                     Some(location)
                 } else {
                     None
