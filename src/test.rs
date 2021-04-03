@@ -434,6 +434,12 @@ mod tests {
             assert!(l.contains(Vec2i::new(5, 0)));
             assert!(!l.contains(Vec2i::new(0, 0)));
         }
+
+        #[test]
+        fn tile_line_0_dist() {
+            let gld = GridLine::new(Vec2i::new(0, 0), Dir::EAST);
+            assert_eq!(0, TileLine::new(gld, gld).distance);
+        }
     }
 
     #[cfg(test)]
@@ -775,6 +781,7 @@ mod tests {
                     prog.inputs[0].0:  Data::Whnf(data.clone())
                 }],
             );
+            println!("{}", evaluation::get_graph_str(&graph));
             assert_eq!(output_data, WhnfData::Nothing);
         }
     }
