@@ -1,11 +1,8 @@
 use std::collections::HashMap;
 
-use crate::geom::direction::*;
-use crate::geom::tilemap::RaycastHit;
+use crate::geom::{direction::*, tilemap::RaycastHit};
 
-use crate::types::data::*;
-use crate::types::tilemaps::*;
-use crate::types::tiles::*;
+use crate::types::{data::*, tilemaps::*, tiles::*};
 
 use petgraph::EdgeDirection::Incoming;
 
@@ -122,10 +119,12 @@ pub fn weak_head_normal_form(
                             );
                             let (whnm, mut lasers) =
                                 weak_head_normal_form(graph, prog, new_thunk, context);
-                            lasers.push(TileLineDir::new(
-                                from_connection.loc(prog).grid_line,
-                                prog.get_output_grid_line_dir(*output_location).grid_line,
-                            ));
+                            if !whnm.is_nothing() {
+                                lasers.push(TileLineDir::new(
+                                    from_connection.loc(prog).grid_line,
+                                    prog.get_output_grid_line_dir(*output_location).grid_line,
+                                ));
+                            }
                             (whnm, lasers)
                         } else {
                             panic!(
@@ -160,10 +159,12 @@ pub fn weak_head_normal_form(
                                         );
                                         let (whnf, mut lasers) =
                                             weak_head_normal_form(graph, prog, data, context);
-                                        lasers.push(TileLineDir::new(
-                                            input.1.loc(prog).clone().grid_line,
-                                            to_connection_loc.grid_line,
-                                        ));
+                                        if !whnf.is_nothing() {
+                                            lasers.push(TileLineDir::new(
+                                                input.1.loc(prog).clone().grid_line,
+                                                to_connection_loc.grid_line,
+                                            ));
+                                        }
                                         (whnf, lasers)
                                     }
                                     BuiltInMachine::Iffy((), (), ()) => {

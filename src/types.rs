@@ -700,6 +700,14 @@ pub mod data {
         Number(i32),
         Product(Vec<(RowLabel, Data)>),
     }
+    impl WhnfData {
+        pub fn is_nothing(&self) -> bool {
+            match self {
+                Self::Nothing => true,
+                _ => false,
+            }
+        }
+    }
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum NfData {
         Number(i32),
