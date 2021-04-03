@@ -7,11 +7,13 @@ pub type Extent2 = vec::Extent2<usize>;
 pub type Rect = (Vec2, Extent2);
 
 pub mod direction {
-    use frunk::monoid::Monoid;
-    use frunk::semigroup::Semigroup;
+    use frunk::{monoid::Monoid, semigroup::Semigroup};
 
     use super::*;
-    use std::{fmt::Debug, ops::Mul, ops::Neg};
+    use std::{
+        fmt::Debug,
+        ops::{Mul, Neg},
+    };
     #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, Ord, PartialOrd)]
     pub enum Sign {
         Positive,
@@ -567,8 +569,7 @@ pub mod direction {
 }
 
 pub mod tilemap {
-    use super::direction::*;
-    use super::{Extent2, Vec2, Vec2i};
+    use super::{direction::*, Extent2, Vec2, Vec2i};
     use ndarray::Array2;
     use non_empty_collections::index_map::NonEmptyIndexMap;
     use slotmap::{Key, SlotMap};
@@ -721,14 +722,20 @@ pub mod tilemap {
         }
 
         pub fn remove(mut self, location: Vec2) -> Self {
-            if let Some((location, orientation, tile)) = self.get(location) {
-                let to_remove = self
-                    .get_tile_positions(location, orientation, tile)
-                    .expect("Tile should never be invalid while on the board");
-                for (location, _) in to_remove {
-                    self.unset_loc(location)
+            if let Some(k) = self.get_loc(location) {
+                if let Some((location, orientation, tile)) = self.tiles.get(k) {
+                    let to_remove = self
+                        .get_tile_positions(location, orientation, tile)
+                        .expect("Tile should never be invalid while on the board");
+
+                    for (location, _) in to_remove {
+                        self.unset_loc(location)
+                    }
+                    self.tiles.remove(k);
+                    self
+                } else {
+                    self
                 }
-                todo!()
             } else {
                 self
             }

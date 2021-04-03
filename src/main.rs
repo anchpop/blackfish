@@ -7,7 +7,7 @@ mod units;
 extern crate uom;
 
 use crate::geom::direction::*;
-use bevy::{prelude::*, render::camera::Camera};
+use bevy::{input::keyboard::KeyboardInput, prelude::*, render::camera::Camera};
 use frunk::monoid::Monoid;
 use geom::{Extent2, Vec2};
 use midir::{MidiOutput, MidiOutputPort};
@@ -87,7 +87,8 @@ fn main() {
         .add_system(positioning.system())
         .add_system(tile_appearance.system())
         .add_system(tile_text.system())
-        .add_system(follow.system())
+        .add_system(picker_follow_mouse.system())
+        .add_system(place_block.system())
         .run();
 }
 
@@ -451,9 +452,6 @@ fn tile_text(
             if let Ok(mut text) = text_q.get_mut(*child) {
                 if let Some((tile_center, tile_orientation, tile_type)) = tile_info {
                     text.sections[0].value = match tile_type {
-                        /*Some(TileWorld::Prog(TileProgramMachineInfo::LaserProducer(dir, data))) => {
-                            format!("{} {}", dir.to_arrow(), data.show())
-                        }*/
                         TileWorld::Prog(TileProgramMachineInfo::Machine(MachineInfo::BuiltIn(
                             _,
                             data,
@@ -468,7 +466,6 @@ fn tile_text(
                                         ""
                                     })
                             }
-                            //format!("{} {}", dir.to_arrow(), data.show())
                         }
                         _ => "".to_string(),
                     };
@@ -585,7 +582,7 @@ fn end_note(conn_out: &mut MutexGuard<midir::MidiOutputConnection>, pitch: u8, v
     let _ = conn_out.send(&[NOTE_OFF_MSG, pitch, velocity]);
 }
 
-fn follow(
+fn picker_follow_mouse(
     q_camera: Query<(&Camera, &GlobalTransform)>,
     windows: Res<Windows>,
     mut evr_cursor: EventReader<CursorMoved>,
@@ -620,6 +617,32 @@ fn follow(
             } else {
                 placing.0 = None;
             }
+        }
+    }
+}
+
+fn place_block(
+    mouse_button_input: Res<Input<MouseButton>>,
+    placing: Res<Placing>,
+    mut tilemap_program: ResMut<TilemapProgram>,
+) {
+    if mouse_button_input.just_pressed(MouseButton::Left) {
+        if let Placing(Some(location), orientation, tile) = *placing {
+            if let Ok(new_program) = tilemap_program
+                .clone()
+                .try_do_to_map(|map| map.add(location, orientation, tile))
+            {
+                *tilemap_program = new_program;
+            }
+        }
+    }
+
+    if mouse_button_input.just_pressed(MouseButton::Right) {
+        if let Placing(Some(location), _, _) = *placing {
+            let new_program = tilemap_program
+                .clone()
+                .apply_to_map(|map| map.remove(location));
+            *tilemap_program = new_program;
         }
     }
 }
