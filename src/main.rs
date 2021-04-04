@@ -135,7 +135,7 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
         transparent: materials.add(Color::rgba(0., 0., 0., 0.).into()),
     });
     commands.insert_resource(Placing(
-        Some(Vec2::new(5, 5)),
+        None,
         Dir::default(),
         TileProgram::Machine(MachineInfo::BuiltIn(
             BuiltInMachine::Produce(()),
