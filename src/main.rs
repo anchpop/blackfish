@@ -89,6 +89,7 @@ fn main() {
         .add_system(tile_text.system())
         .add_system(picker_follow_mouse.system())
         .add_system(place_block.system())
+        .add_system(keyboard_input_system.system())
         .run();
 }
 
@@ -100,7 +101,7 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     let cam = commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 
     commands.insert_resource(TileMaterials {
-        empty: materials.add(Color::rgb(0.29019607, 0.3058, 0.3019).into()),
+        empty: materials.add(Color::rgb(73. / 255., 77. / 255., 76. / 255.).into()),
         tiles: [
             (
                 TileProgram::Machine(MachineInfo::BuiltIn(
@@ -130,7 +131,7 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
         .iter()
         .cloned()
         .collect(),
-        io_empty: materials.add(Color::rgb(201. / 255., 120. / 255., 102. / 255.).into()),
+        io_empty: materials.add(Color::rgb(63. / 255., 67. / 255., 66. / 255.).into()),
         io_used: materials.add(Color::rgb(0.996, 0.5411, 0.4431).into()),
         transparent: materials.add(Color::rgba(0., 0., 0., 0.).into()),
     });
@@ -683,5 +684,13 @@ fn place_block(
                 .apply_to_map(|map| map.remove(location));
             *tilemap_program = new_program;
         }
+    }
+}
+
+/// This system prints 'A' key state
+fn keyboard_input_system(keyboard_input: Res<Input<KeyCode>>, mut placing: ResMut<Placing>) {
+    if keyboard_input.just_pressed(KeyCode::R) {
+        let Placing(location, orientation, tile) = *placing;
+        *placing = Placing(location, orientation.rotate(&Dir::EAST), tile);
     }
 }
