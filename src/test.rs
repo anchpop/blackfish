@@ -5,7 +5,7 @@ use crate::geom::{Extent2, Vec2};
 use crate::types::{data::*, tilemaps::*, tiles::*};
 
 pub fn default_program() -> TilemapProgram {
-    in_out_id_blocked_prog()
+    in_out_id_with_indirection_prog()
 }
 
 pub fn const_prog() -> TilemapProgram {
