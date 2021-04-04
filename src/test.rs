@@ -5,7 +5,7 @@ use crate::geom::{Extent2, Vec2};
 use crate::types::{data::*, tilemaps::*, tiles::*};
 
 pub fn default_program() -> TilemapProgram {
-    in_out_id_with_indirection_prog()
+    in_out_id_blocked_prog()
 }
 
 pub fn const_prog() -> TilemapProgram {
@@ -40,18 +40,24 @@ pub fn in_out_id_with_indirection_prog() -> TilemapProgram {
         .unwrap()
 }
 pub fn in_out_id_blocked_prog() -> TilemapProgram {
-    in_out_id_prog()
-        .try_do_to_map(|map| {
-            map.add(
-                Vec2::new(3, 0),
-                Dir::default(),
-                TileProgram::Machine(MachineInfo::BuiltIn(
-                    BuiltInMachine::Produce(()),
-                    ProgramInfo {},
-                )),
-            )
-        })
-        .unwrap()
+    let clock_uuid = uuid::Uuid::new_v4();
+    let audio_uuid = uuid::Uuid::new_v4();
+
+    let mut prog = empty_program();
+    prog.inputs = vec![(clock_uuid, "Clock".to_string(), DataType::Number)];
+    prog.outputs = vec![(audio_uuid, "Audio".to_string(), DataType::Number)];
+
+    prog.try_do_to_map(|map| {
+        map.add(
+            Vec2::new(3, 0),
+            Dir::default(),
+            TileProgram::Machine(MachineInfo::BuiltIn(
+                BuiltInMachine::Produce(()),
+                ProgramInfo {},
+            )),
+        )
+    })
+    .unwrap()
 }
 
 pub fn in_out_id_prog() -> TilemapProgram {
@@ -74,67 +80,6 @@ pub fn simple_program() -> TilemapProgram {
             )),
         )
     });
-    /*
-    let west_laser = tiles.insert(TileProgram::Machine(
-        Dir::default(),
-        MachineInfo::BuiltIn(
-            BuiltInMachines::Produce,
-            ProgramInfo {
-                hardcoded_inputs: btree_map! {
-                    "product".to_string(): Data::Number(3)
-                },
-                ..ProgramInfo::empty()
-            },
-        ),
-    ));
-    let west_laser_2 = tiles.insert(TileProgram::Machine(
-        Dir::default(),
-        MachineInfo::BuiltIn(
-            BuiltInMachines::Produce,
-            ProgramInfo {
-                hardcoded_inputs: btree_map! {
-                    "product".to_string(): Data::Number(3)
-                },
-                ..ProgramInfo::empty()
-            },
-        ),
-    ));
-
-    TilemapProgram::new(Tilemap {
-        tiles,
-        map: arr2(&[
-            [None, None, None, None, None, None, None, None, None],
-            [None, None, None, None, None, None, None, None, None],
-            [
-                None,
-                None,
-                None,
-                Some(north_laser),
-                None,
-                Some(west_laser),
-                None,
-                None,
-                None,
-            ],
-            [None, None, None, None, None, None, None, None, None],
-            [None, None, None, None, None, None, None, None, None],
-            [None, None, None, None, None, None, None, None, None],
-            [None, None, None, None, None, None, None, None, None],
-            [
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                Some(west_laser_2),
-                None,
-            ],
-            [None, None, None, None, None, None, None, None, None],
-            [None, None, None, None, None, None, None, None, None],
-        ]),
-    }) */
     map.unwrap()
 }
 
