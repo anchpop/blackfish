@@ -732,6 +732,13 @@ pub mod data {
                 Self::Nothing(loc) => *loc,
             }
         }
+        pub fn is_nothing(&self) -> bool {
+            match self {
+                FromConnection::GlobalInput(_) => false,
+                FromConnection::FunctionOutput(_, _) => false,
+                FromConnection::Nothing(_) => true,
+            }
+        }
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -746,6 +753,15 @@ pub mod data {
                 Self::GlobalOutput(loc) => program.get_output_grid_line_dir(*loc),
                 Self::FunctionInput(loc, _) => *loc,
                 Self::Nothing(loc) => *loc,
+            }
+        }
+    }
+    impl ToConnection {
+        pub fn is_nothing(&self) -> bool {
+            match self {
+                ToConnection::GlobalOutput(_) => false,
+                ToConnection::FunctionInput(_, _) => false,
+                ToConnection::Nothing(_) => true,
             }
         }
     }

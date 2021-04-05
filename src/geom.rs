@@ -499,44 +499,55 @@ pub mod direction {
     impl TileLineDir {
         pub fn new(from: GridLine, to: GridLine) -> Self {
             let distance = from.distance(&to);
-            let positive = if from.side == Basis::North {
-                to.location.y > from.location.y
+            if distance == 0 {
+                assert_eq!(from, to);
+                TileLineDir {
+                    tile_line: TileLine {
+                        grid_line: from,
+                        distance: 0,
+                    },
+                    sign: Sign::Positive,
+                }
             } else {
-                to.location.x > from.location.x
-            };
-
-            let lower = if from.side == Basis::North {
-                Vec2i::new(
-                    from.location.x,
-                    if positive {
-                        from.location.y
-                    } else {
-                        to.location.y
-                    },
-                )
-            } else {
-                Vec2i::new(
-                    if positive {
-                        from.location.x
-                    } else {
-                        to.location.x
-                    },
-                    from.location.y,
-                )
-            };
-            TileLineDir {
-                tile_line: TileLine {
-                    grid_line: GridLine {
-                        location: lower,
-                        side: from.side,
-                    },
-                    distance,
-                },
-                sign: if positive {
-                    Sign::Positive
+                let positive = if from.side == Basis::North {
+                    to.location.y > from.location.y
                 } else {
-                    Sign::Negative
-                },
+                    to.location.x > from.location.x
+                };
+
+                let lower = if from.side == Basis::North {
+                    Vec2i::new(
+                        from.location.x,
+                        if positive {
+                            from.location.y
+                        } else {
+                            to.location.y
+                        },
+                    )
+                } else {
+                    Vec2i::new(
+                        if positive {
+                            from.location.x
+                        } else {
+                            to.location.x
+                        },
+                        from.location.y,
+                    )
+                };
+                TileLineDir {
+                    tile_line: TileLine {
+                        grid_line: GridLine {
+                            location: lower,
+                            side: from.side,
+                        },
+                        distance,
+                    },
+                    sign: if positive {
+                        Sign::Positive
+                    } else {
+                        Sign::Negative
+                    },
+                }
             }
         }
 

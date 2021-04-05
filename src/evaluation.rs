@@ -213,12 +213,21 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
         to_connections: &HashMap<GridLineDir, (ToConnection, GraphNode)>,
         from: GridLineDir,
         to: GridLineDir,
-    ) -> (FromConnection, ToConnection) {
+    ) {
+        let (to_connection, to_node) = to_connections.get(&to).cloned().unwrap_or({
+            let (to_vec, to_dir) = to.previous();
+            let nothing_node = GraphNode::Nothing((to_vec.x, to_vec.y), to_dir);
+            (ToConnection::Nothing(to), nothing_node)
+        });
+
         let (from_connection, from_node) = from_connections
             .get(&from)
             .cloned()
             .and_then(|(from_connection, from_node, long)| {
-                if long || TileLine::new(from.grid_line, to.grid_line).distance == 0 {
+                if long
+                    || (!to_connection.is_nothing()
+                        && TileLine::new(from.grid_line, to.grid_line).distance == 0)
+                {
                     Some((from_connection, from_node))
                 } else {
                     None
@@ -229,19 +238,14 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
                 let nothing_node = GraphNode::Nothing((from_vec.x, from_vec.y), from_dir);
                 (FromConnection::Nothing(from), nothing_node)
             });
-        let (to_connection, to_node) = to_connections.get(&to).cloned().unwrap_or({
-            let (to_vec, to_dir) = to.previous();
-            let nothing_node = GraphNode::Nothing((to_vec.x, to_vec.y), to_dir);
-            (ToConnection::Nothing(to), nothing_node)
-        });
 
-        graph.add_edge(
-            from_node,
-            to_node,
-            (from_connection.clone(), to_connection.clone()),
-        );
-
-        (from_connection, to_connection)
+        if (!to_connection.is_nothing() || !from_connection.is_nothing()) {
+            graph.add_edge(
+                from_node,
+                to_node,
+                (from_connection.clone(), to_connection.clone()),
+            );
+        }
     }
 
     fn add_edge_from(
@@ -251,9 +255,9 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
         to_connections: &HashMap<GridLineDir, (ToConnection, GraphNode)>,
         from: GridLineDir,
         //long: bool,
-    ) -> (FromConnection, ToConnection) {
+    ) {
         let to = prog.spec.raycast(from).to_normal();
-        add_edge(graph, from_connections, to_connections, from, to)
+        add_edge(graph, from_connections, to_connections, from, to);
     }
     fn add_edge_to(
         prog: &TilemapProgram,
@@ -261,9 +265,9 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
         from_connections: &HashMap<GridLineDir, (FromConnection, GraphNode, bool)>,
         to_connections: &HashMap<GridLineDir, (ToConnection, GraphNode)>,
         to: GridLineDir,
-    ) -> (FromConnection, ToConnection) {
+    ) {
         let from = prog.spec.raycast(to).to_normal();
-        add_edge(graph, from_connections, to_connections, from, to)
+        add_edge(graph, from_connections, to_connections, from, to);
     }
 
     pub fn create_graph_nodes(

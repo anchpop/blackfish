@@ -33,7 +33,6 @@ const BEATS_PER_SECOND: u64 = 1;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TileSize(pub Extent2);
-
 pub struct TileMaterials {
     pub tiles: HashMap<&'static str, Handle<ColorMaterial>>,
     pub empty: Handle<ColorMaterial>,
@@ -49,7 +48,16 @@ pub struct TileFromMap(Vec2);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TileForPicking(Vec2);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Placing(Option<Vec2>, Dir, TileProgram);
+pub struct Placing(Option<Vec2>, Dir, usize);
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Hotbar(Vec<TileProgram>);
+impl std::ops::Index<usize> for Hotbar {
+    type Output = TileProgram;
+
+    fn index(&self, i: usize) -> &Self::Output {
+        &self.0[i]
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MainCamera;
@@ -83,7 +91,7 @@ fn main() {
         // Adding a stage lets us access resources (in this case, materials) created in the previous stage
         .add_startup_stage(
             "game_setup",
-            SystemStage::single(spawn_main_tilemap.system()),
+            SystemStage::single(spawn_main_tilemap_sprites.system()),
         )
         .add_plugins(DefaultPlugins)
         .add_system(clock_increment.system())
@@ -94,20 +102,31 @@ fn main() {
         .add_system(picker_follow_mouse.system())
         .add_system(place_block.system())
         .add_system(keyboard_input_system.system())
+        .add_system(render_hotbar.system())
+        .add_system(rotate_hotbar.system())
         .run();
 }
+
+const CLEAR_COLOR: Color = Color::rgb(0.118, 0.122, 0.149);
+const EMPTY_COLOR: Color = Color::rgb(73. / 255., 77. / 255., 76. / 255.);
+const ID_MACHINE_COLOR: Color = Color::rgb(0.0549, 0.60392, 0.6549);
+const IO_COLOR: Color = Color::rgb(0.996, 0.5411, 0.4431);
+const IO_EMPTY_COLOR: Color = Color::rgb(63. / 255., 67. / 255., 66. / 255.);
+const TRACE_COLOR: Color = Color::rgb(0.5, 0.3, 0.5);
+const CONSTANT_COLOR: Color = Color::rgb(0.96470, 0.80392, 0.3803);
+const TRANSPAENT_COLOR: Color = Color::rgba(0., 0., 0., 0.);
 
 fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     commands.insert_resource(CurrentClock(0));
 
-    commands.insert_resource(ClearColor(Color::rgb(0.118, 0.122, 0.149)));
+    commands.insert_resource(ClearColor(CLEAR_COLOR));
 
     let cam = commands
         .spawn_bundle(OrthographicCameraBundle::new_2d())
         .insert(MainCamera);
 
     commands.insert_resource(TileMaterials {
-        empty: materials.add(Color::rgb(73. / 255., 77. / 255., 76. / 255.).into()),
+        empty: materials.add(EMPTY_COLOR.into()),
         tiles: [
             (
                 TileProgram::Machine(MachineInfo::BuiltIn(
@@ -115,11 +134,11 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
                     ProgramInfo {},
                 ))
                 .name(),
-                materials.add(Color::rgb(0.0549, 0.60392, 0.6549).into()),
+                materials.add(ID_MACHINE_COLOR.into()),
             ),
             (
                 TileWorld::Phys(TilePhysics::Laser(DirMap::empty())).name(),
-                materials.add(Color::rgb(0.996, 0.5411, 0.4431).into()),
+                materials.add(IO_COLOR.into()),
             ),
             (
                 TileProgram::Machine(MachineInfo::BuiltIn(
@@ -127,28 +146,17 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
                     ProgramInfo {},
                 ))
                 .name(),
-                materials.add(Color::rgb(0.5, 0.3, 0.5).into()),
+                materials.add(TRACE_COLOR.into()),
             ),
-            (
-                "Constant",
-                materials.add(Color::rgb(0.96470, 0.80392, 0.3803).into()),
-            ),
+            ("Constant", materials.add(CONSTANT_COLOR.into())),
         ]
         .iter()
         .cloned()
         .collect(),
-        io_empty: materials.add(Color::rgb(63. / 255., 67. / 255., 66. / 255.).into()),
-        io_used: materials.add(Color::rgb(0.996, 0.5411, 0.4431).into()),
-        transparent: materials.add(Color::rgba(0., 0., 0., 0.).into()),
+        io_empty: materials.add(IO_EMPTY_COLOR.into()),
+        io_used: materials.add(IO_COLOR.into()),
+        transparent: materials.add(TRANSPAENT_COLOR.into()),
     });
-    commands.insert_resource(Placing(
-        None,
-        Dir::default(),
-        TileProgram::Machine(MachineInfo::BuiltIn(
-            BuiltInMachine::Produce(()),
-            ProgramInfo,
-        )),
-    ))
 }
 
 fn get_midi_ports(mut commands: Commands) {
@@ -197,18 +205,32 @@ fn get_midi_ports(mut commands: Commands) {
 }
 
 fn create_map(mut commands: Commands) {
-    let test_prog = default_program();
+    let (prog, key) = {
+        let mut prog = default_program();
+        let key = prog.constants.insert(NfData::Number(4));
+        (prog, key)
+    };
 
-    let test_world = evaluation::evaluate(
-        &test_prog,
+    let world = evaluation::evaluate(
+        &prog,
         hash_map! {"Clock".to_owned(): Data::Whnf(WhnfData::Number(0))},
     );
 
-    commands.insert_resource(test_prog);
-    commands.insert_resource(test_world);
+    commands.insert_resource(prog);
+    commands.insert_resource(world);
+
+    commands.insert_resource(Placing(None, Dir::default(), 0));
+
+    commands.insert_resource(Hotbar(vec![
+        TileProgram::Machine(MachineInfo::BuiltIn(
+            BuiltInMachine::Produce(()),
+            ProgramInfo,
+        )),
+        TileProgram::Literal(key),
+    ]));
 }
 
-fn spawn_main_tilemap(
+fn spawn_main_tilemap_sprites(
     mut commands: Commands,
     tilemap: Res<TilemapWorld>,
     asset_server: Res<AssetServer>,
@@ -278,6 +300,20 @@ fn spawn_main_tilemap(
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct HotbarParent;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct HotbarItem(usize);
+
+const HOTBAR_NUM_ITEMS: usize = 2;
+const HOTBAR_ITEM_WIDTH: f32 = 30.;
+const HOTBAR_ITEM_PADDING: f32 = 2.;
+const HOTBAR_VERTICAL_PADDING: f32 = 30.;
+
+const HOTBAR_ITEM_TOTAL_WIDTH: f32 = HOTBAR_ITEM_WIDTH + HOTBAR_ITEM_PADDING;
+const HOTBAR_TOTAL_WIDTH: f32 = HOTBAR_ITEM_TOTAL_WIDTH * HOTBAR_NUM_ITEMS as f32;
+const HOTBAR_TOTAL_HEIGHT: f32 = HOTBAR_ITEM_TOTAL_WIDTH * HOTBAR_NUM_ITEMS as f32;
+
 fn create_ui(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -289,175 +325,60 @@ fn create_ui(
         .spawn_bundle(NodeBundle {
             style: Style {
                 size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                justify_content: JustifyContent::SpaceBetween,
+                position_type: PositionType::Absolute,
+                position: Rect {
+                    left: Val::Px(0.),
+                    bottom: Val::Px(0.),
+                    ..Default::default()
+                },
                 ..Default::default()
             },
             material: materials.add(Color::NONE.into()),
             ..Default::default()
         })
+        .insert(HotbarParent)
         .with_children(|parent| {
-            // left vertical fill (border)
-            parent
-                .spawn_bundle(NodeBundle {
-                    style: Style {
-                        size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
-                        border: Rect::all(Val::Px(2.0)),
-                        ..Default::default()
-                    },
-                    material: materials.add(Color::rgb(0.65, 0.65, 0.65).into()),
-                    ..Default::default()
-                })
-                .with_children(|parent| {
-                    // left vertical fill (content)
-                    parent
-                        .spawn_bundle(NodeBundle {
-                            style: Style {
-                                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                                align_items: AlignItems::FlexEnd,
-                                ..Default::default()
-                            },
-                            material: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
-                            ..Default::default()
-                        })
-                        .with_children(|parent| {
-                            // text
-                            parent.spawn_bundle(TextBundle {
-                                style: Style {
-                                    margin: Rect::all(Val::Px(5.0)),
-                                    ..Default::default()
-                                },
-                                text: Text::with_section(
-                                    "Text Example",
-                                    TextStyle {
-                                        font: asset_server.load("fonts/FiraCode-Bold.ttf"),
-                                        font_size: 30.0,
-                                        color: Color::WHITE,
-                                    },
-                                    Default::default(),
-                                ),
-                                ..Default::default()
-                            });
-                        });
-                });
-            // right vertical fill
-            parent.spawn_bundle(NodeBundle {
-                style: Style {
-                    size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
-                    ..Default::default()
-                },
-                material: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
-                ..Default::default()
-            });
-            // absolute positioning
-            parent
-                .spawn_bundle(NodeBundle {
-                    style: Style {
-                        size: Size::new(Val::Px(200.0), Val::Px(200.0)),
-                        position_type: PositionType::Absolute,
-                        position: Rect {
-                            left: Val::Px(210.0),
-                            bottom: Val::Px(10.0),
-                            ..Default::default()
-                        },
-                        border: Rect::all(Val::Px(20.0)),
-                        ..Default::default()
-                    },
-                    material: materials.add(Color::rgb(0.4, 0.4, 1.0).into()),
-                    ..Default::default()
-                })
-                .with_children(|parent| {
-                    parent.spawn_bundle(NodeBundle {
+            for i in 0..HOTBAR_NUM_ITEMS {
+                parent
+                    .spawn_bundle(NodeBundle {
                         style: Style {
-                            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                            ..Default::default()
-                        },
-                        material: materials.add(Color::rgb(0.8, 0.8, 1.0).into()),
-                        ..Default::default()
-                    });
-                });
-            // render order test: reddest in the back, whitest in the front (flex center)
-            parent
-                .spawn_bundle(NodeBundle {
-                    style: Style {
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                        position_type: PositionType::Absolute,
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..Default::default()
-                    },
-                    material: materials.add(Color::NONE.into()),
-                    ..Default::default()
-                })
-                .with_children(|parent| {
-                    parent
-                        .spawn_bundle(NodeBundle {
-                            style: Style {
-                                size: Size::new(Val::Px(100.0), Val::Px(100.0)),
+                            size: Size::new(Val::Px(HOTBAR_ITEM_WIDTH), Val::Px(HOTBAR_ITEM_WIDTH)),
+                            position_type: PositionType::Absolute,
+                            position: Rect {
+                                left: Val::Px(
+                                    i as f32 * HOTBAR_ITEM_TOTAL_WIDTH
+                                        + (((HOTBAR_NUM_ITEMS + 1) as f32 / 2.) % 1.
+                                            * HOTBAR_ITEM_TOTAL_WIDTH),
+                                ),
+                                bottom: Val::Px(0.),
                                 ..Default::default()
                             },
-                            material: materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
+                            border: Rect::all(Val::Px(HOTBAR_ITEM_PADDING)),
                             ..Default::default()
-                        })
-                        .with_children(|parent| {
-                            parent.spawn_bundle(NodeBundle {
+                        },
+                        material: materials.add(
+                            if i == 0 {
+                                Color::rgb(0.2, 0.2, 0.4)
+                            } else {
+                                Color::rgba(0.2, 0.2, 0.4, 0.5)
+                            }
+                            .into(),
+                        ),
+                        ..Default::default()
+                    })
+                    .with_children(|parent| {
+                        parent
+                            .spawn_bundle(NodeBundle {
                                 style: Style {
-                                    size: Size::new(Val::Px(100.0), Val::Px(100.0)),
-                                    position_type: PositionType::Absolute,
-                                    position: Rect {
-                                        left: Val::Px(20.0),
-                                        bottom: Val::Px(20.0),
-                                        ..Default::default()
-                                    },
+                                    size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                                     ..Default::default()
                                 },
-                                material: materials.add(Color::rgb(1.0, 0.3, 0.3).into()),
+                                material: materials.add(Color::rgb(0.8, 0.8, 1.0).into()),
                                 ..Default::default()
-                            });
-                            parent.spawn_bundle(NodeBundle {
-                                style: Style {
-                                    size: Size::new(Val::Px(100.0), Val::Px(100.0)),
-                                    position_type: PositionType::Absolute,
-                                    position: Rect {
-                                        left: Val::Px(40.0),
-                                        bottom: Val::Px(40.0),
-                                        ..Default::default()
-                                    },
-                                    ..Default::default()
-                                },
-                                material: materials.add(Color::rgb(1.0, 0.5, 0.5).into()),
-                                ..Default::default()
-                            });
-                            parent.spawn_bundle(NodeBundle {
-                                style: Style {
-                                    size: Size::new(Val::Px(100.0), Val::Px(100.0)),
-                                    position_type: PositionType::Absolute,
-                                    position: Rect {
-                                        left: Val::Px(60.0),
-                                        bottom: Val::Px(60.0),
-                                        ..Default::default()
-                                    },
-                                    ..Default::default()
-                                },
-                                material: materials.add(Color::rgb(1.0, 0.7, 0.7).into()),
-                                ..Default::default()
-                            });
-                            // alpha test
-                            parent.spawn_bundle(NodeBundle {
-                                style: Style {
-                                    size: Size::new(Val::Px(100.0), Val::Px(100.0)),
-                                    position_type: PositionType::Absolute,
-                                    position: Rect {
-                                        left: Val::Px(80.0),
-                                        bottom: Val::Px(80.0),
-                                        ..Default::default()
-                                    },
-                                    ..Default::default()
-                                },
-                                material: materials.add(Color::rgba(1.0, 0.9, 0.9, 0.4).into()),
-                                ..Default::default()
-                            });
-                        });
-                });
+                            })
+                            .insert(HotbarItem(i));
+                    });
+            }
         });
 }
 
@@ -583,6 +504,7 @@ fn tile_appearance(
         Query<(&TileFromBorder, &mut Handle<ColorMaterial>)>,
     )>,
     placing: Res<Placing>,
+    hotbar: Res<Hotbar>,
     tilemap_program: Res<TilemapProgram>,
     materials: Res<TileMaterials>,
     tilemap_world: Res<TilemapWorld>,
@@ -590,7 +512,7 @@ fn tile_appearance(
     let connection_map = if let Placing(Some(location), orientation, tile) = *placing {
         tilemap_program
             .clone()
-            .try_do_to_map(|map| map.add(location, orientation, tile))
+            .try_do_to_map(|map| map.add(location, orientation, hotbar[tile]))
             .unwrap_or(tilemap_program.clone())
     } else {
         tilemap_program.clone()
@@ -642,15 +564,16 @@ fn tile_appearance(
 
     let Placing(center, orientation, tile) = *placing;
     if let Some(center) = center {
-        let positions = tilemap_program
-            .spec
-            .get_tile_positions(&center, &orientation, &tile);
+        let positions =
+            tilemap_program
+                .spec
+                .get_tile_positions(&center, &orientation, &hotbar[tile]);
         if let Some(positions) = positions {
             let positions: HashMap<_, _> = positions.into_iter().collect();
             for (TileForPicking(position), mut color_mat_handle) in q.q1_mut().iter_mut() {
                 if let Some(_) = positions.get(position) {
                     *color_mat_handle = get_tile_material(
-                        &Some(&tile.into_world()),
+                        &Some(&hotbar[tile].into_world()),
                         *position,
                         &materials,
                         &connections,
@@ -808,29 +731,37 @@ fn end_note(conn_out: &mut MutexGuard<midir::MidiOutputConnection>, pitch: u8, v
 
 fn picker_follow_mouse(
     q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+    mut q_hotbar_parent: Query<(&mut Style), With<HotbarParent>>,
+
     windows: Res<Windows>,
     mut evr_cursor: EventReader<CursorMoved>,
     mut placing: ResMut<Placing>,
     tilemap_world: Res<TilemapWorld>,
 ) {
-    let map_extents = tilemap_world.world_dim();
-    let window = windows.get_primary().unwrap();
+    fn block_follow_mouse(
+        q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+        windows: Res<Windows>,
+        cursor_position: bevy::prelude::Vec2,
+        mut placing: ResMut<Placing>,
+        tilemap_world: Res<TilemapWorld>,
+    ) {
+        let map_extents = tilemap_world.world_dim();
+        let window = windows.get_primary().unwrap();
 
-    fn invert(pos: f32, bound_window: f32, bound_game: f32) -> usize {
-        let tile_size = bound_window / bound_game;
+        fn invert(pos: f32, bound_window: f32, bound_game: f32) -> usize {
+            let tile_size = bound_window / bound_game;
 
-        (((pos - (tile_size / 2.) + (bound_window / 2.)) / bound_window) * bound_game).round()
-            as usize
-    }
+            (((pos - (tile_size / 2.) + (bound_window / 2.)) / bound_window) * bound_game).round()
+                as usize
+        }
 
-    fn invert_squished(pos: f32, bound_window: f32, bound_game: f32) -> Option<usize> {
-        invert(pos, bound_window, bound_game + 2.).checked_sub(1)
-    }
+        fn invert_squished(pos: f32, bound_window: f32, bound_game: f32) -> Option<usize> {
+            invert(pos, bound_window, bound_game + 2.).checked_sub(1)
+        }
 
-    if let Ok((camera, camera_transform)) = q_camera.single() {
-        if let Some(cursor) = evr_cursor.iter().next() {
+        if let Ok((camera, camera_transform)) = q_camera.single() {
             let point =
-                Camera::screen_to_point_2d(cursor.position, &windows, camera, camera_transform)
+                Camera::screen_to_point_2d(cursor_position, &windows, camera, camera_transform)
                     .unwrap();
 
             if let (Some(x), Some(y)) = (
@@ -848,18 +779,48 @@ fn picker_follow_mouse(
             }
         }
     }
+
+    fn hotbar_follow_mouse(mut hotbar_parent_style: Mut<Style>, cursor_pos: bevy::prelude::Vec2) {
+        hotbar_parent_style.position.left = Val::Px(cursor_pos.x - HOTBAR_TOTAL_WIDTH / 2.);
+        hotbar_parent_style.position.bottom = Val::Px(cursor_pos.y - HOTBAR_TOTAL_HEIGHT);
+    }
+
+    if let Some(cursor) = evr_cursor.iter().next() {
+        block_follow_mouse(q_camera, windows, cursor.position, placing, tilemap_world);
+        hotbar_follow_mouse(q_hotbar_parent.single_mut().unwrap(), cursor.position);
+    }
+}
+
+fn render_hotbar(
+    mut q: Query<(&mut Handle<ColorMaterial>, &HotbarItem)>,
+    placing: Res<Placing>,
+    hotbar: Res<Hotbar>,
+    materials: Res<TileMaterials>,
+) {
+    for (mut material, HotbarItem(i)) in q.iter_mut() {
+        *material = materials.tiles[hotbar[(*i + placing.2) % HOTBAR_NUM_ITEMS].name()].clone()
+    }
+}
+
+fn rotate_hotbar(mut placing: ResMut<Placing>, keyboard_input: Res<Input<KeyCode>>) {
+    if keyboard_input.just_pressed(KeyCode::Key1) {
+        (*placing).2 = (1 + (*placing).2) % HOTBAR_NUM_ITEMS;
+    } else if keyboard_input.just_pressed(KeyCode::Key2) {
+        (*placing).2 = (2 + (*placing).2) % HOTBAR_NUM_ITEMS;
+    }
 }
 
 fn place_block(
     mouse_button_input: Res<Input<MouseButton>>,
     placing: Res<Placing>,
+    hotbar: Res<Hotbar>,
     mut tilemap_program: ResMut<TilemapProgram>,
 ) {
     if mouse_button_input.just_pressed(MouseButton::Left) {
         if let Placing(Some(location), orientation, tile) = *placing {
             if let Ok(new_program) = tilemap_program
                 .clone()
-                .try_do_to_map(|map| map.add(location, orientation, tile))
+                .try_do_to_map(|map| map.add(location, orientation, hotbar[tile]))
             {
                 *tilemap_program = new_program;
             }

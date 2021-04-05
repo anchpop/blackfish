@@ -385,6 +385,17 @@ mod tests {
             let gld = GridLine::new(Vec2i::new(0, 0), Dir::EAST);
             assert_eq!(0, TileLine::new(gld, gld).distance);
         }
+        #[test]
+        fn tile_line_0_dist_start() {
+            let gld = GridLine::new(Vec2i::new(0, 0), Dir::EAST);
+            assert_eq!(
+                GridLineDir {
+                    grid_line: gld,
+                    direction: Sign::Positive
+                },
+                TileLineDir::new(gld, gld).get_start()
+            );
+        }
     }
 
     #[cfg(test)]
