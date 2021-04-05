@@ -51,6 +51,9 @@ pub struct TileForPicking(Vec2);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Placing(Option<Vec2>, Dir, TileProgram);
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MainCamera;
+
 #[derive(Debug, Clone)]
 struct ClockIncrementTimer(Timer);
 impl Default for ClockIncrementTimer {
@@ -76,6 +79,7 @@ fn main() {
         .add_startup_system(get_midi_ports.system())
         .add_startup_system(setup.system())
         .add_startup_system(create_map.system())
+        .add_startup_system(create_ui.system())
         // Adding a stage lets us access resources (in this case, materials) created in the previous stage
         .add_startup_stage(
             "game_setup",
@@ -98,7 +102,9 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
 
     commands.insert_resource(ClearColor(Color::rgb(0.118, 0.122, 0.149)));
 
-    let cam = commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    let cam = commands
+        .spawn_bundle(OrthographicCameraBundle::new_2d())
+        .insert(MainCamera);
 
     commands.insert_resource(TileMaterials {
         empty: materials.add(Color::rgb(73. / 255., 77. / 255., 76. / 255.).into()),
@@ -270,6 +276,189 @@ fn spawn_main_tilemap(
                 parent.spawn_bundle(text_bundle.clone());
             });
     }
+}
+
+fn create_ui(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    commands.spawn_bundle(UiCameraBundle::default());
+    // root node
+    commands
+        .spawn_bundle(NodeBundle {
+            style: Style {
+                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                justify_content: JustifyContent::SpaceBetween,
+                ..Default::default()
+            },
+            material: materials.add(Color::NONE.into()),
+            ..Default::default()
+        })
+        .with_children(|parent| {
+            // left vertical fill (border)
+            parent
+                .spawn_bundle(NodeBundle {
+                    style: Style {
+                        size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
+                        border: Rect::all(Val::Px(2.0)),
+                        ..Default::default()
+                    },
+                    material: materials.add(Color::rgb(0.65, 0.65, 0.65).into()),
+                    ..Default::default()
+                })
+                .with_children(|parent| {
+                    // left vertical fill (content)
+                    parent
+                        .spawn_bundle(NodeBundle {
+                            style: Style {
+                                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                                align_items: AlignItems::FlexEnd,
+                                ..Default::default()
+                            },
+                            material: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
+                            ..Default::default()
+                        })
+                        .with_children(|parent| {
+                            // text
+                            parent.spawn_bundle(TextBundle {
+                                style: Style {
+                                    margin: Rect::all(Val::Px(5.0)),
+                                    ..Default::default()
+                                },
+                                text: Text::with_section(
+                                    "Text Example",
+                                    TextStyle {
+                                        font: asset_server.load("fonts/FiraCode-Bold.ttf"),
+                                        font_size: 30.0,
+                                        color: Color::WHITE,
+                                    },
+                                    Default::default(),
+                                ),
+                                ..Default::default()
+                            });
+                        });
+                });
+            // right vertical fill
+            parent.spawn_bundle(NodeBundle {
+                style: Style {
+                    size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
+                    ..Default::default()
+                },
+                material: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
+                ..Default::default()
+            });
+            // absolute positioning
+            parent
+                .spawn_bundle(NodeBundle {
+                    style: Style {
+                        size: Size::new(Val::Px(200.0), Val::Px(200.0)),
+                        position_type: PositionType::Absolute,
+                        position: Rect {
+                            left: Val::Px(210.0),
+                            bottom: Val::Px(10.0),
+                            ..Default::default()
+                        },
+                        border: Rect::all(Val::Px(20.0)),
+                        ..Default::default()
+                    },
+                    material: materials.add(Color::rgb(0.4, 0.4, 1.0).into()),
+                    ..Default::default()
+                })
+                .with_children(|parent| {
+                    parent.spawn_bundle(NodeBundle {
+                        style: Style {
+                            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                            ..Default::default()
+                        },
+                        material: materials.add(Color::rgb(0.8, 0.8, 1.0).into()),
+                        ..Default::default()
+                    });
+                });
+            // render order test: reddest in the back, whitest in the front (flex center)
+            parent
+                .spawn_bundle(NodeBundle {
+                    style: Style {
+                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                        position_type: PositionType::Absolute,
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
+                        ..Default::default()
+                    },
+                    material: materials.add(Color::NONE.into()),
+                    ..Default::default()
+                })
+                .with_children(|parent| {
+                    parent
+                        .spawn_bundle(NodeBundle {
+                            style: Style {
+                                size: Size::new(Val::Px(100.0), Val::Px(100.0)),
+                                ..Default::default()
+                            },
+                            material: materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
+                            ..Default::default()
+                        })
+                        .with_children(|parent| {
+                            parent.spawn_bundle(NodeBundle {
+                                style: Style {
+                                    size: Size::new(Val::Px(100.0), Val::Px(100.0)),
+                                    position_type: PositionType::Absolute,
+                                    position: Rect {
+                                        left: Val::Px(20.0),
+                                        bottom: Val::Px(20.0),
+                                        ..Default::default()
+                                    },
+                                    ..Default::default()
+                                },
+                                material: materials.add(Color::rgb(1.0, 0.3, 0.3).into()),
+                                ..Default::default()
+                            });
+                            parent.spawn_bundle(NodeBundle {
+                                style: Style {
+                                    size: Size::new(Val::Px(100.0), Val::Px(100.0)),
+                                    position_type: PositionType::Absolute,
+                                    position: Rect {
+                                        left: Val::Px(40.0),
+                                        bottom: Val::Px(40.0),
+                                        ..Default::default()
+                                    },
+                                    ..Default::default()
+                                },
+                                material: materials.add(Color::rgb(1.0, 0.5, 0.5).into()),
+                                ..Default::default()
+                            });
+                            parent.spawn_bundle(NodeBundle {
+                                style: Style {
+                                    size: Size::new(Val::Px(100.0), Val::Px(100.0)),
+                                    position_type: PositionType::Absolute,
+                                    position: Rect {
+                                        left: Val::Px(60.0),
+                                        bottom: Val::Px(60.0),
+                                        ..Default::default()
+                                    },
+                                    ..Default::default()
+                                },
+                                material: materials.add(Color::rgb(1.0, 0.7, 0.7).into()),
+                                ..Default::default()
+                            });
+                            // alpha test
+                            parent.spawn_bundle(NodeBundle {
+                                style: Style {
+                                    size: Size::new(Val::Px(100.0), Val::Px(100.0)),
+                                    position_type: PositionType::Absolute,
+                                    position: Rect {
+                                        left: Val::Px(80.0),
+                                        bottom: Val::Px(80.0),
+                                        ..Default::default()
+                                    },
+                                    ..Default::default()
+                                },
+                                material: materials.add(Color::rgba(1.0, 0.9, 0.9, 0.4).into()),
+                                ..Default::default()
+                            });
+                        });
+                });
+        });
 }
 
 fn positioning(
@@ -618,7 +807,7 @@ fn end_note(conn_out: &mut MutexGuard<midir::MidiOutputConnection>, pitch: u8, v
 }
 
 fn picker_follow_mouse(
-    q_camera: Query<(&Camera, &GlobalTransform)>,
+    q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     windows: Res<Windows>,
     mut evr_cursor: EventReader<CursorMoved>,
     mut placing: ResMut<Placing>,
@@ -687,7 +876,6 @@ fn place_block(
     }
 }
 
-/// This system prints 'A' key state
 fn keyboard_input_system(keyboard_input: Res<Input<KeyCode>>, mut placing: ResMut<Placing>) {
     if keyboard_input.just_pressed(KeyCode::R) {
         let Placing(location, orientation, tile) = *placing;
