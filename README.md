@@ -24,5 +24,5 @@ order functions, strong type systems, the ability to actually write your own fun
 
 1) **Designed for children**: Every feature in Blackfish has been chosen to have minimal complexity and minimal time-to-first-smile. The goal is to create a system that encourages children to learn to produce music by exploiting their natural desire to make music. Since learning more programming concepts will allow them to create more intricate songs, they'll be intrinsically motivate to do so. At least, that's the plan!
 
-  (I would like it to eventually be useful for people besides children too, we'll see.)
+    (I would like it to eventually be useful for people besides children too, we'll see.)
 
