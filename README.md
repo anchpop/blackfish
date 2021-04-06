@@ -15,7 +15,7 @@ Blackfish is an experimental lazy pure functional visual music programming langa
 
 1) Pure: All functions in blackfish are pure. This means they only return a value, rather than directly causing "side effects" from their invokation. How is that useful? 
 The way Blackfish programs effect the world is by returning a special value from the `main` function, which is automatically invoked by the Blackfish runtime. 
-Depending on the value yoyu return, a different side effect may be triggered.
+Depending on the value you return, a different side effect may be triggered.
 
 1) Functional: Blackfish has a focus on functions and functional ways of doing things, although most things you would expect from a functional langauge these days (higher
 order functions, strong type systems, the ability to actually write your own functions besides the main function, etc.) are not yet present. But one day they will be!
