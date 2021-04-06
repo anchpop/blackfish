@@ -1,6 +1,7 @@
+
 # blackfish
 
- ![](https://i.imgur.com/5b9ac4E.png)
+![](https://user-images.githubusercontent.com/3711047/113651793-aab5cc80-9660-11eb-8ce9-7d8908f7134d.mp4)
 
 Blackfish is an experimental lazy pure functional visual music programming langauge designed for children. (That's a lot of adjectives!)
 
