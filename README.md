@@ -4,7 +4,7 @@
 
 Blackfish is an experimental lazy pure functional visual music programming langauge designed for children. (That's a lot of adjectives!)
 
-Experimental: New features are constantly being added, and it is not currently capable of doing anything useful
+1) Experimental: New features are constantly being added, and it is not currently capable of doing anything useful
 
 1) Lazy: Blackfish is lazily evaluated, because I think lazy evaluation is more intuitive for people who have never programmed before
 
