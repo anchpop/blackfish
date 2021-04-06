@@ -36,7 +36,8 @@ pub struct TileSize(pub Extent2);
 pub struct TileMaterials {
     pub tiles: HashMap<&'static str, Handle<ColorMaterial>>,
     pub empty: Handle<ColorMaterial>,
-    pub io_empty: Handle<ColorMaterial>,
+    pub io_nothing: Handle<ColorMaterial>,
+    pub io_connected: Handle<ColorMaterial>,
     pub io_used: Handle<ColorMaterial>,
     pub transparent: Handle<ColorMaterial>,
 }
@@ -108,12 +109,13 @@ fn main() {
 }
 
 const CLEAR_COLOR: Color = Color::rgb(0.118, 0.122, 0.149);
-const EMPTY_COLOR: Color = Color::rgb(73. / 255., 77. / 255., 76. / 255.);
-const ID_MACHINE_COLOR: Color = Color::rgb(0.0549, 0.60392, 0.6549);
-const IO_COLOR: Color = Color::rgb(0.996, 0.5411, 0.4431);
-const IO_EMPTY_COLOR: Color = Color::rgb(63. / 255., 67. / 255., 66. / 255.);
+const EMPTY_COLOR: Color = Color::rgb(49. / 255., 53. / 255., 52. / 255.);
+const ID_MACHINE_COLOR: Color = Color::rgb(42. / 255., 183. / 255., 202. / 255.);
+const IO_COLOR: Color = Color::rgb(255. / 255., 111. / 255., 89. / 255.);
+const IO_EMPTY_COLOR: Color = Color::rgb(55. / 255., 62. / 255., 67. / 255.);
+const IO_CONNECTED_COLOR: Color = Color::rgb(80. / 255., 83. / 255., 90. / 255.);
 const TRACE_COLOR: Color = Color::rgb(0.5, 0.3, 0.5);
-const CONSTANT_COLOR: Color = Color::rgb(0.96470, 0.80392, 0.3803);
+const CONSTANT_COLOR: Color = Color::rgb(254. / 255., 215. / 255., 102. / 255.);
 const TRANSPAENT_COLOR: Color = Color::rgba(0., 0., 0., 0.);
 
 fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
@@ -153,7 +155,8 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
         .iter()
         .cloned()
         .collect(),
-        io_empty: materials.add(IO_EMPTY_COLOR.into()),
+        io_nothing: materials.add(IO_EMPTY_COLOR.into()),
+        io_connected: materials.add(IO_CONNECTED_COLOR.into()),
         io_used: materials.add(IO_COLOR.into()),
         transparent: materials.add(TRANSPAENT_COLOR.into()),
     });
@@ -488,7 +491,20 @@ fn get_tile_material(
                             .contains(Vec2i::new(location.x as i64, location.y as i64))
                     })
             }) {
-                materials.io_empty.clone()
+                if connections.iter().any(|(_, _, connection)| {
+                    graph_edge_to_tile_lines(connection, program)
+                        .iter()
+                        .any(|tile_line_dir| {
+                            tile_line_dir
+                                .tile_line
+                                .contains(Vec2i::new(location.x as i64, location.y as i64))
+                                && !(connection.0.is_nothing() || connection.1.is_nothing())
+                        })
+                }) {
+                    materials.io_connected.clone()
+                } else {
+                    materials.io_nothing.clone()
+                }
             } else {
                 materials.empty.clone()
             }
@@ -537,7 +553,7 @@ fn tile_appearance(
                     }) {
                         *color_mat_handle = materials.io_used.clone();
                     } else {
-                        *color_mat_handle = materials.io_empty.clone();
+                        *color_mat_handle = materials.io_nothing.clone();
                     }
                 } else {
                     *color_mat_handle = materials.transparent.clone();
@@ -549,7 +565,7 @@ fn tile_appearance(
                     }) {
                         *color_mat_handle = materials.io_used.clone();
                     } else {
-                        *color_mat_handle = materials.io_empty.clone();
+                        *color_mat_handle = materials.io_nothing.clone();
                     }
                 } else {
                     *color_mat_handle = materials.transparent.clone();
