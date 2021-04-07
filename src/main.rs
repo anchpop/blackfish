@@ -473,6 +473,35 @@ fn positioning(
     }
 }
 
+enum ConnectionType {
+    FullyConnected,
+    HalfConnected,
+}
+fn get_connection_type(
+    grid_line_dir: GridLineDir,
+    connections: &evaluation::AllConnections,
+    program: &TilemapProgram,
+) -> Option<ConnectionType> {
+    if let Some((from, to)) = connections
+        .iter()
+        .filter_map(|(_, _, connection)| {
+            graph_edge_to_tile_lines(connection, program)
+                .iter()
+                .find(|tile_line_dir| tile_line_dir.contains_grid_line_dir(grid_line_dir))
+                .map(|_| connection)
+        })
+        .next()
+    {
+        if from.is_nothing() || to.is_nothing() {
+            Some(ConnectionType::HalfConnected)
+        } else {
+            Some(ConnectionType::FullyConnected)
+        }
+    } else {
+        None
+    }
+}
+
 fn get_tile_material(
     tile: &Option<&TileWorld>,
     location: Vec2,
@@ -480,30 +509,20 @@ fn get_tile_material(
     connections: &evaluation::AllConnections,
     program: &TilemapProgram,
 ) -> Handle<ColorMaterial> {
+    let dirs = [Dir::NORTH, Dir::EAST, Dir::SOUTH, Dir::WEST];
+
     match tile {
         None => {
-            if connections.iter().any(|(_, _, connection)| {
-                graph_edge_to_tile_lines(connection, program)
-                    .iter()
-                    .any(|tile_line_dir| {
-                        tile_line_dir
-                            .tile_line
-                            .contains(Vec2i::new(location.x as i64, location.y as i64))
-                    })
-            }) {
-                if connections.iter().any(|(_, _, connection)| {
-                    graph_edge_to_tile_lines(connection, program)
-                        .iter()
-                        .any(|tile_line_dir| {
-                            tile_line_dir
-                                .tile_line
-                                .contains(Vec2i::new(location.x as i64, location.y as i64))
-                                && !(connection.0.is_nothing() || connection.1.is_nothing())
-                        })
-                }) {
-                    materials.io_connected.clone()
-                } else {
-                    materials.io_nothing.clone()
+            if let Some(typ) = dirs
+                .iter()
+                .filter_map(|dir| {
+                    get_connection_type(GridLineDir::new(location, *dir), connections, program)
+                })
+                .next()
+            {
+                match typ {
+                    ConnectionType::FullyConnected => materials.io_connected.clone(),
+                    ConnectionType::HalfConnected => materials.io_nothing.clone(),
                 }
             } else {
                 materials.empty.clone()
@@ -546,29 +565,49 @@ fn tile_appearance(
 
     for (TileFromBorder(index, direction), mut color_mat_handle) in q.q2_mut().iter_mut() {
         if direction.basis == Basis::East {
-            if direction.sign == Sign::Negative {
+            *color_mat_handle = if direction.sign == Sign::Negative {
                 if *index < tilemap_world.inputs.len() {
                     if tilemap_world.connections.iter().any(|connection| {
                         connection.get_start() == tilemap_world.get_input_grid_line_dir(*index)
                     }) {
-                        *color_mat_handle = materials.io_used.clone();
+                        materials.io_used.clone()
                     } else {
-                        *color_mat_handle = materials.io_nothing.clone();
+                        match get_connection_type(
+                            tilemap_world.get_input_grid_line_dir(*index),
+                            &connections,
+                            &tilemap_program,
+                        ) {
+                            Some(typ) => match typ {
+                                ConnectionType::FullyConnected => materials.io_connected.clone(),
+                                ConnectionType::HalfConnected => materials.io_nothing.clone(),
+                            },
+                            None => materials.empty.clone(),
+                        }
                     }
                 } else {
-                    *color_mat_handle = materials.transparent.clone();
+                    materials.transparent.clone()
                 }
             } else {
                 if *index < tilemap_world.outputs.len() {
                     if tilemap_world.connections.iter().any(|connection| {
                         connection.get_end() == tilemap_world.get_output_grid_line_dir(*index)
                     }) {
-                        *color_mat_handle = materials.io_used.clone();
+                        materials.io_used.clone()
                     } else {
-                        *color_mat_handle = materials.io_nothing.clone();
+                        match get_connection_type(
+                            tilemap_world.get_output_grid_line_dir(*index),
+                            &connections,
+                            &tilemap_program,
+                        ) {
+                            Some(typ) => match typ {
+                                ConnectionType::FullyConnected => materials.io_connected.clone(),
+                                ConnectionType::HalfConnected => materials.io_nothing.clone(),
+                            },
+                            None => materials.empty.clone(),
+                        }
                     }
                 } else {
-                    *color_mat_handle = materials.transparent.clone();
+                    materials.transparent.clone()
                 }
             }
         }

@@ -482,6 +482,18 @@ pub mod direction {
                     .0
             })
         }
+
+        pub fn contains_grid_line(&self, grid_line: GridLine) -> bool {
+            (0..self.distance + 1).any(|i| {
+                grid_line
+                    == (GridLineDir {
+                        grid_line: self.grid_line,
+                        direction: Sign::Positive,
+                    })
+                    .advance(i as i64)
+                    .grid_line
+            })
+        }
     }
 
     impl TileLine {
@@ -590,6 +602,11 @@ pub mod direction {
                 v.push(starting_dir.advance(i as i64).next().0)
             }
             v.into_iter()
+        }
+
+        pub fn contains_grid_line_dir(&self, grid_line_dir: GridLineDir) -> bool {
+            self.sign == grid_line_dir.direction
+                && self.tile_line.contains_grid_line(grid_line_dir.grid_line)
         }
     }
 }
