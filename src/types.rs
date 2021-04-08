@@ -686,6 +686,17 @@ pub mod data {
         }
     }
 
+    impl NfData {
+        pub fn show(&self) -> String {
+            match self {
+                NfData::Number(n) => n.to_string(),
+                NfData::Product(_) => {
+                    todo!()
+                }
+            }
+        }
+    }
+
     impl Semigroup for Data {
         fn combine(&self, other: &Self) -> Self {
             other.clone()

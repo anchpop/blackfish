@@ -240,7 +240,7 @@ fn spawn_main_tilemap_sprites(
 ) {
     use std::array;
 
-    let text_bundle = Text2dBundle {
+    let text_bundle = |z: f32| Text2dBundle {
         text: Text::with_section(
             "".to_owned(),
             TextStyle {
@@ -254,7 +254,7 @@ fn spawn_main_tilemap_sprites(
             },
         ),
         transform: Transform {
-            translation: Vec3::new(0., 0., 2.),
+            translation: Vec3::new(0., 0., z),
             rotation: Quat::IDENTITY,
             scale: Vec3::new(0., 0., 0.),
         },
@@ -274,7 +274,7 @@ fn spawn_main_tilemap_sprites(
             })
             .insert(TileFromMap(location))
             .with_children(|parent| {
-                parent.spawn_bundle(text_bundle.clone());
+                parent.spawn_bundle(text_bundle(2.));
             });
         commands
             .spawn_bundle(SpriteBundle {
@@ -283,7 +283,7 @@ fn spawn_main_tilemap_sprites(
             })
             .insert(TileForPicking(location))
             .with_children(|parent| {
-                parent.spawn_bundle(text_bundle.clone());
+                parent.spawn_bundle(text_bundle(4.));
             });
     }
 
@@ -297,7 +297,7 @@ fn spawn_main_tilemap_sprites(
             })
             .insert(location)
             .with_children(|parent| {
-                parent.spawn_bundle(text_bundle.clone());
+                parent.spawn_bundle(text_bundle(2.));
             });
     }
 }
@@ -685,16 +685,18 @@ fn tile_text(
         for child in children.iter() {
             if let Ok(mut text) = text_q.get_mut(*child) {
                 if let Some((tile_center, tile_orientation, tile_type)) = tile_info {
-                    text.sections[0].value = match tile_type {
-                        TileProgram::Machine(MachineInfo::BuiltIn(_, _)) => {
-                            if *location == tile_center {
-                                tile_orientation.to_arrow()
-                            } else {
-                                ""
+                    text.sections[0].value = if *location == tile_center {
+                        match tile_type {
+                            TileProgram::Machine(MachineInfo::BuiltIn(_, _)) => {
+                                tile_orientation.to_arrow().to_string()
                             }
-                            .to_string()
+                            TileProgram::Literal(litref) => {
+                                tilemap_program.constants.get(litref).unwrap().show()
+                            }
+                            _ => "".to_string(),
                         }
-                        _ => "".to_string(),
+                    } else {
+                        "".to_string()
                     };
                 } else {
                     text.sections[0].value = "".to_string();
