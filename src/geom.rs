@@ -1,3 +1,4 @@
+#![feature(inherent_associated_types)]
 use vek::vec;
 
 pub type Vec2 = vec::Vec2<usize>;
@@ -642,6 +643,9 @@ pub mod tilemap {
     pub struct Tilemap<K: Key, I: Shaped> {
         pub tiles: SlotMap<K, (Vec2, Dir, I)>,
         pub map: Array2<Option<K>>,
+    }
+    impl<K: Key, I: Shaped> Tilemap<K, I> {
+        type TileInfo = (Vec2, Dir, I); // cannot actually use these yet
     }
 
     impl<K: Key, I: PartialEq + Shaped> Tilemap<K, I> {

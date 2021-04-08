@@ -1,3 +1,4 @@
+#![feature(inherent_associated_types)]
 mod evaluation;
 mod geom;
 mod test;
@@ -51,8 +52,14 @@ pub struct TileFromBorder(usize, Dir);
 pub struct TileFromMap(Vec2);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TileForPicking(Vec2);
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Placing(Option<Vec2>, Dir, usize);
+pub enum PickerOver {
+    Empty,
+    Occupied,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Placing(Option<(Vec2, Option<(Vec2, Dir, TileProgram)>)>, Dir, usize);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Hotbar(Vec<TileProgram>);
 impl std::ops::Index<usize> for Hotbar {
@@ -108,6 +115,8 @@ fn main() {
         .add_system(keyboard_input_system.system())
         .add_system(render_hotbar.system())
         .add_system(rotate_hotbar.system())
+        .add_system(resize_camera.system())
+        .add_system(position_camera.system())
         .run();
 }
 
@@ -126,7 +135,7 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
 
     commands.insert_resource(ClearColor(CLEAR_COLOR));
 
-    let _cam = commands
+    commands
         .spawn_bundle(OrthographicCameraBundle {
             orthographic_projection: OrthographicProjection {
                 scaling_mode: ScalingMode::FixedVertical,
@@ -308,7 +317,10 @@ fn spawn_main_tilemap_sprites(
     }) {
         commands
             .spawn_bundle(SpriteBundle {
-                sprite: Sprite::new(bevy::prelude::Vec2::new(1., 1.)),
+                sprite: Sprite::new(bevy::prelude::Vec2::new(
+                    MAP_TO_WORLD_SCALE_FACTOR,
+                    MAP_TO_WORLD_SCALE_FACTOR,
+                )),
                 ..Default::default()
             })
             .insert(location)
@@ -413,7 +425,10 @@ fn world_to_map_coord(world_location: bevy::prelude::Vec2) -> Option<Vec2> {
 }
 fn world_to_map_coord_i(world_location: bevy::prelude::Vec2) -> Vec2i {
     let world_location = world_location / MAP_TO_WORLD_SCALE_FACTOR;
-    Vec2i::new(world_location.x as i64, world_location.y as i64)
+    Vec2i::new(
+        world_location.x.round() as i64,
+        world_location.y.round() as i64,
+    )
 }
 fn map_to_world_coord(map_location: Vec2) -> bevy::prelude::Vec2 {
     map_to_world_coord_i(Vec2i::new(map_location.x as i64, map_location.y as i64))
@@ -460,7 +475,7 @@ fn positioning(
         let pos = if dir.basis == Basis::East {
             Vec2i::new(
                 if dir.sign == Sign::Positive {
-                    worldgextent.w as i64
+                    world_extent.w as i64
                 } else {
                     -1
                 },
@@ -565,7 +580,7 @@ fn tile_appearance(
     materials: Res<TileMaterials>,
     tilemap_world: Res<TilemapWorld>,
 ) {
-    let connection_map = if let Placing(Some(location), orientation, tile) = *placing {
+    let connection_map = if let Placing(Some((location, _)), orientation, tile) = *placing {
         tilemap_program
             .clone()
             .try_do_to_map(|map| map.add(location, orientation, hotbar[tile]))
@@ -638,8 +653,8 @@ fn tile_appearance(
         *color_mat_handle = materials.transparent.clone();
     }
 
-    let Placing(center, orientation, tile) = *placing;
-    if let Some(center) = center {
+    let Placing(picker_position, orientation, tile) = *placing;
+    if let Some((center, None)) = picker_position {
         let positions =
             tilemap_program
                 .spec
@@ -692,7 +707,7 @@ fn tile_text(
                         children,
                         placing
                             .0
-                            .map(|location| (location, placing.1, hotbar[placing.2].clone())),
+                            .map(|(location, _)| (location, placing.1, hotbar[placing.2].clone())),
                     )
                 }),
         )
@@ -836,14 +851,14 @@ fn picker_follow_mouse(
     windows: Res<Windows>,
     mut evr_cursor: EventReader<CursorMoved>,
     placing: ResMut<Placing>,
-    tilemap_world: Res<TilemapWorld>,
+    tilemap_program: Res<TilemapProgram>,
 ) {
     fn block_follow_mouse(
         q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
         windows: Res<Windows>,
         cursor_position: bevy::prelude::Vec2,
         mut placing: ResMut<Placing>,
-        tilemap_world: Res<TilemapWorld>,
+        tilemap_program: Res<TilemapProgram>,
     ) {
         if let Ok((camera, camera_transform)) = q_camera.single() {
             let world_location =
@@ -853,8 +868,11 @@ fn picker_follow_mouse(
             let map_location = world_to_map_coord(world_location.truncate());
 
             if let Some(map_location) = map_location {
-                if tilemap_world.world.check_in_bounds(map_location) {
-                    placing.0 = Some(map_location);
+                if tilemap_program.spec.check_in_bounds(map_location) {
+                    placing.0 = Some((
+                        map_location,
+                        tilemap_program.spec.get(map_location).cloned(),
+                    ));
                 } else {
                     placing.0 = None;
                 }
@@ -870,9 +888,28 @@ fn picker_follow_mouse(
     }
 
     if let Some(cursor) = evr_cursor.iter().next() {
-        block_follow_mouse(q_camera, windows, cursor.position, placing, tilemap_world);
+        block_follow_mouse(q_camera, windows, cursor.position, placing, tilemap_program);
         hotbar_follow_mouse(q_hotbar_parent.single_mut().unwrap(), cursor.position);
     }
+}
+
+fn resize_camera(
+    mut q_camera: Query<&mut OrthographicProjection, With<MainCamera>>,
+    tilemap_world: Res<TilemapWorld>,
+) {
+    let mut cam = q_camera.single_mut().unwrap();
+    cam.scale = (tilemap_world.world.extents().h) as f32 * MAP_TO_WORLD_SCALE_FACTOR / 2.;
+}
+
+fn position_camera(
+    mut q_camera: Query<&mut Transform, With<MainCamera>>,
+    tilemap_world: Res<TilemapWorld>,
+) {
+    let mut cam = q_camera.single_mut().unwrap();
+    cam.translation = (map_to_world_coord(Vec2::from(tilemap_world.world.extents()))
+        .extend(cam.translation.y)
+        + bevy::prelude::Vec3::new(0., -1., 0.) * MAP_TO_WORLD_SCALE_FACTOR)
+        / 2.;
 }
 
 fn render_hotbar(
@@ -901,7 +938,7 @@ fn place_block(
     mut tilemap_program: ResMut<TilemapProgram>,
 ) {
     if mouse_button_input.just_pressed(MouseButton::Left) {
-        if let Placing(Some(location), orientation, tile) = *placing {
+        if let Placing(Some((location, None)), orientation, tile) = *placing {
             if let Ok(new_program) = tilemap_program
                 .clone()
                 .try_do_to_map(|map| map.add(location, orientation, hotbar[tile]))
@@ -912,7 +949,7 @@ fn place_block(
     }
 
     if mouse_button_input.just_pressed(MouseButton::Right) {
-        if let Placing(Some(location), _, _) = *placing {
+        if let Placing(Some((location, Some(_))), _, _) = *placing {
             let new_program = tilemap_program
                 .clone()
                 .apply_to_map(|map| map.remove(location));
