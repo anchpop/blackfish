@@ -595,7 +595,7 @@ fn tile_appearance(
                         materials.io_used.clone()
                     } else {
                         match get_connection_type(
-                            tilemap_world.get_output_grid_line_dir(*index),
+                            -tilemap_world.get_output_grid_line_dir(*index),
                             &connections,
                             &tilemap_program,
                         ) {
