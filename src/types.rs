@@ -325,7 +325,7 @@ pub mod tiles {
 pub mod tilemaps {
     use super::{data::*, tiles::*, *};
 
-    use std::collections::{HashMap, HashSet};
+    use std::collections::{HashSet};
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum Edit {
@@ -619,7 +619,7 @@ pub mod data {
         tilemaps::{InputIndex, OutputIndex, TilemapProgram},
         tiles::BuiltInMachine,
     };
-    use crate::geom::{direction::*, tilemap::Tilemap, Vec2};
+    use crate::geom::{direction::*, Vec2};
     use frunk::semigroup::Semigroup;
 
     pub type MachineInput = String;

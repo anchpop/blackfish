@@ -309,7 +309,7 @@ mod tests {
     #[cfg(test)]
     mod tilelines {
         use super::*;
-        use crate::geom::{Vec2, Vec2i};
+        use crate::geom::{Vec2i};
         use pretty_assertions::assert_eq;
 
         #[test]
@@ -402,7 +402,7 @@ mod tests {
     mod raycast {
         use crate::geom::{tilemap::RaycastHit, Vec2, Vec2i};
         use pretty_assertions::assert_eq;
-        use vek::Ray;
+        
 
         use super::*;
 

@@ -1,5 +1,5 @@
 use crate::{
-    geom::{direction::*, tilemap::RaycastHit},
+    geom::{direction::*},
     types::{data::*, tilemaps::*, tiles::*},
 };
 use petgraph::EdgeDirection::Incoming;
@@ -239,7 +239,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
                 (FromConnection::Nothing(from), nothing_node)
             });
 
-        if (!to_connection.is_nothing() || !from_connection.is_nothing()) {
+        if !to_connection.is_nothing() || !from_connection.is_nothing() {
             graph.add_edge(
                 from_node,
                 to_node,
@@ -478,7 +478,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, Vec<uuid::Uuid>) {
                     to_calc_input_to,
                 );
             }
-            for ((_, long), to_calc_output_for) in outputs {
+            for ((_, _long), to_calc_output_for) in outputs {
                 add_edge_from(
                     prog,
                     graph,
@@ -515,7 +515,7 @@ pub fn get_all_connections(prog: &TilemapProgram) -> AllConnections {
 }
 
 pub fn get_graph_str(graph: &Graph) -> String {
-    use petgraph::dot::{Config, Dot};
+    use petgraph::dot::{Dot};
 
     format!("{:?}", Dot::with_config(&graph, &[]))
 }

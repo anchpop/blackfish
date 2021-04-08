@@ -8,7 +8,6 @@ extern crate uom;
 
 use crate::geom::direction::*;
 use bevy::{
-    input::keyboard::KeyboardInput,
     prelude::*,
     render::camera::{Camera, OrthographicProjection, ScalingMode},
 };
@@ -16,7 +15,7 @@ use frunk::monoid::Monoid;
 use geom::{Extent2, Vec2, Vec2i};
 use midir::{MidiOutput, MidiOutputPort};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap},
     error::Error,
     io::{stdin, stdout, Write},
     sync::{Mutex, MutexGuard},
@@ -127,7 +126,7 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
 
     commands.insert_resource(ClearColor(CLEAR_COLOR));
 
-    let cam = commands
+    let _cam = commands
         .spawn_bundle(OrthographicCameraBundle {
             orthographic_projection: OrthographicProjection {
                 scaling_mode: ScalingMode::FixedVertical,
@@ -335,7 +334,7 @@ const HOTBAR_TOTAL_HEIGHT: f32 = HOTBAR_ITEM_TOTAL_WIDTH * HOTBAR_NUM_ITEMS as f
 
 fn create_ui(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    _asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn_bundle(UiCameraBundle::default());
@@ -433,7 +432,7 @@ fn positioning(
     tilemap: Res<TilemapWorld>,
 ) {
     let world_extent = tilemap.world_dim();
-    for (&TileFromMap(pos), mut transform, mut sprite) in q.q0_mut().iter_mut() {
+    for (&TileFromMap(pos), mut transform, _sprite) in q.q0_mut().iter_mut() {
         // Position
         transform.translation = map_to_world_coord(pos).extend(0.);
 
@@ -445,7 +444,7 @@ fn positioning(
         );*/
     }
 
-    for (&TileForPicking(pos), mut transform, mut sprite) in q.q1_mut().iter_mut() {
+    for (&TileForPicking(pos), mut transform, _sprite) in q.q1_mut().iter_mut() {
         // Position
         transform.translation = map_to_world_coord(pos).extend(0.);
 
@@ -456,7 +455,7 @@ fn positioning(
         );*/
     }
 
-    for (&TileFromBorder(index, dir), mut transform, mut sprite) in q.q2_mut().iter_mut() {
+    for (&TileFromBorder(index, dir), mut transform, _sprite) in q.q2_mut().iter_mut() {
         // Position
         let pos = if dir.basis == Basis::East {
             Vec2i::new(
@@ -635,7 +634,7 @@ fn tile_appearance(
         }
     }
 
-    for (TileForPicking(position), mut color_mat_handle) in q.q1_mut().iter_mut() {
+    for (TileForPicking(_position), mut color_mat_handle) in q.q1_mut().iter_mut() {
         *color_mat_handle = materials.transparent.clone();
     }
 

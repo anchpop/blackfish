@@ -803,7 +803,7 @@ pub mod tilemap {
                 self.check_grid_line_in_bounds(grid_line_dir.grid_line),
                 "raycast out of bounds"
             );
-            let (old_location, _) = grid_line_dir.previous();
+            let (_old_location, _) = grid_line_dir.previous();
             let (new_location, direction) = grid_line_dir.next();
             if let Some(new_location) = self.check_in_bounds_i(new_location) {
                 if let Some(hit) = self.get(new_location) {
