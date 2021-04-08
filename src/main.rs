@@ -267,13 +267,12 @@ fn spawn_main_tilemap_sprites(
         .indexed_iter()
         .map(|(index, _)| (Vec2::new(index.1, index.0)))
     {
-        let pos = TileFromMap(location);
         commands
             .spawn_bundle(SpriteBundle {
                 sprite: Sprite::new(bevy::prelude::Vec2::new(10., 10.)),
                 ..Default::default()
             })
-            .insert(pos)
+            .insert(TileFromMap(location))
             .with_children(|parent| {
                 parent.spawn_bundle(text_bundle.clone());
             });
@@ -473,6 +472,7 @@ fn positioning(
     }
 }
 
+#[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 enum ConnectionType {
     FullyConnected,
     HalfConnected,
@@ -482,20 +482,25 @@ fn get_connection_type(
     connections: &evaluation::AllConnections,
     program: &TilemapProgram,
 ) -> Option<ConnectionType> {
-    if let Some((from, to)) = connections
+    let mut connections = connections
         .iter()
-        .filter_map(|(_, _, connection)| {
+        .flat_map(|(_, _, connection)| {
             graph_edge_to_tile_lines(connection, program)
                 .iter()
-                .find(|tile_line_dir| tile_line_dir.contains_grid_line_dir(grid_line_dir))
-                .map(|_| connection)
+                .find_map(|tile_line_dir| {
+                    if tile_line_dir.contains_grid_line_dir(grid_line_dir) {
+                        Some(connection)
+                    } else {
+                        None
+                    }
+                })
         })
-        .next()
-    {
-        if from.is_nothing() || to.is_nothing() {
-            Some(ConnectionType::HalfConnected)
-        } else {
+        .peekable();
+    if let Some(_) = connections.peek() {
+        if connections.any(|(from, to)| !from.is_nothing() && !to.is_nothing()) {
             Some(ConnectionType::FullyConnected)
+        } else {
+            Some(ConnectionType::HalfConnected)
         }
     } else {
         None
@@ -513,16 +518,17 @@ fn get_tile_material(
 
     match tile {
         None => {
-            if let Some(typ) = dirs
+            let mut connections = dirs
                 .iter()
                 .filter_map(|dir| {
                     get_connection_type(GridLineDir::new(location, *dir), connections, program)
                 })
-                .next()
-            {
-                match typ {
-                    ConnectionType::FullyConnected => materials.io_connected.clone(),
-                    ConnectionType::HalfConnected => materials.io_nothing.clone(),
+                .peekable();
+            if let Some(_) = connections.peek() {
+                if connections.any(|typ| typ == ConnectionType::FullyConnected) {
+                    materials.io_connected.clone()
+                } else {
+                    materials.io_nothing.clone()
                 }
             } else {
                 materials.empty.clone()
@@ -642,32 +648,51 @@ fn tile_appearance(
 
 fn tile_text(
     mut q_map: Query<(&TileFromMap, &Children)>,
+    mut q_picking: Query<(&TileForPicking, &Children)>,
     mut q_border: Query<(&TileFromBorder, &Children)>,
     mut text_q: Query<&mut Text>,
-    tilemap: Res<TilemapWorld>,
+    placing: Res<Placing>,
+    hotbar: Res<Hotbar>,
+    tilemap_program: Res<TilemapProgram>,
+    tilemap_world: Res<TilemapWorld>,
 ) {
-    for (tile_position, children) in q_map.iter_mut() {
-        let tile_info = tilemap
-            .world
-            .get(Vec2::new(tile_position.0.x, tile_position.0.y));
+    for (location, children, tile_info) in q_map
+        .iter()
+        .map(|(TileFromMap(location), children)| {
+            (
+                location,
+                children,
+                tilemap_program
+                    .spec
+                    .get(Vec2::new(location.x, location.y))
+                    .cloned(),
+            )
+        })
+        .chain(
+            q_picking
+                .iter()
+                .map(|(TileForPicking(location), children)| {
+                    (
+                        location,
+                        children,
+                        placing
+                            .0
+                            .map(|location| (location, placing.1, hotbar[placing.2].clone())),
+                    )
+                }),
+        )
+    {
         for child in children.iter() {
             if let Ok(mut text) = text_q.get_mut(*child) {
                 if let Some((tile_center, tile_orientation, tile_type)) = tile_info {
                     text.sections[0].value = match tile_type {
-                        TileWorld::Prog(TileProgramMachineInfo::Machine(MachineInfo::BuiltIn(
-                            _,
-                            data,
-                        ))) => {
-                            if let Some(text) = data.display.clone() {
-                                format!("{}", text)
+                        TileProgram::Machine(MachineInfo::BuiltIn(_, _)) => {
+                            if *location == tile_center {
+                                tile_orientation.to_arrow()
                             } else {
-                                "".to_string()
-                                    + (if &tile_position.0 == tile_center {
-                                        tile_orientation.to_arrow()
-                                    } else {
-                                        ""
-                                    })
+                                ""
                             }
+                            .to_string()
                         }
                         _ => "".to_string(),
                     };
@@ -677,18 +702,22 @@ fn tile_text(
             }
         }
     }
-    for (TileFromBorder(index, direction), children) in q_border.iter_mut() {
+
+    for (TileFromBorder(index, direction), children) in q_border.iter() {
         for child in children.iter() {
             if let Ok(mut text) = text_q.get_mut(*child) {
                 text.sections[0].value = if direction.basis == Basis::East {
                     if direction.sign == Sign::Negative {
-                        if let Some((_, Some(Data::Whnf(whnf_data)))) = tilemap.inputs.get(*index) {
+                        if let Some((_, Some(Data::Whnf(whnf_data)))) =
+                            tilemap_world.inputs.get(*index)
+                        {
                             format!("{} {}", whnf_data.show(), Dir::EAST.to_arrow())
                         } else {
                             "".to_owned()
                         }
                     } else {
-                        if let Some((_, Data::Whnf(whnf_data))) = tilemap.outputs.get(*index) {
+                        if let Some((_, Data::Whnf(whnf_data))) = tilemap_world.outputs.get(*index)
+                        {
                             format!("{} {}", Dir::EAST.to_arrow(), whnf_data.show())
                         } else {
                             "".to_owned()
