@@ -7,7 +7,11 @@ mod units;
 extern crate uom;
 
 use crate::geom::direction::*;
-use bevy::{input::keyboard::KeyboardInput, prelude::*, render::camera::Camera};
+use bevy::{
+    input::keyboard::KeyboardInput,
+    prelude::*,
+    render::camera::{Camera, OrthographicProjection, ScalingMode},
+};
 use frunk::monoid::Monoid;
 use geom::{Extent2, Vec2, Vec2i};
 use midir::{MidiOutput, MidiOutputPort};
@@ -124,7 +128,14 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     commands.insert_resource(ClearColor(CLEAR_COLOR));
 
     let cam = commands
-        .spawn_bundle(OrthographicCameraBundle::new_2d())
+        .spawn_bundle(OrthographicCameraBundle {
+            orthographic_projection: OrthographicProjection {
+                scaling_mode: ScalingMode::FixedVertical,
+                scale: 10. * MAP_TO_WORLD_SCALE_FACTOR,
+                ..OrthographicCameraBundle::new_2d().orthographic_projection
+            },
+            ..OrthographicCameraBundle::new_2d()
+        })
         .insert(MainCamera);
 
     commands.insert_resource(TileMaterials {
@@ -245,7 +256,7 @@ fn spawn_main_tilemap_sprites(
             "".to_owned(),
             TextStyle {
                 font: asset_server.load("fonts/FiraCode/FiraCode-Light.ttf"),
-                font_size: 35.0,
+                font_size: 35.,
                 color: Color::WHITE,
             },
             TextAlignment {
@@ -269,7 +280,10 @@ fn spawn_main_tilemap_sprites(
     {
         commands
             .spawn_bundle(SpriteBundle {
-                sprite: Sprite::new(bevy::prelude::Vec2::new(10., 10.)),
+                sprite: Sprite::new(bevy::prelude::Vec2::new(
+                    MAP_TO_WORLD_SCALE_FACTOR,
+                    MAP_TO_WORLD_SCALE_FACTOR,
+                )),
                 ..Default::default()
             })
             .insert(TileFromMap(location))
@@ -278,7 +292,10 @@ fn spawn_main_tilemap_sprites(
             });
         commands
             .spawn_bundle(SpriteBundle {
-                sprite: Sprite::new(bevy::prelude::Vec2::new(10., 10.)),
+                sprite: Sprite::new(bevy::prelude::Vec2::new(
+                    MAP_TO_WORLD_SCALE_FACTOR,
+                    MAP_TO_WORLD_SCALE_FACTOR,
+                )),
                 ..Default::default()
             })
             .insert(TileForPicking(location))
@@ -292,7 +309,7 @@ fn spawn_main_tilemap_sprites(
     }) {
         commands
             .spawn_bundle(SpriteBundle {
-                sprite: Sprite::new(bevy::prelude::Vec2::new(10., 10.)),
+                sprite: Sprite::new(bevy::prelude::Vec2::new(1., 1.)),
                 ..Default::default()
             })
             .insert(location)
@@ -384,8 +401,30 @@ fn create_ui(
         });
 }
 
+use std::convert::TryFrom;
+
+const MAP_TO_WORLD_SCALE_FACTOR: f32 = 100.;
+fn world_to_map_coord(world_location: bevy::prelude::Vec2) -> Option<Vec2> {
+    let coord = world_to_map_coord_i(world_location);
+    if let (Ok(x), Ok(y)) = (usize::try_from(coord.x), usize::try_from(coord.y)) {
+        Some(Vec2::new(x, y))
+    } else {
+        None
+    }
+}
+fn world_to_map_coord_i(world_location: bevy::prelude::Vec2) -> Vec2i {
+    let world_location = world_location / MAP_TO_WORLD_SCALE_FACTOR;
+    Vec2i::new(world_location.x as i64, world_location.y as i64)
+}
+fn map_to_world_coord(map_location: Vec2) -> bevy::prelude::Vec2 {
+    map_to_world_coord_i(Vec2i::new(map_location.x as i64, map_location.y as i64))
+}
+fn map_to_world_coord_i(map_location: Vec2i) -> bevy::prelude::Vec2 {
+    bevy::prelude::Vec2::new((map_location.x) as f32, (map_location.y) as f32)
+        * MAP_TO_WORLD_SCALE_FACTOR
+}
+
 fn positioning(
-    windows: Res<Windows>,
     mut q: QuerySet<(
         Query<(&TileFromMap, &mut Transform, &mut Sprite)>,
         Query<(&TileForPicking, &mut Transform, &mut Sprite)>,
@@ -394,81 +433,58 @@ fn positioning(
     tilemap: Res<TilemapWorld>,
 ) {
     let world_extent = tilemap.world_dim();
-    let world_extent = world_extent + Extent2::new(2, 2);
-    let window = windows.get_primary().unwrap();
-
-    fn convert(pos: usize, bound_window: f32, bound_game: f32) -> f32 {
-        let tile_size = bound_window / bound_game;
-        ((pos) as f32) / bound_game * bound_window - (bound_window / 2.) + (tile_size / 2.)
-    }
-
-    fn convert_squished(pos: usize, bound_window: f32, bound_game: f32) -> f32 {
-        convert(pos + 1, bound_window, bound_game)
-    }
-
-    for (TileFromMap(pos), mut transform, mut sprite) in q.q0_mut().iter_mut() {
+    for (&TileFromMap(pos), mut transform, mut sprite) in q.q0_mut().iter_mut() {
         // Position
-        transform.translation = bevy::prelude::Vec3::new(
-            convert_squished(pos.x, window.width() as f32, world_extent.w as f32),
-            convert_squished(pos.y, window.height() as f32, world_extent.h as f32),
-            0.0,
-        );
+        transform.translation = map_to_world_coord(pos).extend(0.);
 
         // Size
+        /*
         sprite.size = bevy::prelude::Vec2::new(
             1 as f32 / world_extent.w as f32 * window.width() as f32,
             1 as f32 / world_extent.h as f32 * window.height() as f32,
-        );
+        );*/
     }
 
-    for (TileForPicking(pos), mut transform, mut sprite) in q.q1_mut().iter_mut() {
+    for (&TileForPicking(pos), mut transform, mut sprite) in q.q1_mut().iter_mut() {
         // Position
-        transform.translation = bevy::prelude::Vec3::new(
-            convert_squished(pos.x, window.width() as f32, world_extent.w as f32),
-            convert_squished(pos.y, window.height() as f32, world_extent.h as f32),
-            1.0,
-        );
+        transform.translation = map_to_world_coord(pos).extend(0.);
 
-        // Size
+        /*         // Size
         sprite.size = bevy::prelude::Vec2::new(
             1 as f32 / world_extent.w as f32 * window.width() as f32,
             1 as f32 / world_extent.h as f32 * window.height() as f32,
-        );
+        );*/
     }
 
-    for (TileFromBorder(index, dir), mut transform, mut sprite) in q.q2_mut().iter_mut() {
+    for (&TileFromBorder(index, dir), mut transform, mut sprite) in q.q2_mut().iter_mut() {
         // Position
         let pos = if dir.basis == Basis::East {
-            Vec2::new(
+            Vec2i::new(
                 if dir.sign == Sign::Positive {
-                    world_extent.w - 1
+                    world_extent.w as i64
                 } else {
-                    0
+                    -1
                 },
-                *index + 1,
+                index as i64,
             )
         } else {
-            Vec2::new(
-                *index + 1,
+            Vec2i::new(
+                index as i64,
                 if dir.sign == Sign::Positive {
-                    world_extent.h - 1
+                    (world_extent.h) as i64
                 } else {
-                    0
+                    -1
                 },
             )
         };
 
-        transform.translation = bevy::prelude::Vec3::new(
-            convert(pos.x, window.width() as f32, world_extent.w as f32),
-            convert(pos.y, window.height() as f32, world_extent.h as f32),
-            0.0,
-        );
-
+        transform.translation = map_to_world_coord_i(pos).extend(0.);
+        /*
         // Size
         sprite.size = bevy::prelude::Vec2::new(
             1 as f32 / world_extent.w as f32 * window.width() as f32,
             1 as f32 / world_extent.h as f32 * window.height() as f32,
-        );
+        );*/
     }
 }
 
@@ -520,8 +536,8 @@ fn get_tile_material(
         None => {
             let mut connections = dirs
                 .iter()
-                .filter_map(|dir| {
-                    get_connection_type(GridLineDir::new(location, *dir), connections, program)
+                .filter_map(|&dir| {
+                    get_connection_type(GridLineDir::new(location, dir), connections, program)
                 })
                 .peekable();
             if let Some(_) = connections.peek() {
@@ -560,26 +576,26 @@ fn tile_appearance(
     };
     let connections = evaluation::get_all_connections(&connection_map);
 
-    for (TileFromMap(position), mut color_mat_handle) in q.q0_mut().iter_mut() {
+    for (&TileFromMap(position), mut color_mat_handle) in q.q0_mut().iter_mut() {
         let tile = tilemap_world
             .world
             .get(Vec2::new(position.x, position.y))
             .map(|(_, _, t)| t);
         *color_mat_handle =
-            get_tile_material(&tile, *position, &materials, &connections, &tilemap_program);
+            get_tile_material(&tile, position, &materials, &connections, &tilemap_program);
     }
 
-    for (TileFromBorder(index, direction), mut color_mat_handle) in q.q2_mut().iter_mut() {
+    for (&TileFromBorder(index, direction), mut color_mat_handle) in q.q2_mut().iter_mut() {
         if direction.basis == Basis::East {
             *color_mat_handle = if direction.sign == Sign::Negative {
-                if *index < tilemap_world.inputs.len() {
+                if index < tilemap_world.inputs.len() {
                     if tilemap_world.connections.iter().any(|connection| {
-                        connection.get_start() == tilemap_world.get_input_grid_line_dir(*index)
+                        connection.get_start() == tilemap_world.get_input_grid_line_dir(index)
                     }) {
                         materials.io_used.clone()
                     } else {
                         match get_connection_type(
-                            tilemap_world.get_input_grid_line_dir(*index),
+                            tilemap_world.get_input_grid_line_dir(index),
                             &connections,
                             &tilemap_program,
                         ) {
@@ -594,14 +610,14 @@ fn tile_appearance(
                     materials.transparent.clone()
                 }
             } else {
-                if *index < tilemap_world.outputs.len() {
+                if index < tilemap_world.outputs.len() {
                     if tilemap_world.connections.iter().any(|connection| {
-                        connection.get_end() == tilemap_world.get_output_grid_line_dir(*index)
+                        connection.get_end() == tilemap_world.get_output_grid_line_dir(index)
                     }) {
                         materials.io_used.clone()
                     } else {
                         match get_connection_type(
-                            -tilemap_world.get_output_grid_line_dir(*index),
+                            -tilemap_world.get_output_grid_line_dir(index),
                             &connections,
                             &tilemap_program,
                         ) {
@@ -631,11 +647,11 @@ fn tile_appearance(
                 .get_tile_positions(&center, &orientation, &hotbar[tile]);
         if let Some(positions) = positions {
             let positions: HashMap<_, _> = positions.into_iter().collect();
-            for (TileForPicking(position), mut color_mat_handle) in q.q1_mut().iter_mut() {
-                if let Some(_) = positions.get(position) {
+            for (&TileForPicking(position), mut color_mat_handle) in q.q1_mut().iter_mut() {
+                if let Some(_) = positions.get(&position) {
                     *color_mat_handle = get_tile_material(
                         &Some(&hotbar[tile].into_world()),
-                        *position,
+                        position,
                         &materials,
                         &connections,
                         &tilemap_program,
@@ -647,16 +663,16 @@ fn tile_appearance(
 }
 
 fn tile_text(
-    mut q_map: Query<(&TileFromMap, &Children)>,
-    mut q_picking: Query<(&TileForPicking, &Children)>,
-    mut q_border: Query<(&TileFromBorder, &Children)>,
+    q_map: Query<(&TileFromMap, &Children)>,
+    q_picking: Query<(&TileForPicking, &Children)>,
+    q_border: Query<(&TileFromBorder, &Children)>,
     mut text_q: Query<&mut Text>,
     placing: Res<Placing>,
     hotbar: Res<Hotbar>,
     tilemap_program: Res<TilemapProgram>,
     tilemap_world: Res<TilemapWorld>,
 ) {
-    for (location, children, tile_info) in q_map
+    for (&location, children, tile_info) in q_map
         .iter()
         .map(|(TileFromMap(location), children)| {
             (
@@ -685,7 +701,7 @@ fn tile_text(
         for child in children.iter() {
             if let Ok(mut text) = text_q.get_mut(*child) {
                 if let Some((tile_center, tile_orientation, tile_type)) = tile_info {
-                    text.sections[0].value = if *location == tile_center {
+                    text.sections[0].value = if location == tile_center {
                         match tile_type {
                             TileProgram::Machine(MachineInfo::BuiltIn(_, _)) => {
                                 tile_orientation.to_arrow().to_string()
@@ -705,21 +721,20 @@ fn tile_text(
         }
     }
 
-    for (TileFromBorder(index, direction), children) in q_border.iter() {
+    for (&TileFromBorder(index, direction), children) in q_border.iter() {
         for child in children.iter() {
             if let Ok(mut text) = text_q.get_mut(*child) {
                 text.sections[0].value = if direction.basis == Basis::East {
                     if direction.sign == Sign::Negative {
                         if let Some((_, Some(Data::Whnf(whnf_data)))) =
-                            tilemap_world.inputs.get(*index)
+                            tilemap_world.inputs.get(index)
                         {
                             format!("{} {}", whnf_data.show(), Dir::EAST.to_arrow())
                         } else {
                             "".to_owned()
                         }
                     } else {
-                        if let Some((_, Data::Whnf(whnf_data))) = tilemap_world.outputs.get(*index)
-                        {
+                        if let Some((_, Data::Whnf(whnf_data))) = tilemap_world.outputs.get(index) {
                             format!("{} {}", Dir::EAST.to_arrow(), whnf_data.show())
                         } else {
                             "".to_owned()
@@ -752,7 +767,7 @@ fn clock_increment(
             hash_map! {"Clock".to_owned():   Data::Whnf(WhnfData::Number(clock.0))},
         );
 
-        if let Some((_, Data::Whnf(WhnfData::Number(data)))) = tilemap_world
+        if let Some(&(_, Data::Whnf(WhnfData::Number(data)))) = tilemap_world
             .outputs
             .iter()
             .find(|(label, _)| label == "Audio")
@@ -761,7 +776,7 @@ fn clock_increment(
                 &mut conn_out,
                 &mut notes_to_end_queue,
                 MusicTime::new::<beat>(1.0),
-                *data as u8,
+                data as u8,
                 0x64,
             );
         }
@@ -817,11 +832,11 @@ fn end_note(conn_out: &mut MutexGuard<midir::MidiOutputConnection>, pitch: u8, v
 
 fn picker_follow_mouse(
     q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
-    mut q_hotbar_parent: Query<(&mut Style), With<HotbarParent>>,
+    mut q_hotbar_parent: Query<&mut Style, With<HotbarParent>>,
 
     windows: Res<Windows>,
     mut evr_cursor: EventReader<CursorMoved>,
-    mut placing: ResMut<Placing>,
+    placing: ResMut<Placing>,
     tilemap_world: Res<TilemapWorld>,
 ) {
     fn block_follow_mouse(
@@ -831,32 +846,16 @@ fn picker_follow_mouse(
         mut placing: ResMut<Placing>,
         tilemap_world: Res<TilemapWorld>,
     ) {
-        let map_extents = tilemap_world.world_dim();
-        let window = windows.get_primary().unwrap();
-
-        fn invert(pos: f32, bound_window: f32, bound_game: f32) -> usize {
-            let tile_size = bound_window / bound_game;
-
-            (((pos - (tile_size / 2.) + (bound_window / 2.)) / bound_window) * bound_game).round()
-                as usize
-        }
-
-        fn invert_squished(pos: f32, bound_window: f32, bound_game: f32) -> Option<usize> {
-            invert(pos, bound_window, bound_game + 2.).checked_sub(1)
-        }
-
         if let Ok((camera, camera_transform)) = q_camera.single() {
-            let point =
+            let world_location =
                 Camera::screen_to_point_2d(cursor_position, &windows, camera, camera_transform)
                     .unwrap();
 
-            if let (Some(x), Some(y)) = (
-                invert_squished(point.x, window.width(), (map_extents.w) as f32),
-                invert_squished(point.y, window.height(), (map_extents.h) as f32),
-            ) {
-                let location = Vec2::new(x, y);
-                if tilemap_world.world.check_in_bounds(location) {
-                    placing.0 = Some(location);
+            let map_location = world_to_map_coord(world_location.truncate());
+
+            if let Some(map_location) = map_location {
+                if tilemap_world.world.check_in_bounds(map_location) {
+                    placing.0 = Some(map_location);
                 } else {
                     placing.0 = None;
                 }
@@ -883,8 +882,8 @@ fn render_hotbar(
     hotbar: Res<Hotbar>,
     materials: Res<TileMaterials>,
 ) {
-    for (mut material, HotbarItem(i)) in q.iter_mut() {
-        *material = materials.tiles[hotbar[(*i + placing.2) % HOTBAR_NUM_ITEMS].name()].clone()
+    for (mut material, &HotbarItem(i)) in q.iter_mut() {
+        *material = materials.tiles[hotbar[(i + placing.2) % HOTBAR_NUM_ITEMS].name()].clone()
     }
 }
 
