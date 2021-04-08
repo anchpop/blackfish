@@ -99,6 +99,7 @@ fn main() {
         .add_startup_system(setup.system())
         .add_startup_system(create_map.system())
         .add_startup_system(create_ui.system())
+        .add_startup_system(add_literal_editing_ui.system())
         // Adding a stage lets us access resources (in this case, materials) created in the previous stage
         .add_startup_stage(
             "game_setup",
@@ -117,6 +118,7 @@ fn main() {
         .add_system(rotate_hotbar.system())
         .add_system(resize_camera.system())
         .add_system(position_camera.system())
+        .add_system(recreate_literal_list.system())
         .run();
 }
 
@@ -328,6 +330,57 @@ fn spawn_main_tilemap_sprites(
                 parent.spawn_bundle(text_bundle(2.));
             });
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct ConstantAssignmentUiBox;
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct ConstantListUiElement;
+
+fn add_literal_editing_ui(
+    mut commands: Commands,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
+) {
+    // root node
+    commands
+        .spawn_bundle(NodeBundle {
+            style: Style {
+                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                justify_content: JustifyContent::SpaceBetween,
+                ..Default::default()
+            },
+            material: materials.add(Color::NONE.into()),
+            ..Default::default()
+        })
+        .with_children(|parent| {
+            // left vertical fill (border)
+            parent
+                .spawn_bundle(NodeBundle {
+                    style: Style {
+                        size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
+                        border: Rect::all(Val::Px(2.0)),
+                        ..Default::default()
+                    },
+                    material: materials.add(Color::rgb(0.65, 0.65, 0.65).into()),
+                    ..Default::default()
+                })
+                .with_children(|parent| {
+                    // left vertical fill (content)
+                    parent
+                        .spawn_bundle(NodeBundle {
+                            style: Style {
+                                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                                align_items: AlignItems::Center,
+                                flex_direction: FlexDirection::ColumnReverse,
+                                ..Default::default()
+                            },
+                            material: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
+                            ..Default::default()
+                        })
+                        .insert(ConstantAssignmentUiBox);
+                });
+        });
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -963,4 +1016,41 @@ fn keyboard_input_system(keyboard_input: Res<Input<KeyCode>>, mut placing: ResMu
         let Placing(location, orientation, tile) = *placing;
         *placing = Placing(location, orientation.rotate(&Dir::EAST), tile);
     }
+}
+
+fn recreate_literal_list(
+    mut commands: Commands,
+    entities: Query<Entity>,
+    constant_box_children: Query<Option<&Children>, With<ConstantAssignmentUiBox>>,
+    constant_box: Query<Entity, With<ConstantAssignmentUiBox>>,
+    asset_server: Res<AssetServer>,
+) {
+    if let Some(constant_box_children) = constant_box_children.single().unwrap() {
+        for &child in constant_box_children.iter() {
+            commands
+                .entity(entities.get(child).unwrap())
+                .despawn_recursive()
+        }
+    }
+    let constant_box = constant_box.single().unwrap();
+    commands.entity(constant_box).with_children(|parent| {
+        parent
+            .spawn_bundle(TextBundle {
+                style: Style {
+                    margin: Rect::all(Val::Px(5.0)),
+                    ..Default::default()
+                },
+                text: Text::with_section(
+                    "Text Creation",
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans/FiraSans-Light.ttf"),
+                        font_size: 30.0,
+                        color: Color::WHITE,
+                    },
+                    Default::default(),
+                ),
+                ..Default::default()
+            })
+            .insert(ConstantListUiElement);
+    });
 }
