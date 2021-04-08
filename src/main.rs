@@ -15,7 +15,7 @@ use frunk::monoid::Monoid;
 use geom::{Extent2, Vec2, Vec2i};
 use midir::{MidiOutput, MidiOutputPort};
 use std::{
-    collections::{HashMap},
+    collections::HashMap,
     error::Error,
     io::{stdin, stdout, Write},
     sync::{Mutex, MutexGuard},
@@ -425,14 +425,14 @@ fn map_to_world_coord_i(map_location: Vec2i) -> bevy::prelude::Vec2 {
 
 fn positioning(
     mut q: QuerySet<(
-        Query<(&TileFromMap, &mut Transform, &mut Sprite)>,
-        Query<(&TileForPicking, &mut Transform, &mut Sprite)>,
-        Query<(&TileFromBorder, &mut Transform, &mut Sprite)>,
+        Query<(&TileFromMap, &mut Transform)>,
+        Query<(&TileForPicking, &mut Transform)>,
+        Query<(&TileFromBorder, &mut Transform)>,
     )>,
     tilemap: Res<TilemapWorld>,
 ) {
     let world_extent = tilemap.world_dim();
-    for (&TileFromMap(pos), mut transform, _sprite) in q.q0_mut().iter_mut() {
+    for (&TileFromMap(pos), mut transform) in q.q0_mut().iter_mut() {
         // Position
         transform.translation = map_to_world_coord(pos).extend(0.);
 
@@ -444,7 +444,7 @@ fn positioning(
         );*/
     }
 
-    for (&TileForPicking(pos), mut transform, _sprite) in q.q1_mut().iter_mut() {
+    for (&TileForPicking(pos), mut transform) in q.q1_mut().iter_mut() {
         // Position
         transform.translation = map_to_world_coord(pos).extend(0.);
 
@@ -455,12 +455,12 @@ fn positioning(
         );*/
     }
 
-    for (&TileFromBorder(index, dir), mut transform, _sprite) in q.q2_mut().iter_mut() {
+    for (&TileFromBorder(index, dir), mut transform) in q.q2_mut().iter_mut() {
         // Position
         let pos = if dir.basis == Basis::East {
             Vec2i::new(
                 if dir.sign == Sign::Positive {
-                    world_extent.w as i64
+                    worldgextent.w as i64
                 } else {
                     -1
                 },
