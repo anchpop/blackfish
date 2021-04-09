@@ -79,13 +79,11 @@ impl Default for SelectedBlock {
 }
 pub struct MenuState {
     constant_hovered: Option<KeyNamedConstant>,
-    constant_selected: Option<KeyNamedConstant>,
 }
 impl Default for MenuState {
     fn default() -> Self {
         Self {
             constant_hovered: None,
-            constant_selected: None,
         }
     }
 }
@@ -279,6 +277,7 @@ fn create_map(mut commands: Commands) {
     let (prog, key) = {
         let mut prog = default_program();
         let key = prog.constants.insert(NfData::Number(4));
+        let _ = prog.constants.insert(NfData::Number(8));
         (prog, key)
     };
 
@@ -1078,6 +1077,7 @@ fn recreate_constant_list(
     tilemap_program: Res<TilemapProgram>,
     button_materials: Res<ButtonMaterials>,
     menu_state: Res<MenuState>,
+    selected_block: Res<SelectedBlock>,
 ) {
     if let Some(constant_box_children) = constant_box_children.single().unwrap() {
         for &child in constant_box_children.iter() {
@@ -1099,10 +1099,27 @@ fn recreate_constant_list(
                         align_items: AlignItems::Center,
                         ..Default::default()
                     },
-                    material: if Some(key_named_constant) == menu_state.constant_selected {
-                        button_materials.pressed.clone()
-                    } else if Some(key_named_constant) == menu_state.constant_hovered {
-                        button_materials.hovered.clone()
+                    material: if let SelectedBlock(Some(selected_tile_key)) = *selected_block {
+                        let &(location, orientation, tile) = tilemap_program
+                            .spec
+                            .tiles
+                            .get(selected_tile_key)
+                            .expect("referring to a tile that no longer exists!");
+
+                        match &tile {
+                            &TileProgramF::Literal(current_constant)
+                                if current_constant == key_named_constant =>
+                            {
+                                button_materials.pressed.clone()
+                            }
+                            _ => {
+                                if Some(key_named_constant) == menu_state.constant_hovered {
+                                    button_materials.hovered.clone()
+                                } else {
+                                    button_materials.normal.clone()
+                                }
+                            }
+                        }
                     } else {
                         button_materials.normal.clone()
                     },
@@ -1145,7 +1162,7 @@ fn constant_button(
         interaction_query.iter_mut()
     {
         if let SelectedBlock(Some(selected_tile_key)) = *selected_block {
-            let &(location, orientation, tile) = tilemap_program
+            let &(location, _, tile) = tilemap_program
                 .spec
                 .tiles
                 .get(selected_tile_key)
@@ -1153,7 +1170,23 @@ fn constant_button(
             match &tile {
                 TileProgramF::Machine(_) => {}
                 TileProgramF::Literal(_) => match *interaction {
-                    Interaction::Clicked => menu_state.constant_selected = Some(key_named_constant),
+                    Interaction::Clicked => {
+                        if let Ok(new_tilemap_program) =
+                            tilemap_program.clone().try_do_to_map(|map| {
+                                map.update(location, |tile_info| {
+                                    let &(location, orientation, tile) = tile_info.unwrap();
+
+                                    Some((
+                                        location,
+                                        orientation,
+                                        TileProgram::Literal(key_named_constant),
+                                    ))
+                                })
+                            })
+                        {
+                            *tilemap_program = new_tilemap_program
+                        }
+                    }
                     Interaction::Hovered => menu_state.constant_hovered = Some(key_named_constant),
                     Interaction::None => {
                         if menu_state.constant_hovered == Some(key_named_constant) {
