@@ -50,6 +50,7 @@ struct ButtonMaterials {
     normal: Handle<ColorMaterial>,
     hovered: Handle<ColorMaterial>,
     pressed: Handle<ColorMaterial>,
+    disabled: Handle<ColorMaterial>,
 }
 
 impl FromWorld for ButtonMaterials {
@@ -59,6 +60,7 @@ impl FromWorld for ButtonMaterials {
             normal: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
             hovered: materials.add(Color::rgb(0.25, 0.25, 0.25).into()),
             pressed: materials.add(Color::rgb(0.35, 0.75, 0.35).into()),
+            disabled: materials.add(Color::rgb(0.4, 0.4, 0.4).into()),
         }
     }
 }
@@ -1031,33 +1033,43 @@ fn place_block(
     hotbar: Res<Hotbar>,
     mut tilemap_program: ResMut<TilemapProgram>,
     mut selected_block: ResMut<SelectedBlock>,
+    interaction_query: Query<&Interaction>,
 ) {
-    let selected_block = &mut selected_block.0;
+    if !interaction_query
+        .iter()
+        .any(|interaction| match interaction {
+            Interaction::Clicked => true,
+            Interaction::Hovered => true,
+            Interaction::None => false,
+        })
+    {
+        let selected_block = &mut selected_block.0;
 
-    if mouse_button_input.just_pressed(MouseButton::Left) {
-        if let Placing(Some((location, None)), orientation, tile) = *placing {
-            if let Ok(new_program) = tilemap_program
-                .clone()
-                .try_do_to_map(|map| map.add(location, orientation, hotbar[tile]))
-            {
-                *tilemap_program = new_program;
-                *selected_block = tilemap_program.spec.get_loc(location);
+        if mouse_button_input.just_pressed(MouseButton::Left) {
+            if let Placing(Some((location, None)), orientation, tile) = *placing {
+                if let Ok(new_program) = tilemap_program
+                    .clone()
+                    .try_do_to_map(|map| map.add(location, orientation, hotbar[tile]))
+                {
+                    *tilemap_program = new_program;
+                    *selected_block = tilemap_program.spec.get_loc(location);
+                }
+            } else if let Placing(Some((_, key_program @ Some(_))), _, _) = *placing {
+                *selected_block = key_program;
+            } else {
+                *selected_block = None;
             }
-        } else if let Placing(Some((_, key_program @ Some(_))), _, _) = *placing {
-            *selected_block = key_program;
-        } else {
+        }
+
+        if mouse_button_input.just_pressed(MouseButton::Right) {
+            if let Placing(Some((location, Some(_))), _, _) = *placing {
+                let new_program = tilemap_program
+                    .clone()
+                    .apply_to_map(|map| map.remove(location));
+                *tilemap_program = new_program;
+            }
             *selected_block = None;
         }
-    }
-
-    if mouse_button_input.just_pressed(MouseButton::Right) {
-        if let Placing(Some((location, Some(_))), _, _) = *placing {
-            let new_program = tilemap_program
-                .clone()
-                .apply_to_map(|map| map.remove(location));
-            *tilemap_program = new_program;
-        }
-        *selected_block = None;
     }
 }
 
@@ -1121,7 +1133,7 @@ fn recreate_constant_list(
                             }
                         }
                     } else {
-                        button_materials.normal.clone()
+                        button_materials.disabled.clone()
                     },
                     ..Default::default()
                 })
