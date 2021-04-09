@@ -165,7 +165,7 @@ fn main() {
         .add_system(resize_camera.system())
         .add_system(position_camera.system())
         .add_system(recreate_constant_list.system())
-        .add_system(button_system.system())
+        .add_system(constant_button.system())
         .run();
 }
 
@@ -1031,7 +1031,10 @@ fn place_block(
     placing: Res<Placing>,
     hotbar: Res<Hotbar>,
     mut tilemap_program: ResMut<TilemapProgram>,
+    mut selected_block: ResMut<SelectedBlock>,
 ) {
+    let selected_block = &mut selected_block.0;
+
     if mouse_button_input.just_pressed(MouseButton::Left) {
         if let Placing(Some((location, None)), orientation, tile) = *placing {
             if let Ok(new_program) = tilemap_program
@@ -1039,7 +1042,12 @@ fn place_block(
                 .try_do_to_map(|map| map.add(location, orientation, hotbar[tile]))
             {
                 *tilemap_program = new_program;
+                *selected_block = tilemap_program.spec.get_loc(location);
             }
+        } else if let Placing(Some((_, key_program @ Some(_))), _, _) = *placing {
+            *selected_block = key_program;
+        } else {
+            *selected_block = None;
         }
     }
 
@@ -1050,6 +1058,7 @@ fn place_block(
                 .apply_to_map(|map| map.remove(location));
             *tilemap_program = new_program;
         }
+        *selected_block = None;
     }
 }
 
@@ -1118,8 +1127,7 @@ fn recreate_constant_list(
     });
 }
 
-fn button_system(
-    button_materials: Res<ButtonMaterials>,
+fn constant_button(
     mut interaction_query: Query<
         (
             &Interaction,
@@ -1129,17 +1137,21 @@ fn button_system(
         ),
         (Changed<Interaction>, With<Button>),
     >,
+    mut tilemap_program: ResMut<TilemapProgram>,
+    selected_block: Res<SelectedBlock>,
     mut menu_state: ResMut<MenuState>,
 ) {
     for (interaction, &ConstantListUiElement(key_named_constant), mut material, children) in
         interaction_query.iter_mut()
     {
-        match *interaction {
-            Interaction::Clicked => menu_state.constant_selected = Some(key_named_constant),
-            Interaction::Hovered => menu_state.constant_hovered = Some(key_named_constant),
-            Interaction::None => {
-                if menu_state.constant_hovered == Some(key_named_constant) {
-                    menu_state.constant_hovered = None
+        if let SelectedBlock(Some(selected_tile_key)) = *selected_block {
+            match *interaction {
+                Interaction::Clicked => menu_state.constant_selected = Some(key_named_constant),
+                Interaction::Hovered => menu_state.constant_hovered = Some(key_named_constant),
+                Interaction::None => {
+                    if menu_state.constant_hovered == Some(key_named_constant) {
+                        menu_state.constant_hovered = None
+                    }
                 }
             }
         }
