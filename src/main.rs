@@ -1145,14 +1145,22 @@ fn constant_button(
         interaction_query.iter_mut()
     {
         if let SelectedBlock(Some(selected_tile_key)) = *selected_block {
-            match *interaction {
-                Interaction::Clicked => menu_state.constant_selected = Some(key_named_constant),
-                Interaction::Hovered => menu_state.constant_hovered = Some(key_named_constant),
-                Interaction::None => {
-                    if menu_state.constant_hovered == Some(key_named_constant) {
-                        menu_state.constant_hovered = None
+            let &(location, orientation, tile) = tilemap_program
+                .spec
+                .tiles
+                .get(selected_tile_key)
+                .expect("referring to a tile that no longer exists!");
+            match &tile {
+                TileProgramF::Machine(_) => {}
+                TileProgramF::Literal(_) => match *interaction {
+                    Interaction::Clicked => menu_state.constant_selected = Some(key_named_constant),
+                    Interaction::Hovered => menu_state.constant_hovered = Some(key_named_constant),
+                    Interaction::None => {
+                        if menu_state.constant_hovered == Some(key_named_constant) {
+                            menu_state.constant_hovered = None
+                        }
                     }
-                }
+                },
             }
         }
     }
