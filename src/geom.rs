@@ -739,7 +739,7 @@ pub mod tilemap {
             let old_tile = self.get(location);
 
             let new_tile = f(old_tile);
-            if let Some(new_tile) = new_tile {
+            if let Some(new_tile) = (new_tile) {
                 if let Some(new_tile_positions) =
                     self.get_tile_positions(&new_tile.0, &new_tile.1, &new_tile.2)
                 {
@@ -775,7 +775,7 @@ pub mod tilemap {
                     Err(self)
                 }
             } else {
-                Err(self)
+                Ok(self)
             }
         }
 
