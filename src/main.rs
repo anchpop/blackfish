@@ -46,6 +46,50 @@ pub struct TileMaterials {
     pub transparent: Handle<ColorMaterial>,
 }
 
+struct ButtonMaterials {
+    normal: Handle<ColorMaterial>,
+    hovered: Handle<ColorMaterial>,
+    pressed: Handle<ColorMaterial>,
+}
+
+impl FromWorld for ButtonMaterials {
+    fn from_world(world: &mut World) -> Self {
+        let mut materials = world.get_resource_mut::<Assets<ColorMaterial>>().unwrap();
+        ButtonMaterials {
+            normal: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
+            hovered: materials.add(Color::rgb(0.25, 0.25, 0.25).into()),
+            pressed: materials.add(Color::rgb(0.35, 0.75, 0.35).into()),
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Placing(Option<(Vec2, Option<KeyProgram>)>, Dir, usize);
+
+impl Default for Placing {
+    fn default() -> Self {
+        Self(None, Dir::default(), 0)
+    }
+}
+
+pub struct SelectedBlock(Option<KeyProgram>);
+impl Default for SelectedBlock {
+    fn default() -> Self {
+        Self(None)
+    }
+}
+pub struct MenuState {
+    constant_hovered: Option<KeyNamedConstant>,
+    constant_selected: Option<KeyNamedConstant>,
+}
+impl Default for MenuState {
+    fn default() -> Self {
+        Self {
+            constant_hovered: None,
+            constant_selected: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TileFromBorder(usize, Dir);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -58,8 +102,6 @@ pub enum PickerOver {
     Empty,
     Occupied,
 }
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Placing(Option<(Vec2, Option<(Vec2, Dir, TileProgram)>)>, Dir, usize);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Hotbar(Vec<TileProgram>);
 impl std::ops::Index<usize> for Hotbar {
@@ -95,17 +137,21 @@ struct NotesToEnd(Vec<(Timer, u8, u8)>);
 
 fn main() {
     App::build()
+        .add_plugins(DefaultPlugins)
+        .init_resource::<ButtonMaterials>()
+        .init_resource::<Placing>()
+        .init_resource::<SelectedBlock>()
+        .init_resource::<MenuState>()
         .add_startup_system(get_midi_ports.system())
         .add_startup_system(setup.system())
         .add_startup_system(create_map.system())
-        .add_startup_system(create_ui.system())
+        .add_startup_system(create_hotbar_ui.system())
         .add_startup_system(add_literal_editing_ui.system())
         // Adding a stage lets us access resources (in this case, materials) created in the previous stage
         .add_startup_stage(
             "game_setup",
             SystemStage::single(spawn_main_tilemap_sprites.system()),
         )
-        .add_plugins(DefaultPlugins)
         .add_system(clock_increment.system())
         .add_system(end_started_notes.system())
         .add_system(positioning.system())
@@ -118,7 +164,8 @@ fn main() {
         .add_system(rotate_hotbar.system())
         .add_system(resize_camera.system())
         .add_system(position_camera.system())
-        .add_system(recreate_literal_list.system())
+        .add_system(recreate_constant_list.system())
+        .add_system(button_system.system())
         .run();
 }
 
@@ -243,8 +290,6 @@ fn create_map(mut commands: Commands) {
     commands.insert_resource(prog);
     commands.insert_resource(world);
 
-    commands.insert_resource(Placing(None, Dir::default(), 0));
-
     commands.insert_resource(Hotbar(vec![
         TileProgram::Machine(MachineInfo::BuiltIn(
             BuiltInMachine::Produce(()),
@@ -335,7 +380,7 @@ fn spawn_main_tilemap_sprites(
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct ConstantAssignmentUiBox;
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-struct ConstantListUiElement;
+struct ConstantListUiElement(KeyNamedConstant);
 
 fn add_literal_editing_ui(
     mut commands: Commands,
@@ -362,7 +407,7 @@ fn add_literal_editing_ui(
                         border: Rect::all(Val::Px(2.0)),
                         ..Default::default()
                     },
-                    material: materials.add(Color::rgb(0.65, 0.65, 0.65).into()),
+                    material: materials.add(Color::rgba(0.65, 0.65, 0.65, 0.1).into()),
                     ..Default::default()
                 })
                 .with_children(|parent| {
@@ -375,7 +420,7 @@ fn add_literal_editing_ui(
                                 flex_direction: FlexDirection::ColumnReverse,
                                 ..Default::default()
                             },
-                            material: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
+                            material: materials.add(Color::rgba(0.15, 0.15, 0.15, 0.5).into()),
                             ..Default::default()
                         })
                         .insert(ConstantAssignmentUiBox);
@@ -397,7 +442,7 @@ const HOTBAR_ITEM_TOTAL_WIDTH: f32 = HOTBAR_ITEM_WIDTH + HOTBAR_ITEM_PADDING;
 const HOTBAR_TOTAL_WIDTH: f32 = HOTBAR_ITEM_TOTAL_WIDTH * HOTBAR_NUM_ITEMS as f32;
 const HOTBAR_TOTAL_HEIGHT: f32 = HOTBAR_ITEM_TOTAL_WIDTH * HOTBAR_NUM_ITEMS as f32;
 
-fn create_ui(
+fn create_hotbar_ui(
     mut commands: Commands,
     _asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -884,66 +929,17 @@ fn start_note(
     // We're ignoring errors in here
     let duration = (1000.0 as f64 * duration.get::<beat>() / (BEATS_PER_SECOND as f64)) as u64;
     println!("Playing note for {}ms", duration);
-    let _ = conn_out.send(&[NOTE_ON_MSG, pitch, velocity]);
+    /*let _ = conn_out.send(&[NOTE_ON_MSG, pitch, velocity]);
     notes_to_end_queue.0.push((
         Timer::new(Duration::from_millis(duration), false),
         pitch,
         velocity,
-    ))
+    ))*/
 }
 
 fn end_note(conn_out: &mut MutexGuard<midir::MidiOutputConnection>, pitch: u8, velocity: u8) {
     // We're ignoring errors in here
     let _ = conn_out.send(&[NOTE_OFF_MSG, pitch, velocity]);
-}
-
-fn picker_follow_mouse(
-    q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
-    mut q_hotbar_parent: Query<&mut Style, With<HotbarParent>>,
-
-    windows: Res<Windows>,
-    mut evr_cursor: EventReader<CursorMoved>,
-    placing: ResMut<Placing>,
-    tilemap_program: Res<TilemapProgram>,
-) {
-    fn block_follow_mouse(
-        q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
-        windows: Res<Windows>,
-        cursor_position: bevy::prelude::Vec2,
-        mut placing: ResMut<Placing>,
-        tilemap_program: Res<TilemapProgram>,
-    ) {
-        if let Ok((camera, camera_transform)) = q_camera.single() {
-            let world_location =
-                Camera::screen_to_point_2d(cursor_position, &windows, camera, camera_transform)
-                    .unwrap();
-
-            let map_location = world_to_map_coord(world_location.truncate());
-
-            if let Some(map_location) = map_location {
-                if tilemap_program.spec.check_in_bounds(map_location) {
-                    placing.0 = Some((
-                        map_location,
-                        tilemap_program.spec.get(map_location).cloned(),
-                    ));
-                } else {
-                    placing.0 = None;
-                }
-            } else {
-                placing.0 = None;
-            }
-        }
-    }
-
-    fn hotbar_follow_mouse(mut hotbar_parent_style: Mut<Style>, cursor_pos: bevy::prelude::Vec2) {
-        hotbar_parent_style.position.left = Val::Px(cursor_pos.x - HOTBAR_TOTAL_WIDTH / 2.);
-        hotbar_parent_style.position.bottom = Val::Px(cursor_pos.y - HOTBAR_TOTAL_HEIGHT);
-    }
-
-    if let Some(cursor) = evr_cursor.iter().next() {
-        block_follow_mouse(q_camera, windows, cursor.position, placing, tilemap_program);
-        hotbar_follow_mouse(q_hotbar_parent.single_mut().unwrap(), cursor.position);
-    }
 }
 
 fn resize_camera(
@@ -984,6 +980,52 @@ fn rotate_hotbar(mut placing: ResMut<Placing>, keyboard_input: Res<Input<KeyCode
     }
 }
 
+fn picker_follow_mouse(
+    q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+    mut q_hotbar_parent: Query<&mut Style, With<HotbarParent>>,
+
+    windows: Res<Windows>,
+    mut evr_cursor: EventReader<CursorMoved>,
+    placing: ResMut<Placing>,
+    tilemap_program: Res<TilemapProgram>,
+) {
+    fn block_follow_mouse(
+        q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+        windows: Res<Windows>,
+        cursor_position: bevy::prelude::Vec2,
+        mut placing: ResMut<Placing>,
+        tilemap_program: Res<TilemapProgram>,
+    ) {
+        if let Ok((camera, camera_transform)) = q_camera.single() {
+            let world_location =
+                Camera::screen_to_point_2d(cursor_position, &windows, camera, camera_transform)
+                    .unwrap();
+
+            let map_location = world_to_map_coord(world_location.truncate());
+
+            if let Some(map_location) = map_location {
+                if tilemap_program.spec.check_in_bounds(map_location) {
+                    placing.0 = Some((map_location, tilemap_program.spec.get_loc(map_location)));
+                } else {
+                    placing.0 = None;
+                }
+            } else {
+                placing.0 = None;
+            }
+        }
+    }
+
+    fn hotbar_follow_mouse(mut hotbar_parent_style: Mut<Style>, cursor_pos: bevy::prelude::Vec2) {
+        hotbar_parent_style.position.left = Val::Px(cursor_pos.x - HOTBAR_TOTAL_WIDTH / 2.);
+        hotbar_parent_style.position.bottom = Val::Px(cursor_pos.y - HOTBAR_TOTAL_HEIGHT);
+    }
+
+    if let Some(cursor) = evr_cursor.iter().next() {
+        block_follow_mouse(q_camera, windows, cursor.position, placing, tilemap_program);
+        hotbar_follow_mouse(q_hotbar_parent.single_mut().unwrap(), cursor.position);
+    }
+}
+
 fn place_block(
     mouse_button_input: Res<Input<MouseButton>>,
     placing: Res<Placing>,
@@ -1018,12 +1060,15 @@ fn keyboard_input_system(keyboard_input: Res<Input<KeyCode>>, mut placing: ResMu
     }
 }
 
-fn recreate_literal_list(
+fn recreate_constant_list(
     mut commands: Commands,
     entities: Query<Entity>,
     constant_box_children: Query<Option<&Children>, With<ConstantAssignmentUiBox>>,
     constant_box: Query<Entity, With<ConstantAssignmentUiBox>>,
     asset_server: Res<AssetServer>,
+    tilemap_program: Res<TilemapProgram>,
+    button_materials: Res<ButtonMaterials>,
+    menu_state: Res<MenuState>,
 ) {
     if let Some(constant_box_children) = constant_box_children.single().unwrap() {
         for &child in constant_box_children.iter() {
@@ -1034,23 +1079,69 @@ fn recreate_literal_list(
     }
     let constant_box = constant_box.single().unwrap();
     commands.entity(constant_box).with_children(|parent| {
-        parent
-            .spawn_bundle(TextBundle {
-                style: Style {
-                    margin: Rect::all(Val::Px(5.0)),
-                    ..Default::default()
-                },
-                text: Text::with_section(
-                    "Text Creation",
-                    TextStyle {
-                        font: asset_server.load("fonts/FiraSans/FiraSans-Light.ttf"),
-                        font_size: 30.0,
-                        color: Color::WHITE,
+        for (key_named_constant, constant) in tilemap_program.constants.iter() {
+            parent
+                .spawn_bundle(ButtonBundle {
+                    style: Style {
+                        size: Size::new(Val::Px(150.0), Val::Px(65.0)),
+                        // horizontally center child text
+                        justify_content: JustifyContent::Center,
+                        // vertically center child text
+                        align_items: AlignItems::Center,
+                        ..Default::default()
                     },
-                    Default::default(),
-                ),
-                ..Default::default()
-            })
-            .insert(ConstantListUiElement);
+                    material: if Some(key_named_constant) == menu_state.constant_selected {
+                        button_materials.pressed.clone()
+                    } else if Some(key_named_constant) == menu_state.constant_hovered {
+                        button_materials.hovered.clone()
+                    } else {
+                        button_materials.normal.clone()
+                    },
+                    ..Default::default()
+                })
+                .insert(ConstantListUiElement(key_named_constant))
+                .with_children(|parent| {
+                    parent.spawn_bundle(TextBundle {
+                        text: Text::with_section(
+                            constant.show(),
+                            TextStyle {
+                                font: asset_server.load("fonts/FiraCode/FiraCode-Light.ttf"),
+                                font_size: 40.0,
+                                color: Color::rgb(0.9, 0.9, 0.9),
+                            },
+                            Default::default(),
+                        ),
+                        ..Default::default()
+                    });
+                });
+        }
     });
+}
+
+fn button_system(
+    button_materials: Res<ButtonMaterials>,
+    mut interaction_query: Query<
+        (
+            &Interaction,
+            &ConstantListUiElement,
+            &mut Handle<ColorMaterial>,
+            &Children,
+        ),
+        (Changed<Interaction>, With<Button>),
+    >,
+    mut menu_state: ResMut<MenuState>,
+) {
+    for (interaction, &ConstantListUiElement(key_named_constant), mut material, children) in
+        interaction_query.iter_mut()
+    {
+        match *interaction {
+            Interaction::Clicked => menu_state.constant_selected = Some(key_named_constant),
+            Interaction::Hovered => menu_state.constant_hovered = Some(key_named_constant),
+            Interaction::None => {
+                if menu_state.constant_hovered == Some(key_named_constant) {
+                    menu_state.constant_hovered = None
+                }
+            }
+        }
+    }
 }
