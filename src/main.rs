@@ -60,7 +60,7 @@ impl FromWorld for ButtonMaterials {
             normal: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
             hovered: materials.add(Color::rgb(0.25, 0.25, 0.25).into()),
             pressed: materials.add(Color::rgb(0.35, 0.75, 0.35).into()),
-            disabled: materials.add(Color::rgb(0.4, 0.4, 0.4).into()),
+            disabled: materials.add(Color::rgba(0.15, 0.15, 0.15, 0.5).into()),
         }
     }
 }
