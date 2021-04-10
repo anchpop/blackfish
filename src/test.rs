@@ -333,27 +333,27 @@ mod tests {
 
         #[test]
         fn tile_line_dir_east() {
-            let start = GridLine::new(Vec2i::new(0, 0), Dir::EAST);
-            let end = GridLine::new(Vec2i::new(5, 0), Dir::EAST);
-            let l = TileLineDir::new(start, end);
+            let start = GridLineDir::new(Vec2i::new(0, 0), Dir::EAST);
+            let end = GridLineDir::new(Vec2i::new(5, 0), Dir::EAST);
+            let l = TileLineDir::new(start, end.grid_line);
             assert_eq!(l.sign, Sign::Positive);
         }
         #[test]
         fn tile_line_dir_west() {
-            let start = GridLine::new(Vec2i::new(0, 0), Dir::EAST);
-            let end = GridLine::new(Vec2i::new(5, 0), Dir::EAST);
-            let l = TileLineDir::new(end, start);
+            let start = GridLineDir::new(Vec2i::new(0, 0), Dir::EAST);
+            let end = GridLineDir::new(Vec2i::new(5, 0), Dir::EAST);
+            let l = TileLineDir::new(end, start.grid_line);
             assert_eq!(l.sign, Sign::Negative);
         }
         #[test]
         fn tile_line_dir_iter() {
-            let start = GridLine::new(Vec2i::new(0, 0), Dir::EAST);
-            let end = GridLine::new(Vec2i::new(5, 0), Dir::EAST);
-            let l = TileLineDir::new(start, end);
+            let start = GridLineDir::new(Vec2i::new(0, 0), Dir::EAST);
+            let end = GridLineDir::new(Vec2i::new(5, 0), Dir::EAST);
+            let l = TileLineDir::new(start, end.grid_line);
             assert_eq!(
                 l.get_start(),
                 GridLineDir {
-                    grid_line: start,
+                    grid_line: start.grid_line,
                     direction: Sign::Positive
                 }
             );
@@ -387,14 +387,8 @@ mod tests {
         }
         #[test]
         fn tile_line_0_dist_start() {
-            let gld = GridLine::new(Vec2i::new(0, 0), Dir::EAST);
-            assert_eq!(
-                GridLineDir {
-                    grid_line: gld,
-                    direction: Sign::Positive
-                },
-                TileLineDir::new(gld, gld).get_start()
-            );
+            let gld = GridLineDir::new(Vec2i::new(0, 0), Dir::EAST);
+            assert_eq!(gld, TileLineDir::new(gld, gld.grid_line).get_start());
         }
     }
 

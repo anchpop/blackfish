@@ -122,7 +122,7 @@ pub fn weak_head_normal_form(
                                 weak_head_normal_form(graph, prog, new_thunk, context);
                             if !whnm.is_nothing() {
                                 lasers.push(TileLineDir::new(
-                                    from_connection.loc(prog).grid_line,
+                                    from_connection.loc(prog),
                                     prog.get_output_grid_line_dir(*output_location).grid_line,
                                 ));
                             }
@@ -162,7 +162,7 @@ pub fn weak_head_normal_form(
                                             weak_head_normal_form(graph, prog, data, context);
                                         if !whnf.is_nothing() {
                                             lasers.push(TileLineDir::new(
-                                                input.1.loc(prog).clone().grid_line,
+                                                input.1.loc(prog).clone(),
                                                 to_connection_loc.grid_line,
                                             ));
                                         }

@@ -499,7 +499,14 @@ pub mod direction {
 
     impl TileLine {
         pub fn new(from: GridLine, to: GridLine) -> Self {
-            TileLineDir::new(from, to).tile_line
+            TileLineDir::new(
+                GridLineDir {
+                    grid_line: from,
+                    direction: Sign::Positive,
+                },
+                to,
+            )
+            .tile_line
         }
     }
 

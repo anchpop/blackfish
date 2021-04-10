@@ -417,8 +417,10 @@ pub mod tilemaps {
             grid_line_dir: GridLineDir,
         ) -> (RaycastHit<TileProgram>, ConnectionPath) {
             let hit = self.spec.raycast(grid_line_dir);
-            let path_item =
-                PathItem::Direct(TileLineDir::new(grid_line_dir, hit.to_normal().grid_line));
+            let path_item = PathItem::Direct(TileLineDir::new(
+                grid_line_dir,
+                hit.clone().to_normal().grid_line,
+            ));
             let path = ConnectionPath(vec![path_item]);
             (hit, path)
         }
@@ -843,7 +845,7 @@ pub mod data {
         };
 
         vec![TileLineDir::new(
-            from_grid_line_dir.grid_line,
+            from_grid_line_dir,
             to_grid_line_dir.grid_line,
         )]
     }
