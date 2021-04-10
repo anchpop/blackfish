@@ -1,6 +1,6 @@
 use std::{fmt::Debug, iter};
 
-use crate::geom::{direction::*, *};
+use crate::geom::{direction::*, tilemap::RaycastHit, *};
 
 use ndarray::Array2;
 
@@ -325,7 +325,7 @@ pub mod tiles {
 pub mod tilemaps {
     use super::{data::*, tiles::*, *};
 
-    use std::collections::{HashSet};
+    use std::collections::HashSet;
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum Edit {
@@ -412,6 +412,17 @@ pub mod tilemaps {
     pub type InputIndex = usize;
     pub type OutputIndex = usize;
     impl TilemapProgram {
+        pub fn lasercast(
+            &self,
+            grid_line_dir: GridLineDir,
+        ) -> (RaycastHit<TileProgram>, ConnectionPath) {
+            let hit = self.spec.raycast(grid_line_dir);
+            let path_item =
+                PathItem::Direct(TileLineDir::new(grid_line_dir, hit.to_normal().grid_line));
+            let path = ConnectionPath(vec![path_item]);
+            (hit, path)
+        }
+
         pub fn get_input_grid_line_dir(&self, index: InputIndex) -> GridLineDir {
             GridLineDir::new(Vec2i::new(-1, index as i64), Dir::EAST)
         }
@@ -615,6 +626,8 @@ pub mod tilemaps {
 }
 
 pub mod data {
+    use std::{collections::HashMap, ops::Neg};
+
     use super::{
         tilemaps::{InputIndex, OutputIndex, TilemapProgram},
         tiles::BuiltInMachine,
@@ -792,7 +805,28 @@ pub mod data {
         }
     }
 
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    pub enum PathItem {
+        Direct(TileLineDir),
+    }
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    pub struct ConnectionPath(pub Vec<PathItem>);
+
+    impl Neg for ConnectionPath {
+        type Output = ConnectionPath;
+
+        fn neg(self) -> Self::Output {
+            let mut path = self.0;
+            path.reverse();
+            let path = path.into_iter().map(|item| match item {
+                PathItem::Direct(tile_line_dir) => PathItem::Direct(-tile_line_dir),
+            });
+            Self(path.collect())
+        }
+    }
+
     pub type GraphEdge = (FromConnection, ToConnection);
+    pub type ConnectionInfo = HashMap<GraphEdge, ConnectionPath>;
     pub type Graph = petgraph::graphmap::GraphMap<GraphNode, GraphEdge, petgraph::Directed>;
 
     pub fn graph_edge_to_tile_lines(edge: &GraphEdge, prog: &TilemapProgram) -> Vec<TileLineDir> {

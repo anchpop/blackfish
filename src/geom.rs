@@ -510,18 +510,20 @@ pub mod direction {
     }
 
     impl TileLineDir {
-        pub fn new(from: GridLine, to: GridLine) -> Self {
-            let distance = from.distance(&to);
+        pub fn new(from: GridLineDir, to: GridLine) -> Self {
+            let distance = from.grid_line.distance(&to);
             if distance == 0 {
-                assert_eq!(from, to);
+                assert_eq!(from.grid_line, to);
                 TileLineDir {
                     tile_line: TileLine {
-                        grid_line: from,
+                        grid_line: from.grid_line,
                         distance: 0,
                     },
-                    sign: Sign::Positive,
+                    sign: from.direction,
                 }
             } else {
+                let from = from.grid_line;
+
                 let positive = if from.side == Basis::North {
                     to.location.y > from.location.y
                 } else {
@@ -610,6 +612,17 @@ pub mod direction {
                 && self.tile_line.contains_grid_line(grid_line_dir.grid_line)
         }
     }
+
+    impl Neg for TileLineDir {
+        fn neg(self) -> Self::Output {
+            Self {
+                tile_line: self.tile_line,
+                sign: -self.sign,
+            }
+        }
+
+        type Output = TileLineDir;
+    }
 }
 
 pub mod tilemap {
@@ -620,11 +633,11 @@ pub mod tilemap {
     use std::collections::{HashMap, HashSet};
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-    pub enum RaycastHit<'a, I> {
+    pub enum RaycastHit<I> {
         HitBorder(GridLineDir),
-        HitTile(Vec2, Dir, &'a (Vec2, Dir, I)),
+        HitTile(Vec2, Dir, (Vec2, Dir, I)),
     }
-    impl<'a, I> RaycastHit<'a, I> {
+    impl<'a, I> RaycastHit<I> {
         pub fn to_normal(self) -> GridLineDir {
             match self {
                 RaycastHit::HitBorder(normal) => normal,
@@ -648,7 +661,7 @@ pub mod tilemap {
         type TileInfo = (Vec2, Dir, I); // cannot actually use these yet
     }
 
-    impl<K: Key, I: PartialEq + Shaped> Tilemap<K, I> {
+    impl<K: Key, I: PartialEq + Shaped + Clone> Tilemap<K, I> {
         pub fn extents(&self) -> Extent2 {
             let dim = self.map.dim();
             Extent2::new(dim.1, dim.0)
@@ -739,7 +752,7 @@ pub mod tilemap {
             let old_tile = self.get(location);
 
             let new_tile = f(old_tile);
-            if let Some(new_tile) = (new_tile) {
+            if let Some(new_tile) = new_tile {
                 if let Some(new_tile_positions) =
                     self.get_tile_positions(&new_tile.0, &new_tile.1, &new_tile.2)
                 {
@@ -811,6 +824,7 @@ pub mod tilemap {
             let (new_location, direction) = grid_line_dir.next();
             if let Some(new_location) = self.check_in_bounds_i(new_location) {
                 if let Some(hit) = self.get(new_location) {
+                    let hit = hit.clone();
                     RaycastHit::HitTile(new_location, -direction, hit)
                 } else {
                     self.raycast(GridLineDir::new(new_location, direction))

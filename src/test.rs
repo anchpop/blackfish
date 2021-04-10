@@ -309,7 +309,7 @@ mod tests {
     #[cfg(test)]
     mod tilelines {
         use super::*;
-        use crate::geom::{Vec2i};
+        use crate::geom::Vec2i;
         use pretty_assertions::assert_eq;
 
         #[test]
@@ -402,7 +402,6 @@ mod tests {
     mod raycast {
         use crate::geom::{tilemap::RaycastHit, Vec2, Vec2i};
         use pretty_assertions::assert_eq;
-        
 
         use super::*;
 
@@ -433,7 +432,7 @@ mod tests {
                 RaycastHit::HitTile(
                     Vec2::new(3, 0),
                     Dir::EAST,
-                    &(
+                    (
                         Vec2::new(3, 0),
                         Dir::EAST,
                         TileProgram::Machine(MachineInfo::BuiltIn(
@@ -457,7 +456,7 @@ mod tests {
                 RaycastHit::HitTile(
                     Vec2::new(3, 0),
                     Dir::EAST,
-                    &(
+                    (
                         Vec2::new(3, 0),
                         Dir::EAST,
                         TileProgram::Machine(MachineInfo::BuiltIn(
@@ -482,7 +481,7 @@ mod tests {
                 RaycastHit::HitTile(
                     Vec2::new(3, 0),
                     Dir::WEST,
-                    &(
+                    (
                         Vec2::new(3, 0),
                         Dir::EAST,
                         TileProgram::Machine(MachineInfo::BuiltIn(
@@ -506,7 +505,7 @@ mod tests {
                 RaycastHit::HitTile(
                     Vec2::new(3, 0),
                     Dir::WEST,
-                    &(
+                    (
                         Vec2::new(3, 0),
                         Dir::EAST,
                         TileProgram::Machine(MachineInfo::BuiltIn(
@@ -655,7 +654,8 @@ mod tests {
             let data = WhnfData::Number(0);
             let prog = in_out_id_prog();
 
-            let (graph, outputs) = evaluation::program_to_graph(&prog);
+            let (graph, _) = evaluation::program_to_graph(&prog);
+            let outputs = evaluation::outputs(&prog);
 
             let output_node = GraphNode::Output(outputs.into_iter().next().unwrap());
             let (output_data, _lasers_produced) = evaluation::weak_head_normal_form(
@@ -674,7 +674,8 @@ mod tests {
             let data = WhnfData::Number(0);
             let prog = in_out_id_with_indirection_prog();
 
-            let (graph, outputs) = evaluation::program_to_graph(&prog);
+            let (graph, _) = evaluation::program_to_graph(&prog);
+            let outputs = evaluation::outputs(&prog);
 
             let output_node = GraphNode::Output(outputs.into_iter().next().unwrap());
             let (output_data, _lasers_produced) = evaluation::weak_head_normal_form(
@@ -693,7 +694,8 @@ mod tests {
             let data = WhnfData::Number(0);
             let prog = const_prog();
 
-            let (graph, outputs) = evaluation::program_to_graph(&prog);
+            let (graph, _) = evaluation::program_to_graph(&prog);
+            let outputs = evaluation::outputs(&prog);
 
             let output_node = GraphNode::Output(outputs.into_iter().next().unwrap());
             let (output_data, _lasers_produced) = evaluation::weak_head_normal_form(
@@ -724,7 +726,8 @@ mod tests {
                 })
                 .unwrap();
 
-            let (graph, outputs) = evaluation::program_to_graph(&prog);
+            let (graph, _) = evaluation::program_to_graph(&prog);
+            let outputs = evaluation::outputs(&prog);
 
             let data = WhnfData::Number(0);
 
