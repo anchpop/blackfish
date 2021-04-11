@@ -103,7 +103,7 @@ mod tests {
     mod equality {
         use super::*;
         use pretty_assertions::{assert_eq, assert_ne};
-        use velcro::hash_set;
+        use velcro::{hash_map, hash_set};
 
         #[test]
         fn basic_tilemap_equality_empty() {
@@ -122,8 +122,8 @@ mod tests {
         #[test]
         fn tilemap_world_equality() {
             assert_eq!(
-                default_program().into_world(vec![], vec![], hash_set![]),
-                default_program().into_world(vec![], vec![], hash_set![])
+                default_program().into_world(vec![], vec![], hash_set![], hash_map![]),
+                default_program().into_world(vec![], vec![], hash_set![], hash_map![])
             );
         }
         #[test]
@@ -643,18 +643,21 @@ mod tests {
         use crate::evaluation;
         use velcro::hash_map;
 
+        use std::collections::HashSet;
+
         #[test]
         fn test_id_program() {
             let data = WhnfData::Number(0);
             let prog = in_out_id_prog();
 
-            let (graph, _) = evaluation::program_to_graph(&prog);
+            let (graph, connection_info) = evaluation::program_to_graph(&prog);
             let outputs = evaluation::outputs(&prog);
 
             let output_node = GraphNode::Output(outputs.into_iter().next().unwrap());
             let (output_data, _lasers_produced) = evaluation::weak_head_normal_form(
                 &graph,
                 &prog,
+                &connection_info,
                 Data::ThunkPure(output_node, Dependency::Only),
                 vec![hash_map! {
                     prog.inputs[0].0:  Data::Whnf(data.clone())
@@ -668,13 +671,14 @@ mod tests {
             let data = WhnfData::Number(0);
             let prog = in_out_id_with_indirection_prog();
 
-            let (graph, _) = evaluation::program_to_graph(&prog);
+            let (graph, connection_info) = evaluation::program_to_graph(&prog);
             let outputs = evaluation::outputs(&prog);
 
             let output_node = GraphNode::Output(outputs.into_iter().next().unwrap());
             let (output_data, _lasers_produced) = evaluation::weak_head_normal_form(
                 &graph,
                 &prog,
+                &connection_info,
                 Data::ThunkPure(output_node, Dependency::Only),
                 vec![hash_map! {
                     prog.inputs[0].0:  Data::Whnf(data.clone())
@@ -688,13 +692,14 @@ mod tests {
             let data = WhnfData::Number(0);
             let prog = const_prog();
 
-            let (graph, _) = evaluation::program_to_graph(&prog);
+            let (graph, connection_info) = evaluation::program_to_graph(&prog);
             let outputs = evaluation::outputs(&prog);
 
             let output_node = GraphNode::Output(outputs.into_iter().next().unwrap());
             let (output_data, _lasers_produced) = evaluation::weak_head_normal_form(
                 &graph,
                 &prog,
+                &connection_info,
                 Data::ThunkPure(output_node, Dependency::Only),
                 vec![hash_map! {
                     prog.inputs[0].0:  Data::Whnf(data.clone())
@@ -720,7 +725,7 @@ mod tests {
                 })
                 .unwrap();
 
-            let (graph, _) = evaluation::program_to_graph(&prog);
+            let (graph, connection_info) = evaluation::program_to_graph(&prog);
             let outputs = evaluation::outputs(&prog);
 
             let data = WhnfData::Number(0);
@@ -729,6 +734,7 @@ mod tests {
             let (output_data, _lasers_produced) = evaluation::weak_head_normal_form(
                 &graph,
                 &prog,
+                &connection_info,
                 Data::ThunkPure(output_node, Dependency::Only),
                 vec![hash_map! {
                     prog.inputs[0].0:  Data::Whnf(data.clone())

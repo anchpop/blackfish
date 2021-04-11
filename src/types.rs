@@ -354,7 +354,7 @@ pub mod tilemaps {
         pub world: tilemap::Tilemap<KeyWorld, TileWorld>,
         pub inputs: Vec<(MachineInput, Option<Data>)>,
         pub outputs: Vec<(MachineOutput, Data)>,
-        pub connections: HashSet<TileLineDir>,
+        pub connection_info: ConnectionInfo,
     }
 
     impl TilemapWorld {
@@ -534,7 +534,8 @@ pub mod tilemaps {
             self,
             inputs: Vec<(MachineInput, Option<Data>)>,
             outputs: Vec<(MachineOutput, Data)>,
-            lasers: HashSet<TileLineDir>,
+            lasers: HashSet<ConnectionPath>,
+            connection_info: ConnectionInfo,
         ) -> TilemapWorld {
             let map = self.spec.map;
             let mut tiles = self.spec.tiles;
@@ -564,32 +565,40 @@ pub mod tilemaps {
                 },
                 inputs,
                 outputs,
-                connections: lasers.clone(),
+                connection_info,
             };
             world
                 .try_do_to_map(|mut map| {
-                    for laser in lasers {
-                        for location in laser.into_iter() {
-                            if let Some(location) = map.check_in_bounds_i(location) {
-                                map = map.update(location, |tile| match tile {
-                                    None => Some((
-                                        location,
-                                        Dir::default(),
-                                        TileWorld::Phys(TilePhysics::Laser(DirMap::empty())),
-                                    )),
-                                    Some((
-                                        location,
-                                        orientation,
-                                        TileWorld::Phys(TilePhysics::Laser(a)),
-                                    )) => Some((
-                                        location.clone(),
-                                        orientation.clone(),
-                                        TileWorld::Phys(TilePhysics::Laser(a.clone())),
-                                    )),
-                                    a => a.cloned(),
-                                })?
-                            } else {
-                                panic!("Laser goes off past the map!");
+                    for laser_path in lasers {
+                        for laser_path_item in laser_path.0 {
+                            match laser_path_item {
+                                PathItem::Direct(laser) => {
+                                    for location in laser.into_iter() {
+                                        if let Some(location) = map.check_in_bounds_i(location) {
+                                            map = map.update(location, |tile| match tile {
+                                                None => Some((
+                                                    location,
+                                                    Dir::default(),
+                                                    TileWorld::Phys(TilePhysics::Laser(
+                                                        DirMap::empty(),
+                                                    )),
+                                                )),
+                                                Some((
+                                                    location,
+                                                    orientation,
+                                                    TileWorld::Phys(TilePhysics::Laser(a)),
+                                                )) => Some((
+                                                    location.clone(),
+                                                    orientation.clone(),
+                                                    TileWorld::Phys(TilePhysics::Laser(a.clone())),
+                                                )),
+                                                a => a.cloned(),
+                                            })?
+                                        } else {
+                                            panic!("Laser goes off past the map!");
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -719,8 +728,8 @@ pub mod data {
     }
 
     impl From<(GraphNode, FromConnection)> for Data {
-        fn from((graph_node, from_connection): (GraphNode, FromConnection)) -> Self {
-            Self::ThunkPure(graph_node, Dependency::from(from_connection))
+        fn from((from_node, from_connection): (GraphNode, FromConnection)) -> Self {
+            Self::ThunkPure(from_node, Dependency::from(from_connection))
         }
     }
 
@@ -747,22 +756,15 @@ pub mod data {
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum FromConnection {
         GlobalInput(OutputIndex),
-        FunctionOutput(GridLineDir, MachineOutput),
-        Nothing(GridLineDir),
+        FunctionOutput(MachineOutput),
+        Nothing(),
     }
     impl FromConnection {
-        pub fn loc(&self, program: &TilemapProgram) -> GridLineDir {
-            match self {
-                Self::GlobalInput(loc) => program.get_input_grid_line_dir(*loc),
-                Self::FunctionOutput(loc, _) => *loc,
-                Self::Nothing(loc) => *loc,
-            }
-        }
         pub fn is_nothing(&self) -> bool {
             match self {
                 FromConnection::GlobalInput(_) => false,
-                FromConnection::FunctionOutput(_, _) => false,
-                FromConnection::Nothing(_) => true,
+                FromConnection::FunctionOutput(_) => false,
+                FromConnection::Nothing() => true,
             }
         }
     }
@@ -770,24 +772,15 @@ pub mod data {
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum ToConnection {
         GlobalOutput(InputIndex),
-        FunctionInput(GridLineDir, MachineInput),
-        Nothing(GridLineDir),
-    }
-    impl ToConnection {
-        pub fn loc(&self, program: &TilemapProgram) -> GridLineDir {
-            match self {
-                Self::GlobalOutput(loc) => program.get_output_grid_line_dir(*loc),
-                Self::FunctionInput(loc, _) => *loc,
-                Self::Nothing(loc) => *loc,
-            }
-        }
+        FunctionInput(MachineInput),
+        Nothing(),
     }
     impl ToConnection {
         pub fn is_nothing(&self) -> bool {
             match self {
                 ToConnection::GlobalOutput(_) => false,
-                ToConnection::FunctionInput(_, _) => false,
-                ToConnection::Nothing(_) => true,
+                ToConnection::FunctionInput(_) => false,
+                ToConnection::Nothing() => true,
             }
         }
     }
@@ -801,8 +794,8 @@ pub mod data {
         fn from(item: FromConnection) -> Self {
             match item {
                 FromConnection::GlobalInput(_) => Dependency::Only,
-                FromConnection::FunctionOutput(_, output) => Dependency::On(output),
-                FromConnection::Nothing(_) => Dependency::Only,
+                FromConnection::FunctionOutput(output) => Dependency::On(output),
+                FromConnection::Nothing() => Dependency::Only,
             }
         }
     }
@@ -826,11 +819,21 @@ pub mod data {
             Self(path.collect())
         }
     }
+    impl ConnectionPath {
+        pub fn contains(&self, grid_line_dir: GridLineDir) -> bool {
+            self.0.iter().any(|path_item| match path_item {
+                PathItem::Direct(tile_line_dir) => {
+                    tile_line_dir.contains_grid_line_dir(grid_line_dir)
+                }
+            })
+        }
+    }
 
     pub type GraphEdge = (FromConnection, ToConnection);
-    pub type ConnectionInfo = HashMap<GraphEdge, ConnectionPath>;
+    pub type ConnectionInfo = HashMap<(GraphNode, GraphNode, GraphEdge), ConnectionPath>;
     pub type Graph = petgraph::graphmap::GraphMap<GraphNode, GraphEdge, petgraph::Directed>;
 
+    /*
     pub fn graph_edge_to_tile_lines(edge: &GraphEdge, prog: &TilemapProgram) -> Vec<TileLineDir> {
         let (from, to) = edge;
         let from_grid_line_dir = match from {
@@ -848,7 +851,7 @@ pub mod data {
             from_grid_line_dir,
             to_grid_line_dir.grid_line,
         )]
-    }
+    } */
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

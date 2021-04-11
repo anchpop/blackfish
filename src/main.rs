@@ -608,25 +608,23 @@ enum ConnectionType {
 }
 fn get_connection_type(
     grid_line_dir: GridLineDir,
-    connections: &evaluation::AllConnections,
+    connection_info: &ConnectionInfo,
     program: &TilemapProgram,
 ) -> Option<ConnectionType> {
-    let mut connections = connections
+    let mut connections = connection_info
         .iter()
-        .flat_map(|(_, _, connection)| {
-            graph_edge_to_tile_lines(connection, program)
-                .iter()
-                .find_map(|tile_line_dir| {
-                    if tile_line_dir.contains_grid_line_dir(grid_line_dir) {
-                        Some(connection)
-                    } else {
-                        None
-                    }
-                })
+        .filter_map(|(connection, info)| {
+            if info.contains(grid_line_dir) {
+                Some(connection)
+            } else {
+                None
+            }
         })
         .peekable();
     if let Some(_) = connections.peek() {
-        if connections.any(|(from, to)| !from.is_nothing() && !to.is_nothing()) {
+        if connections.any(|(from_node, from_to, (from_connection, to_connection))| {
+            !from_connection.is_nothing() && !to_connection.is_nothing()
+        }) {
             Some(ConnectionType::FullyConnected)
         } else {
             Some(ConnectionType::HalfConnected)
@@ -640,7 +638,7 @@ fn get_tile_material(
     tile: &Option<&TileWorld>,
     location: Vec2,
     materials: &TileMaterials,
-    connections: &evaluation::AllConnections,
+    connection_info: &ConnectionInfo,
     program: &TilemapProgram,
 ) -> Handle<ColorMaterial> {
     let dirs = [Dir::NORTH, Dir::EAST, Dir::SOUTH, Dir::WEST];
@@ -650,7 +648,7 @@ fn get_tile_material(
             let mut connections = dirs
                 .iter()
                 .filter_map(|&dir| {
-                    get_connection_type(GridLineDir::new(location, dir), connections, program)
+                    get_connection_type(GridLineDir::new(location, dir), connection_info, program)
                 })
                 .peekable();
             if let Some(_) = connections.peek() {
@@ -687,29 +685,34 @@ fn tile_appearance(
     } else {
         tilemap_program.clone()
     };
-    let connections = evaluation::get_all_connections(&connection_map);
+    let connection_info = evaluation::get_all_connections(&connection_map);
 
     for (&TileFromMap(position), mut color_mat_handle) in q.q0_mut().iter_mut() {
         let tile = tilemap_world
             .world
             .get(Vec2::new(position.x, position.y))
             .map(|(_, _, t)| t);
-        *color_mat_handle =
-            get_tile_material(&tile, position, &materials, &connections, &tilemap_program);
+        *color_mat_handle = get_tile_material(
+            &tile,
+            position,
+            &materials,
+            &connection_info,
+            &tilemap_program,
+        );
     }
 
     for (&TileFromBorder(index, direction), mut color_mat_handle) in q.q2_mut().iter_mut() {
         if direction.basis == Basis::East {
             *color_mat_handle = if direction.sign == Sign::Negative {
                 if index < tilemap_world.inputs.len() {
-                    if tilemap_world.connections.iter().any(|connection| {
-                        connection.get_start() == tilemap_world.get_input_grid_line_dir(index)
+                    if tilemap_world.connection_info.values().any(|connection| {
+                        connection.contains(tilemap_world.get_input_grid_line_dir(index))
                     }) {
                         materials.io_used.clone()
                     } else {
                         match get_connection_type(
                             tilemap_world.get_input_grid_line_dir(index),
-                            &connections,
+                            &connection_info,
                             &tilemap_program,
                         ) {
                             Some(typ) => match typ {
@@ -724,14 +727,14 @@ fn tile_appearance(
                 }
             } else {
                 if index < tilemap_world.outputs.len() {
-                    if tilemap_world.connections.iter().any(|connection| {
-                        connection.get_end() == tilemap_world.get_output_grid_line_dir(index)
+                    if tilemap_world.connection_info.values().any(|connection| {
+                        connection.contains(tilemap_world.get_output_grid_line_dir(index))
                     }) {
                         materials.io_used.clone()
                     } else {
                         match get_connection_type(
                             -tilemap_world.get_output_grid_line_dir(index),
-                            &connections,
+                            &connection_info,
                             &tilemap_program,
                         ) {
                             Some(typ) => match typ {
@@ -766,7 +769,7 @@ fn tile_appearance(
                         &Some(&hotbar[tile].into_world()),
                         position,
                         &materials,
-                        &connections,
+                        &connection_info,
                         &tilemap_program,
                     );
                 }

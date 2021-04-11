@@ -5,8 +5,10 @@ use crate::{
 use petgraph::EdgeDirection::Incoming;
 use std::collections::{HashMap, HashSet};
 
+use pretty_assertions::{assert_eq, assert_ne};
+
 pub fn evaluate(prog: &TilemapProgram, inputs: HashMap<String, Data>) -> TilemapWorld {
-    let (graph, _) = program_to_graph(&prog);
+    let (graph, connection_info) = program_to_graph(&prog);
     let outputs = outputs(&prog);
 
     let prog_input_labels: HashMap<uuid::Uuid, MachineInput> = prog
@@ -32,6 +34,7 @@ pub fn evaluate(prog: &TilemapProgram, inputs: HashMap<String, Data>) -> Tilemap
                 weak_head_normal_form(
                     &graph,
                     &prog,
+                    &connection_info,
                     Data::ThunkPure(node, Dependency::Only),
                     vec![prog
                         .inputs
@@ -69,27 +72,53 @@ pub fn evaluate(prog: &TilemapProgram, inputs: HashMap<String, Data>) -> Tilemap
             .into_iter()
             .flat_map(|(_, (_, lasers))| lasers)
             .collect(),
-    ); // should probably add the actual inputs and outputs here
+        connection_info,
+    );
     world
 }
 
 pub fn weak_head_normal_form(
     graph: &Graph,
     prog: &TilemapProgram,
+    connection_info: &ConnectionInfo,
     data: Data,
     context: Vec<HashMap<uuid::Uuid, Data>>,
-) -> (WhnfData, Vec<TileLineDir>) {
+) -> (WhnfData, Vec<ConnectionPath>) {
     match data {
         Data::Whnf(WhnfData::Nothing) => (WhnfData::Nothing, vec![]),
         Data::Whnf(n @ WhnfData::Number(_)) => (n, vec![]),
         Data::Whnf(p @ WhnfData::Product(_)) => (p, vec![]),
         Data::ThunkPure(graph_node, dependency) => {
+            /*let inputs = graph.neighbors_directed(graph_node, Incoming);
+            let inputs = inputs
+                .flat_map(|node| graph.edges(node))
+                .filter(|(_, to, (_, _))| to == &graph_node)
+                .map(|(from_node, to_node, (connection_from, connection_to))| {
+                    (
+                        connection_to,
+                        (from_node, to_node, (connection_from, connection_to)),
+                    )
+                })
+                .collect::<HashMap<_, _>>();
+                */
             let inputs = graph.neighbors_directed(graph_node, Incoming);
             let inputs = inputs
                 .flat_map(|node| graph.edges(node))
                 .filter(|(_, to, (_, _))| to == &graph_node)
-                .map(|(node_from, _, (connection_from, connection_to))| {
-                    (connection_to, (node_from, connection_from.clone()))
+                .map(|(from_node, to_node, (connection_from, connection_to))| {
+                    (
+                        connection_to,
+                        (
+                            from_node,
+                            connection_from.clone(),
+                            connection_info[&(
+                                from_node,
+                                to_node,
+                                (connection_from.clone(), connection_to.clone()),
+                            )]
+                                .clone(),
+                        ),
+                    )
                 })
                 .collect::<HashMap<_, _>>();
 
@@ -101,7 +130,7 @@ pub fn weak_head_normal_form(
                         "Currently only support contexts with one thing in them!"
                     );
                     if let Some(data) = context[0].get(uuid) {
-                        weak_head_normal_form(graph, prog, data.clone(), context)
+                        weak_head_normal_form(graph, prog, connection_info, data.clone(), context)
                     } else {
                         panic!("uuid not in context!")
                     }
@@ -110,7 +139,7 @@ pub fn weak_head_normal_form(
                     let mut inputs = inputs.into_iter();
                     if let Some((
                         ToConnection::GlobalOutput(output_location),
-                        (from_node, from_connection),
+                        (from_node, from_connection, connection_path),
                     )) = inputs.next()
                     {
                         if let None = inputs.next() {
@@ -118,13 +147,15 @@ pub fn weak_head_normal_form(
                                 from_node,
                                 Dependency::from(from_connection.clone()),
                             );
-                            let (whnm, mut lasers) =
-                                weak_head_normal_form(graph, prog, new_thunk, context);
+                            let (whnm, mut lasers) = weak_head_normal_form(
+                                graph,
+                                prog,
+                                connection_info,
+                                new_thunk,
+                                context,
+                            );
                             if !whnm.is_nothing() {
-                                lasers.push(TileLineDir::new(
-                                    from_connection.loc(prog),
-                                    prog.get_output_grid_line_dir(*output_location).grid_line,
-                                ));
+                                lasers.push(connection_path);
                             }
                             (whnm, lasers)
                         } else {
@@ -137,11 +168,11 @@ pub fn weak_head_normal_form(
                     }
                 }
                 GraphNode::Block(_, _, tile) => {
-                    let inputs: HashMap<_, (GridLineDir, (GraphNode, FromConnection))> =
+                    let inputs: HashMap<MachineInput, (GraphNode, FromConnection, ConnectionPath)> =
                         inputs
                             .into_iter()
-                            .map(|(to_connection, input)| match to_connection {
-                                ToConnection::FunctionInput(to_connection_loc, input_label) => (input_label, (to_connection_loc.clone(), input)),
+                            .map(|(to_connection, (from_node, from_connection, connection_path))| match to_connection {
+                                ToConnection::FunctionInput(input_label) => (input_label.clone(), (from_node, from_connection, connection_path)),
                                 _ => panic!(
                                     "Trying to evaluate a block, but it had an input besides function inputs!\nGraph:\n{}", get_graph_str(graph)
                                 ),
@@ -151,20 +182,23 @@ pub fn weak_head_normal_form(
                             TileProgramF::Machine(m) => match m {
                                 MachineInfo::BuiltIn(built_in, _) => match built_in {
                                     BuiltInMachine::Produce(()) => {
-                                        let (to_connection_loc, input) = inputs.get(&"a".to_owned()).expect("Needed 'a' as an input to the built-in machine 'produce', but it wasn't there >:(").clone();
+                                        let (from_node, from_connection, connection_path) = inputs.get(&"a".to_owned()).expect("Needed 'a' as an input to the built-in machine 'produce', but it wasn't there >:(").clone();
                                         let data = Data::ThunkBuiltinOp(
-                                            Box::new(BuiltInMachine::Produce(Data::from(
-                                                input.clone(),
-                                            ))),
+                                            Box::new(BuiltInMachine::Produce(Data::from((
+                                                from_node,
+                                                from_connection.clone(),
+                                            )))),
                                             desired_output,
                                         );
-                                        let (whnf, mut lasers) =
-                                            weak_head_normal_form(graph, prog, data, context);
+                                        let (whnf, mut lasers) = weak_head_normal_form(
+                                            graph,
+                                            prog,
+                                            connection_info,
+                                            data,
+                                            context,
+                                        );
                                         if !whnf.is_nothing() {
-                                            lasers.push(TileLineDir::new(
-                                                input.1.loc(prog).clone(),
-                                                to_connection_loc.grid_line,
-                                            ));
+                                            lasers.push(connection_path);
                                         }
                                         (whnf, lasers)
                                     }
@@ -181,7 +215,7 @@ pub fn weak_head_normal_form(
                             }
                         }
                     } else {
-                        panic!("We're trying to evaluate the output from a block, but we don't have a dependency!")
+                        panic!("We're trying to evaluate the output from a block, but we don't have a dependency! {:?}", dependency)
                     }
                 }
                 GraphNode::Nothing(_, _) => {
@@ -193,6 +227,7 @@ pub fn weak_head_normal_form(
         Data::ThunkBuiltinOp(op, _output) => weak_head_normal_form(
             graph,
             prog,
+            connection_info,
             match *op {
                 BuiltInMachine::Iffy(_, _, _) => {
                     todo!()
@@ -220,7 +255,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, ConnectionInfo) {
         let (to_connection, to_node) = to_connections.get(&to).cloned().unwrap_or({
             let (to_vec, to_dir) = to.previous();
             let nothing_node = GraphNode::Nothing((to_vec.x, to_vec.y), to_dir);
-            (ToConnection::Nothing(to), nothing_node)
+            (ToConnection::Nothing(), nothing_node)
         });
 
         let (from_connection, from_node) = from_connections
@@ -239,13 +274,13 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, ConnectionInfo) {
             .unwrap_or({
                 let (from_vec, from_dir) = to.previous();
                 let nothing_node = GraphNode::Nothing((from_vec.x, from_vec.y), from_dir);
-                (FromConnection::Nothing(from), nothing_node)
+                (FromConnection::Nothing(), nothing_node)
             });
 
         if !to_connection.is_nothing() || !from_connection.is_nothing() {
             let connection = (from_connection.clone(), to_connection.clone());
             graph.add_edge(from_node, to_node, connection.clone());
-            connection_info.insert(connection, path);
+            connection_info.insert((from_node, to_node, connection), path);
         }
     }
 
@@ -378,10 +413,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, ConnectionInfo) {
                     .map(|(label, grid_line_dir)| {
                         (
                             grid_line_dir,
-                            (
-                                ToConnection::FunctionInput(grid_line_dir, label),
-                                current_node,
-                            ),
+                            (ToConnection::FunctionInput(label), current_node),
                         )
                     })
                     .collect::<HashMap<_, _>>();
@@ -391,11 +423,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, ConnectionInfo) {
                     .map(|((label, long), grid_line_dir)| {
                         (
                             grid_line_dir,
-                            (
-                                FromConnection::FunctionOutput(grid_line_dir, label),
-                                current_node,
-                                long,
-                            ),
+                            (FromConnection::FunctionOutput(label), current_node, long),
                         )
                     })
                     .collect::<HashMap<_, _>>();
@@ -522,6 +550,18 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, ConnectionInfo) {
     let (mut graph, from_connections, to_connections) = create_graph_nodes(prog);
     let connection_info = create_edges(&prog, &mut graph, &from_connections, &to_connections);
 
+    assert_eq!(
+        graph
+            .all_edges()
+            .map(|(from_node, to_node, (from_connection, to_connection))| (
+                from_node,
+                to_node,
+                (from_connection.clone(), to_connection.clone())
+            ))
+            .collect::<HashSet<_>>(),
+        connection_info.keys().cloned().collect()
+    );
+
     (graph, connection_info)
 }
 
@@ -535,12 +575,9 @@ pub fn outputs(prog: &TilemapProgram) -> Vec<uuid::Uuid> {
 
 pub type AllConnections = Vec<(GraphNode, GraphNode, (FromConnection, ToConnection))>;
 
-pub fn get_all_connections(prog: &TilemapProgram) -> AllConnections {
-    let (graph, _) = program_to_graph(prog);
-    graph
-        .all_edges()
-        .map(|(f, t, c)| (f, t, c.clone()))
-        .collect()
+pub fn get_all_connections(prog: &TilemapProgram) -> ConnectionInfo {
+    let (_, connection_info) = program_to_graph(prog);
+    connection_info
 }
 
 pub fn get_graph_str(graph: &Graph) -> String {
