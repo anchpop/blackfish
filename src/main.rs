@@ -46,6 +46,47 @@ pub struct TileMaterials {
     pub transparent: Handle<ColorMaterial>,
 }
 
+impl FromWorld for TileMaterials {
+    fn from_world(world: &mut World) -> Self {
+        let mut materials = world.get_resource_mut::<Assets<ColorMaterial>>().unwrap();
+
+        TileMaterials {
+            empty: materials.add(EMPTY_COLOR.into()),
+            tiles: [
+                (
+                    TileProgram::Machine(MachineInfo::BuiltIn(
+                        BuiltInMachine::Produce(()),
+                        ProgramInfo {},
+                    ))
+                    .name(),
+                    materials.add(ID_MACHINE_COLOR.into()),
+                ),
+                (
+                    TileWorld::Phys(TilePhysics::Laser(DirMap::empty())).name(),
+                    materials.add(IO_COLOR.into()),
+                ),
+                (
+                    TileProgram::Machine(MachineInfo::BuiltIn(
+                        BuiltInMachine::Trace(()),
+                        ProgramInfo {},
+                    ))
+                    .name(),
+                    materials.add(TRACE_COLOR.into()),
+                ),
+                ("Constant", materials.add(CONSTANT_COLOR.into())),
+                ("Mirror", materials.add(MIRROR_COLOR.into())),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
+            io_nothing: materials.add(IO_EMPTY_COLOR.into()),
+            io_connected: materials.add(IO_CONNECTED_COLOR.into()),
+            io_used: materials.add(IO_COLOR.into()),
+            transparent: materials.add(TRANSPAENT_COLOR.into()),
+        }
+    }
+}
+
 struct ButtonMaterials {
     normal: Handle<ColorMaterial>,
     hovered: Handle<ColorMaterial>,
@@ -142,6 +183,7 @@ fn main() {
         .init_resource::<Placing>()
         .init_resource::<SelectedBlock>()
         .init_resource::<MenuState>()
+        .init_resource::<TileMaterials>()
         .add_startup_system(get_midi_ports.system())
         .add_startup_system(setup.system())
         .add_startup_system(create_map.system())
@@ -177,6 +219,7 @@ const IO_EMPTY_COLOR: Color = Color::rgb(55. / 255., 62. / 255., 67. / 255.);
 const IO_CONNECTED_COLOR: Color = Color::rgb(80. / 255., 83. / 255., 90. / 255.);
 const TRACE_COLOR: Color = Color::rgb(0.5, 0.3, 0.5);
 const CONSTANT_COLOR: Color = Color::rgb(254. / 255., 215. / 255., 102. / 255.);
+const MIRROR_COLOR: Color = Color::rgb(220. / 255., 220. / 255., 220. / 255.);
 const TRANSPAENT_COLOR: Color = Color::rgba(0., 0., 0., 0.);
 
 fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
@@ -194,40 +237,6 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
             ..OrthographicCameraBundle::new_2d()
         })
         .insert(MainCamera);
-
-    commands.insert_resource(TileMaterials {
-        empty: materials.add(EMPTY_COLOR.into()),
-        tiles: [
-            (
-                TileProgram::Machine(MachineInfo::BuiltIn(
-                    BuiltInMachine::Produce(()),
-                    ProgramInfo {},
-                ))
-                .name(),
-                materials.add(ID_MACHINE_COLOR.into()),
-            ),
-            (
-                TileWorld::Phys(TilePhysics::Laser(DirMap::empty())).name(),
-                materials.add(IO_COLOR.into()),
-            ),
-            (
-                TileProgram::Machine(MachineInfo::BuiltIn(
-                    BuiltInMachine::Trace(()),
-                    ProgramInfo {},
-                ))
-                .name(),
-                materials.add(TRACE_COLOR.into()),
-            ),
-            ("Constant", materials.add(CONSTANT_COLOR.into())),
-        ]
-        .iter()
-        .cloned()
-        .collect(),
-        io_nothing: materials.add(IO_EMPTY_COLOR.into()),
-        io_connected: materials.add(IO_CONNECTED_COLOR.into()),
-        io_used: materials.add(IO_COLOR.into()),
-        transparent: materials.add(TRANSPAENT_COLOR.into()),
-    });
 }
 
 fn get_midi_ports(mut commands: Commands) {
@@ -297,6 +306,7 @@ fn create_map(mut commands: Commands) {
             ProgramInfo,
         )),
         TileProgram::Literal(key),
+        TileProgram::Mirror,
     ]));
 }
 
@@ -434,7 +444,7 @@ struct HotbarParent;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct HotbarItem(usize);
 
-const HOTBAR_NUM_ITEMS: usize = 2;
+const HOTBAR_NUM_ITEMS: usize = 3;
 const HOTBAR_ITEM_WIDTH: f32 = 30.;
 const HOTBAR_ITEM_PADDING: f32 = 2.;
 const HOTBAR_VERTICAL_PADDING: f32 = 30.;
@@ -727,7 +737,7 @@ fn tile_appearance(
                 }
             } else {
                 if index < tilemap_world.outputs.len() {
-                    if tilemap_world.lasers.iter().any(|connection| {g
+                    if tilemap_world.lasers.iter().any(|connection| {
                         connection.contains(-tilemap_world.get_output_grid_line_dir(index))
                     }) {
                         materials.io_used.clone()
@@ -1184,7 +1194,6 @@ fn constant_button(
                 .get(*selected_tile_key)
                 .expect("referring to a tile that no longer exists!");
             match &tile {
-                TileProgramF::Machine(_) => {}
                 TileProgramF::Literal(_) => match *interaction {
                     Interaction::Clicked => {
                         if let Ok(new_tilemap_program) =
@@ -1211,6 +1220,7 @@ fn constant_button(
                         }
                     }
                 },
+                _ => {}
             }
         }
     }

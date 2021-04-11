@@ -213,6 +213,9 @@ pub fn weak_head_normal_form(
                             TileProgramF::Literal(l) => {
                                 (WhnfData::from(prog.constants[*l].clone()), vec![])
                             }
+                            TileProgramF::Mirror => {
+                                panic!("A value should never depend on a mirror!")
+                            }
                         }
                     } else {
                         panic!("We're trying to evaluate the output from a block, but we don't have a dependency! {:?}", dependency)

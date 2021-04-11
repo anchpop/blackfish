@@ -77,6 +77,7 @@ pub mod tiles {
     pub enum TileProgramF<I> {
         Machine(MachineInfo<I>),
         Literal(KeyNamedConstant),
+        Mirror,
     }
     pub type TileProgram = TileProgramF<ProgramInfo>;
     pub type TileProgramMachineInfo = TileProgramF<WorldMachineInfo>;
@@ -93,6 +94,7 @@ pub mod tiles {
                 Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Trace(_), _)) => "Trace",
                 Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Produce(_), _)) => "Producer",
                 Self::Literal(_) => "Constant",
+                Self::Mirror => "Mirror",
             }
         }
 
@@ -151,6 +153,16 @@ pub mod tiles {
                         Some(IOType::OutShort("w".to_owned())), // west
                     )],
                 ),
+                TileProgramF::Mirror => (
+                    vec![(
+                        None, // north
+                        None, // south
+                    )],
+                    vec![(
+                        None, // east
+                        None, // west
+                    )],
+                ),
             }
         }
 
@@ -175,6 +187,18 @@ pub mod tiles {
                     }
                 },
                 TileProgramF::Literal(_) => {
+                    let desc = self.block_desc();
+                    NonEmptyIndexMap::new(
+                        self.get_center(),
+                        DirMap {
+                            north: desc.0[0].0.clone(),
+                            east: desc.1[0].0.clone(),
+                            south: desc.0[0].1.clone(),
+                            west: desc.1[0].1.clone(),
+                        },
+                    )
+                }
+                TileProgramF::Mirror => {
                     let desc = self.block_desc();
                     NonEmptyIndexMap::new(
                         self.get_center(),
@@ -255,21 +279,6 @@ pub mod tiles {
                 Self::Prog(p) => p.name(),
             }
         }
-
-        #[allow(dead_code)]
-        pub fn size(&self) -> Extent2 {
-            match self {
-                Self::Phys(TilePhysics::Laser(_)) => Extent2::new(1, 1),
-                Self::Prog(TileProgramMachineInfo::Machine(MachineInfo::BuiltIn(b, _))) => {
-                    match b {
-                        BuiltInMachine::Iffy(_, _, _) => Extent2::new(1, 1),
-                        BuiltInMachine::Trace(_) => Extent2::new(1, 1),
-                        BuiltInMachine::Produce(_) => Extent2::new(1, 1),
-                    }
-                }
-                Self::Prog(TileProgramMachineInfo::Literal(_)) => Extent2::new(1, 1),
-            }
-        }
     }
     impl TileProgram {
         pub fn create_machine_info(self) -> TileProgramMachineInfo {
@@ -286,6 +295,7 @@ pub mod tiles {
                     })
                 }
                 TileProgram::Literal(lit) => TileProgramMachineInfo::Literal(lit),
+                TileProgram::Mirror => TileProgramMachineInfo::Mirror,
             }
         }
 
