@@ -432,8 +432,29 @@ pub mod tilemaps {
                 grid_line_dir,
                 hit.clone().to_normal().grid_line,
             ));
-            let path = ConnectionPath(vec![path_item]);
-            (hit, path)
+            match hit {
+                RaycastHit::HitTile(loc, _, (_, orientation, TileProgramF::Mirror)) => {
+                    let angle_of_attack = grid_line_dir.next().1;
+                    let mirror_orientation = orientation.to_num() % 2 == 0;
+                    let should_flip_right =
+                        (angle_of_attack.to_num() % 2 == 0) != mirror_orientation;
+                    let new_dir = GridLineDir::new(
+                        loc,
+                        grid_line_dir.next().1.rotate(&if should_flip_right {
+                            Dir::EAST
+                        } else {
+                            Dir::WEST
+                        }),
+                    );
+                    let (hit, mut path) = self.lasercast(new_dir);
+                    path.0.insert(0, path_item);
+                    (hit, path)
+                }
+                _ => {
+                    let path = ConnectionPath(vec![path_item]);
+                    (hit, path)
+                }
+            }
         }
 
         pub fn get_input_grid_line_dir(&self, index: InputIndex) -> GridLineDir {
