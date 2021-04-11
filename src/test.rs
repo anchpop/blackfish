@@ -390,6 +390,49 @@ mod tests {
             let gld = GridLineDir::new(Vec2i::new(0, 0), Dir::EAST);
             assert_eq!(gld, TileLineDir::new(gld, gld.grid_line).get_start());
         }
+
+        #[test]
+        fn connection_contains() {
+            let start = GridLineDir::new(Vec2i::new(0, 0), Dir::EAST);
+            let end = GridLineDir::new(Vec2i::new(5, 0), Dir::EAST);
+            let l = TileLineDir::new(start, end.grid_line);
+            let connection_path = ConnectionPath(vec![PathItem::Direct(l)]);
+
+            assert!(connection_path.contains(start));
+            assert!(connection_path.contains(end));
+        }
+
+        #[test]
+        fn tile_line_dir_containing_requires_same_direction() {
+            let line = TileLineDir {
+                tile_line: TileLine {
+                    grid_line: GridLine {
+                        location: Vec2i { x: 3, y: 0 },
+                        side: Basis::East,
+                    },
+                    distance: 6,
+                },
+                sign: Sign::Positive,
+            };
+
+            let dir_1 = GridLineDir {
+                grid_line: GridLine {
+                    location: Vec2i { x: 9, y: 0 },
+                    side: Basis::East,
+                },
+                direction: Sign::Negative,
+            };
+            let dir_2 = GridLineDir {
+                grid_line: GridLine {
+                    location: Vec2i { x: 9, y: 0 },
+                    side: Basis::East,
+                },
+                direction: Sign::Positive,
+            };
+
+            assert!(!line.contains_grid_line_dir(dir_1));
+            assert!(line.contains_grid_line_dir(dir_2));
+        }
     }
 
     #[cfg(test)]

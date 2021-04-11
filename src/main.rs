@@ -705,7 +705,7 @@ fn tile_appearance(
         if direction.basis == Basis::East {
             *color_mat_handle = if direction.sign == Sign::Negative {
                 if index < tilemap_world.inputs.len() {
-                    if tilemap_world.connection_info.values().any(|connection| {
+                    if tilemap_world.lasers.iter().any(|connection| {
                         connection.contains(tilemap_world.get_input_grid_line_dir(index))
                     }) {
                         materials.io_used.clone()
@@ -727,8 +727,8 @@ fn tile_appearance(
                 }
             } else {
                 if index < tilemap_world.outputs.len() {
-                    if tilemap_world.connection_info.values().any(|connection| {
-                        connection.contains(tilemap_world.get_output_grid_line_dir(index))
+                    if tilemap_world.lasers.iter().any(|connection| {g
+                        connection.contains(-tilemap_world.get_output_grid_line_dir(index))
                     }) {
                         materials.io_used.clone()
                     } else {

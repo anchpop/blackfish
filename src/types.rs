@@ -354,6 +354,7 @@ pub mod tilemaps {
         pub world: tilemap::Tilemap<KeyWorld, TileWorld>,
         pub inputs: Vec<(MachineInput, Option<Data>)>,
         pub outputs: Vec<(MachineOutput, Data)>,
+        pub lasers: HashSet<ConnectionPath>,
         pub connection_info: ConnectionInfo,
     }
 
@@ -565,6 +566,7 @@ pub mod tilemaps {
                 },
                 inputs,
                 outputs,
+                lasers: lasers.clone(),
                 connection_info,
             };
             world
