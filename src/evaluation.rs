@@ -4,6 +4,7 @@ use crate::{
 };
 use petgraph::EdgeDirection::Incoming;
 use std::collections::{HashMap, HashSet};
+use velcro::hash_set;
 
 use pretty_assertions::{assert_eq, assert_ne};
 
@@ -83,11 +84,11 @@ pub fn weak_head_normal_form(
     connection_info: &ConnectionInfo,
     data: Data,
     context: Vec<HashMap<uuid::Uuid, Data>>,
-) -> (WhnfData, Vec<ConnectionPath>) {
+) -> (WhnfData, HashSet<(GraphNode, GraphNode, GraphEdge)>) {
     match data {
-        Data::Whnf(WhnfData::Nothing) => (WhnfData::Nothing, vec![]),
-        Data::Whnf(n @ WhnfData::Number(_)) => (n, vec![]),
-        Data::Whnf(p @ WhnfData::Product(_)) => (p, vec![]),
+        Data::Whnf(WhnfData::Nothing) => (WhnfData::Nothing, hash_set![]),
+        Data::Whnf(n @ WhnfData::Number(_)) => (n, hash_set![]),
+        Data::Whnf(p @ WhnfData::Product(_)) => (p, hash_set![]),
         Data::ThunkPure(graph_node, dependency) => {
             /*let inputs = graph.neighbors_directed(graph_node, Incoming);
             let inputs = inputs
@@ -111,12 +112,19 @@ pub fn weak_head_normal_form(
                         (
                             from_node,
                             connection_from.clone(),
-                            connection_info[&(
-                                from_node,
-                                to_node,
-                                (connection_from.clone(), connection_to.clone()),
-                            )]
-                                .clone(),
+                            (
+                                (
+                                    from_node,
+                                    to_node,
+                                    (connection_from.clone(), connection_to.clone()),
+                                ),
+                                connection_info[&(
+                                    from_node,
+                                    to_node,
+                                    (connection_from.clone(), connection_to.clone()),
+                                )]
+                                    .clone(),
+                            ),
                         ),
                     )
                 })
@@ -139,7 +147,7 @@ pub fn weak_head_normal_form(
                     let mut inputs = inputs.into_iter();
                     if let Some((
                         ToConnection::GlobalOutput(output_location),
-                        (from_node, from_connection, connection_path),
+                        (from_node, from_connection, (connection, connection_path)),
                     )) = inputs.next()
                     {
                         if let None = inputs.next() {
@@ -155,7 +163,7 @@ pub fn weak_head_normal_form(
                                 context,
                             );
                             if !whnm.is_nothing() {
-                                lasers.push(connection_path);
+                                lasers.insert(connection);
                             }
                             (whnm, lasers)
                         } else {
@@ -168,11 +176,11 @@ pub fn weak_head_normal_form(
                     }
                 }
                 GraphNode::Block(_, _, tile) => {
-                    let inputs: HashMap<MachineInput, (GraphNode, FromConnection, ConnectionPath)> =
+                    let inputs: HashMap<MachineInput, _> =
                         inputs
                             .into_iter()
-                            .map(|(to_connection, (from_node, from_connection, connection_path))| match to_connection {
-                                ToConnection::FunctionInput(input_label) => (input_label.clone(), (from_node, from_connection, connection_path)),
+                            .map(|(to_connection, (from_node, from_connection, (connection, connection_path)))| match to_connection {
+                                ToConnection::FunctionInput(input_label) => (input_label.clone(), (from_node, from_connection, (connection, connection_path))),
                                 _ => panic!(
                                     "Trying to evaluate a block, but it had an input besides function inputs!\nGraph:\n{}", get_graph_str(graph)
                                 ),
@@ -182,7 +190,7 @@ pub fn weak_head_normal_form(
                             TileProgramF::Machine(m) => match m {
                                 MachineInfo::BuiltIn(built_in, _) => match built_in {
                                     BuiltInMachine::Produce(()) => {
-                                        let (from_node, from_connection, connection_path) = inputs.get(&"a".to_owned()).expect("Needed 'a' as an input to the built-in machine 'produce', but it wasn't there >:(").clone();
+                                        let (from_node, from_connection, (connection, _)) = inputs.get(&"a".to_owned()).expect("Needed 'a' as an input to the built-in machine 'produce', but it wasn't there >:(").clone();
                                         let data = Data::ThunkBuiltinOp(
                                             Box::new(BuiltInMachine::Produce(Data::from((
                                                 from_node,
@@ -198,7 +206,7 @@ pub fn weak_head_normal_form(
                                             context,
                                         );
                                         if !whnf.is_nothing() {
-                                            lasers.push(connection_path);
+                                            lasers.insert(connection);
                                         }
                                         (whnf, lasers)
                                     }
@@ -211,7 +219,7 @@ pub fn weak_head_normal_form(
                                 },
                             },
                             TileProgramF::Literal(l) => {
-                                (WhnfData::from(prog.constants[*l].clone()), vec![])
+                                (WhnfData::from(prog.constants[*l].clone()), hash_set![])
                             }
                             TileProgramF::Mirror => {
                                 panic!("A value should never depend on a mirror!")
@@ -223,7 +231,7 @@ pub fn weak_head_normal_form(
                 }
                 GraphNode::Nothing(_, _) => {
                     assert!(inputs.len() == 0, "Nothing node somehow has an input!");
-                    (WhnfData::Nothing, vec![])
+                    (WhnfData::Nothing, hash_set![])
                 }
             }
         }

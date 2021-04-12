@@ -83,9 +83,7 @@ pub mod tiles {
     pub type TileProgramMachineInfo = TileProgramF<WorldMachineInfo>;
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-    pub enum TilePhysics {
-        Laser(DirMap<Option<Data>>),
-    }
+    pub enum TilePhysics {}
 
     impl<I> TileProgramF<I> {
         pub fn name(&self) -> &'static str {
@@ -262,9 +260,7 @@ pub mod tiles {
     }
     impl TilePhysics {
         pub fn name(&self) -> &'static str {
-            match self {
-                Self::Laser(_) => "Laser",
-            }
+            match self.clone() {}
         }
     }
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -364,7 +360,7 @@ pub mod tilemaps {
         pub world: tilemap::Tilemap<KeyWorld, TileWorld>,
         pub inputs: Vec<(MachineInput, Option<Data>)>,
         pub outputs: Vec<(MachineOutput, Data)>,
-        pub lasers: HashSet<ConnectionPath>,
+        pub lasers: HashSet<(GraphNode, GraphNode, GraphEdge)>,
         pub connection_info: ConnectionInfo,
     }
 
@@ -566,7 +562,7 @@ pub mod tilemaps {
             self,
             inputs: Vec<(MachineInput, Option<Data>)>,
             outputs: Vec<(MachineOutput, Data)>,
-            lasers: HashSet<ConnectionPath>,
+            lasers: HashSet<(GraphNode, GraphNode, GraphEdge)>,
             connection_info: ConnectionInfo,
         ) -> TilemapWorld {
             let map = self.spec.map;
@@ -601,43 +597,6 @@ pub mod tilemaps {
                 connection_info,
             };
             world
-                .try_do_to_map(|mut map| {
-                    for laser_path in lasers {
-                        for laser_path_item in laser_path.0 {
-                            match laser_path_item {
-                                PathItem::Direct(laser) => {
-                                    for location in laser.into_iter() {
-                                        if let Some(location) = map.check_in_bounds_i(location) {
-                                            map = map.update(location, |tile| match tile {
-                                                None => Some((
-                                                    location,
-                                                    Dir::default(),
-                                                    TileWorld::Phys(TilePhysics::Laser(
-                                                        DirMap::empty(),
-                                                    )),
-                                                )),
-                                                Some((
-                                                    location,
-                                                    orientation,
-                                                    TileWorld::Phys(TilePhysics::Laser(a)),
-                                                )) => Some((
-                                                    location.clone(),
-                                                    orientation.clone(),
-                                                    TileWorld::Phys(TilePhysics::Laser(a.clone())),
-                                                )),
-                                                a => a.cloned(),
-                                            })?
-                                        } else {
-                                            panic!("Laser goes off past the map!");
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Ok(map)
-                })
-                .unwrap()
         }
 
         pub fn make_slotmap() -> SlotMap<KeyProgram, (Vec2, Dir, TileProgram)> {
