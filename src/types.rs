@@ -819,6 +819,15 @@ pub mod data {
                 }
             })
         }
+
+        pub fn distance(&self) -> usize {
+            self.0
+                .iter()
+                .map(|item| match item {
+                    PathItem::Direct(tile_line_dir) => tile_line_dir.tile_line.distance + 1,
+                })
+                .sum()
+        }
     }
 
     pub type GraphEdge = (FromConnection, ToConnection);

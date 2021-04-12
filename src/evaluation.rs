@@ -275,7 +275,13 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, ConnectionInfo) {
             .and_then(|(from_connection, from_node, long)| {
                 if long
                     || (!to_connection.is_nothing()
-                        && TileLine::new(from.grid_line, to.grid_line).distance == 0)
+                        && connection_info[&(
+                            from_node,
+                            to_node,
+                            (from_connection.clone(), to_connection.clone()),
+                        )]
+                            .distance()
+                            == 0)
                 {
                     Some((from_connection, from_node))
                 } else {
