@@ -626,12 +626,14 @@ fn get_connection_type(
     });
     let connections = connections.map(|(from_node, from_to, (from_connection, to_connection))| {
         if !from_connection.is_nothing() && !to_connection.is_nothing() {
-            ConnectionType::FullyConnected
+            Some(ConnectionType::FullyConnected)
+        } else if !from_connection.is_nothing() {
+            Some(ConnectionType::HalfConnected)
         } else {
-            ConnectionType::HalfConnected
+            None
         }
     });
-    connections.max()
+    connections.max().flatten()
 }
 
 fn get_tile_material(
