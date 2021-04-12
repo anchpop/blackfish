@@ -645,26 +645,33 @@ fn get_tile_material(
     location: Vec2,
     materials: &TileMaterials,
     connection_info: &ConnectionInfo,
+    laser_connection_info: &ConnectionInfo,
     program: &TilemapProgram,
 ) -> Handle<ColorMaterial> {
-    let dirs = [Dir::NORTH, Dir::EAST, Dir::SOUTH, Dir::WEST];
-
+    fn fun_name(
+        location: vek::Vec2<usize>,
+        connection_info: &HashMap<
+            (GraphNode, GraphNode, (FromConnection, ToConnection)),
+            ConnectionPath,
+        >,
+        program: &TilemapProgram,
+    ) -> Option<ConnectionType> {
+        let dirs = [Dir::NORTH, Dir::EAST, Dir::SOUTH, Dir::WEST];
+        dirs.iter()
+            .filter_map(|&dir| {
+                get_connection_type(GridLineDir::new(location, dir), connection_info, program)
+            })
+            .min()
+    }
     match tile {
         None => {
-            let mut connections = dirs
-                .iter()
-                .filter_map(|&dir| {
-                    get_connection_type(GridLineDir::new(location, dir), connection_info, program)
-                })
-                .peekable();
-            if let Some(_) = connections.peek() {
-                if connections.any(|typ| typ == ConnectionType::FullyConnected) {
-                    materials.io_connected.clone()
-                } else {
-                    materials.io_nothing.clone()
-                }
-            } else {
-                materials.empty.clone()
+            let connection = fun_name(location, connection_info, program);
+            let laser_connection = fun_name(location, laser_connection_info, program);
+            match (laser_connection, connection) {
+                (Some(ConnectionType::FullyConnected), _) => materials.io_used.clone(),
+                (_, Some(ConnectionType::FullyConnected)) => materials.io_connected.clone(),
+                (_, Some(ConnectionType::HalfConnected)) => materials.io_nothing.clone(),
+                (_, _) => materials.empty.clone(),
             }
         }
         Some(t) => materials.tiles[t.name()].clone(),
@@ -692,7 +699,7 @@ fn tile_appearance(
         tilemap_program.clone()
     };
     let connection_info: ConnectionInfo = evaluation::get_all_connections(&connection_map);
-    let laser_connections: ConnectionInfo = tilemap_world
+    let laser_connection_info: ConnectionInfo = tilemap_world
         .lasers
         .iter()
         .cloned()
@@ -714,6 +721,7 @@ fn tile_appearance(
             position,
             &materials,
             &connection_info,
+            &laser_connection_info,
             &tilemap_program,
         );
     }
@@ -722,7 +730,7 @@ fn tile_appearance(
         if direction.basis == Basis::East {
             *color_mat_handle = if direction.sign == Sign::Negative {
                 if index < tilemap_world.inputs.len() {
-                    if laser_connections.values().any(|connection| {
+                    if laser_connection_info.values().any(|connection| {
                         connection.contains(tilemap_world.get_input_grid_line_dir(index))
                     }) {
                         materials.io_used.clone()
@@ -744,7 +752,7 @@ fn tile_appearance(
                 }
             } else {
                 if index < tilemap_world.outputs.len() {
-                    if laser_connections.values().any(|connection| {
+                    if laser_connection_info.values().any(|connection| {
                         connection.contains(-tilemap_world.get_output_grid_line_dir(index))
                     }) {
                         materials.io_used.clone()
@@ -787,6 +795,7 @@ fn tile_appearance(
                         position,
                         &materials,
                         &connection_info,
+                        &laser_connection_info,
                         &tilemap_program,
                     );
                 }
