@@ -609,35 +609,29 @@ fn positioning(
 
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 enum ConnectionType {
-    FullyConnected,
     HalfConnected,
+    FullyConnected,
 }
 fn get_connection_type(
     grid_line_dir: GridLineDir,
     connection_info: &ConnectionInfo,
     program: &TilemapProgram,
 ) -> Option<ConnectionType> {
-    let mut connections = connection_info
-        .iter()
-        .filter_map(|(connection, info)| {
-            if info.contains(grid_line_dir) {
-                Some(connection)
-            } else {
-                None
-            }
-        })
-        .peekable();
-    if let Some(_) = connections.peek() {
-        if connections.any(|(from_node, from_to, (from_connection, to_connection))| {
-            !from_connection.is_nothing() && !to_connection.is_nothing()
-        }) {
-            Some(ConnectionType::FullyConnected)
+    let connections = connection_info.iter().filter_map(|(connection, info)| {
+        if info.contains(grid_line_dir) {
+            Some(connection)
         } else {
-            Some(ConnectionType::HalfConnected)
+            None
         }
-    } else {
-        None
-    }
+    });
+    let connections = connections.map(|(from_node, from_to, (from_connection, to_connection))| {
+        if !from_connection.is_nothing() && !to_connection.is_nothing() {
+            ConnectionType::FullyConnected
+        } else {
+            ConnectionType::HalfConnected
+        }
+    });
+    connections.max()
 }
 
 fn get_tile_material(
@@ -648,7 +642,7 @@ fn get_tile_material(
     laser_connection_info: &ConnectionInfo,
     program: &TilemapProgram,
 ) -> Handle<ColorMaterial> {
-    fn fun_name(
+    fn get_connection_at_location(
         location: vek::Vec2<usize>,
         connection_info: &HashMap<
             (GraphNode, GraphNode, (FromConnection, ToConnection)),
@@ -661,12 +655,13 @@ fn get_tile_material(
             .filter_map(|&dir| {
                 get_connection_type(GridLineDir::new(location, dir), connection_info, program)
             })
-            .min()
+            .max()
     }
     match tile {
         None => {
-            let connection = fun_name(location, connection_info, program);
-            let laser_connection = fun_name(location, laser_connection_info, program);
+            let connection = get_connection_at_location(location, connection_info, program);
+            let laser_connection =
+                get_connection_at_location(location, laser_connection_info, program);
             match (laser_connection, connection) {
                 (Some(ConnectionType::FullyConnected), _) => materials.io_used.clone(),
                 (_, Some(ConnectionType::FullyConnected)) => materials.io_connected.clone(),
