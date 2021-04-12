@@ -773,7 +773,7 @@ fn tile_appearance(
         }
     }
 
-    for (TileForPicking(_position), mut color_mat_handle) in q.q1_mut().iter_mut() {
+    for (TileForPicking(_), mut color_mat_handle) in q.q1_mut().iter_mut() {
         *color_mat_handle = materials.transparent.clone();
     }
 
@@ -811,7 +811,7 @@ fn tile_text(
     tilemap_program: Res<TilemapProgram>,
     tilemap_world: Res<TilemapWorld>,
 ) {
-    for (&location, children, tile_info) in q_map
+    for (&location, children, tile_info, on_main_map) in q_map
         .iter()
         .map(|(TileFromMap(location), children)| {
             (
@@ -821,6 +821,7 @@ fn tile_text(
                     .spec
                     .get(Vec2::new(location.x, location.y))
                     .cloned(),
+                true,
             )
         })
         .chain(
@@ -833,26 +834,36 @@ fn tile_text(
                         placing
                             .0
                             .map(|(location, _)| (location, placing.1, hotbar[placing.2].clone())),
+                        false,
                     )
                 }),
         )
     {
         for child in children.iter() {
             if let Ok(mut text) = text_q.get_mut(*child) {
-                if let Some((tile_center, tile_orientation, tile_type)) = tile_info {
-                    text.sections[0].value = if location == tile_center {
-                        match tile_type {
-                            TileProgram::Machine(MachineInfo::BuiltIn(_, _)) => {
-                                tile_orientation.to_arrow().to_string()
+                let picker_on_free_tile = if let Placing(Some((_, None)), _, _) = *placing {
+                    true
+                } else {
+                    false
+                };
+                if picker_on_free_tile || on_main_map {
+                    if let Some((tile_center, tile_orientation, tile_type)) = tile_info {
+                        text.sections[0].value = if location == tile_center {
+                            match tile_type {
+                                TileProgram::Machine(MachineInfo::BuiltIn(_, _)) => {
+                                    tile_orientation.to_arrow().to_string()
+                                }
+                                TileProgram::Literal(litref) => {
+                                    tilemap_program.constants.get(litref).unwrap().show()
+                                }
+                                _ => "".to_string(),
                             }
-                            TileProgram::Literal(litref) => {
-                                tilemap_program.constants.get(litref).unwrap().show()
-                            }
-                            _ => "".to_string(),
-                        }
+                        } else {
+                            "".to_string()
+                        };
                     } else {
-                        "".to_string()
-                    };
+                        text.sections[0].value = "".to_string();
+                    }
                 } else {
                     text.sections[0].value = "".to_string();
                 }
@@ -1094,7 +1105,11 @@ fn place_block(
                     .apply_to_map(|map| map.remove(location));
                 *tilemap_program = new_program;
             }
-            *selected_block = None;
+            if let Some(block) = selected_block {
+                if tilemap_program.spec.tiles.get(*block).is_none() {
+                    *selected_block = None;
+                }
+            }
         }
     }
 }
