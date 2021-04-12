@@ -1,11 +1,8 @@
-#![feature(inherent_associated_types)]
 use vek::vec;
 
 pub type Vec2 = vec::Vec2<usize>;
 pub type Vec2i = vec::Vec2<i64>;
 pub type Extent2 = vec::Extent2<usize>;
-
-pub type Rect = (Vec2, Extent2);
 
 pub mod direction {
     use frunk::{monoid::Monoid, semigroup::Semigroup};
@@ -255,7 +252,7 @@ pub mod direction {
         }
         pub fn next(self) -> (Vec2i, Dir) {
             let (pos, dir) = self.previous();
-            return (dir.shift(pos), dir);
+            (dir.shift(pos), dir)
         }
         pub fn advance(self, dist: i64) -> GridLineDir {
             let (mut pos, dir) = self.previous();
@@ -286,7 +283,7 @@ pub mod direction {
 
         pub fn new_from_gridline(grid_line: GridLine, direction: Dir) -> Self {
             Self {
-                grid_line: grid_line,
+                grid_line,
                 direction: direction.sign,
             }
         }
@@ -448,9 +445,7 @@ pub mod direction {
     }
 
     impl Rotatable for () {
-        fn rotate(self, _by: &Dir) -> Self {
-            ()
-        }
+        fn rotate(self, _by: &Dir) -> Self {}
     }
     impl<T1: Rotatable> Rotatable for (T1,) {
         fn rotate(self, by: &Dir) -> Self {
@@ -471,19 +466,6 @@ pub mod direction {
     }
 
     impl TileLine {
-        pub fn contains(&self, location: Vec2i) -> bool {
-            (0..self.distance).any(|i| {
-                location
-                    == (GridLineDir {
-                        grid_line: self.grid_line,
-                        direction: Sign::Positive,
-                    })
-                    .advance(i as i64)
-                    .next()
-                    .0
-            })
-        }
-
         pub fn contains_grid_line(&self, grid_line: GridLine) -> bool {
             (0..self.distance + 1).any(|i| {
                 grid_line
@@ -494,19 +476,6 @@ pub mod direction {
                     .advance(i as i64)
                     .grid_line
             })
-        }
-    }
-
-    impl TileLine {
-        pub fn new(from: GridLine, to: GridLine) -> Self {
-            TileLineDir::new(
-                GridLineDir {
-                    grid_line: from,
-                    direction: Sign::Positive,
-                },
-                to,
-            )
-            .tile_line
         }
     }
 
@@ -573,47 +542,6 @@ pub mod direction {
             }
         }
 
-        pub fn get_start(&self) -> GridLineDir {
-            self.get_parts().0
-        }
-        pub fn get_end(&self) -> GridLineDir {
-            self.get_parts().1
-        }
-        pub fn get_parts(&self) -> (GridLineDir, GridLineDir) {
-            let dir = Dir {
-                basis: self.tile_line.grid_line.side,
-                sign: self.sign,
-            };
-            let unordered_parts = (
-                GridLineDir {
-                    grid_line: self.tile_line.grid_line,
-                    direction: Sign::Positive,
-                },
-                GridLineDir {
-                    grid_line: GridLine::new(
-                        self.tile_line.grid_line.location
-                            + dir.to_vector() * (self.tile_line.distance as i64),
-                        dir,
-                    ),
-                    direction: Sign::Negative,
-                },
-            );
-            if self.sign == Sign::Positive {
-                unordered_parts
-            } else {
-                (unordered_parts.1, unordered_parts.0)
-            }
-        }
-
-        pub fn into_iter(self) -> std::vec::IntoIter<vek::Vec2<i64>> {
-            let mut v = vec![];
-            let starting_dir = self.get_start();
-            for i in 0..self.tile_line.distance {
-                v.push(starting_dir.advance(i as i64).next().0)
-            }
-            v.into_iter()
-        }
-
         pub fn contains_grid_line_dir(&self, grid_line_dir: GridLineDir) -> bool {
             self.sign == grid_line_dir.direction
                 && self.tile_line.contains_grid_line(grid_line_dir.grid_line)
@@ -645,7 +573,7 @@ pub mod tilemap {
         HitTile(Vec2, Dir, (Vec2, Dir, I)),
     }
     impl<'a, I> RaycastHit<I> {
-        pub fn to_normal(self) -> GridLineDir {
+        pub fn normal(self) -> GridLineDir {
             match self {
                 RaycastHit::HitBorder(normal) => normal,
                 RaycastHit::HitTile(location, normal_direction, _) => {
@@ -665,7 +593,7 @@ pub mod tilemap {
         pub map: Array2<Option<K>>,
     }
     impl<K: Key, I: Shaped> Tilemap<K, I> {
-        type TileInfo = (Vec2, Dir, I); // cannot actually use these yet
+        // type TileInfo = (Vec2, Dir, I); // cannot actually use these yet
     }
 
     impl<K: Key, I: PartialEq + Shaped + Clone> Tilemap<K, I> {
@@ -681,14 +609,7 @@ pub mod tilemap {
                 None
             }
         }
-        pub fn get_unchecked(&self, location: Vec2) -> &(Vec2, Dir, I) {
-            self.get(location).unwrap_or_else(|| {
-                panic!(
-                    "Attempted to access a tile at ({}, {}), but that tile is empty",
-                    location.x, location.y
-                )
-            })
-        }
+
         pub fn get_loc(&self, location: Vec2) -> Option<K> {
             let key = self.map.get([location.y, location.x]).cloned().flatten();
             /*.unwrap_or_else(|| {
@@ -723,9 +644,8 @@ pub mod tilemap {
                     .map(|location| (location, extra))
             });
             let positions: Option<Vec<(Vec2, I::ExtraInfo)>> = positions.collect();
-            let positions = positions
-                .map(|positions| NonEmptyIndexMap::from_iterator(positions.into_iter()).unwrap());
             positions
+                .map(|positions| NonEmptyIndexMap::from_iterator(positions.into_iter()).unwrap())
         }
 
         pub fn check_empty(&self, location: Vec2) -> bool {
@@ -778,13 +698,13 @@ pub mod tilemap {
                                 .map(|(location, _)| location)
                                 .collect::<HashSet<Vec2>>()
                         })
-                        .unwrap_or(HashSet::new());
+                        .unwrap_or_else(HashSet::new);
 
                     let changed_tiles = new_tile_positions.difference(&old_tile_positions);
                     if changed_tiles
                         .clone()
                         .into_iter()
-                        .all(|location| self.check_empty(location.clone()))
+                        .all(|location| self.check_empty(*location))
                     {
                         self.remove(location)
                             .add(new_tile.0, new_tile.1, new_tile.2)
@@ -843,11 +763,7 @@ pub mod tilemap {
 
         pub fn check_in_bounds(&self, location: Vec2) -> bool {
             let extents = self.extents();
-            if location.x < extents.w && location.y < extents.h {
-                true
-            } else {
-                false
-            }
+            location.x < extents.w && location.y < extents.h
         }
         pub fn check_in_bounds_i(&self, location: Vec2i) -> Option<Vec2> {
             let extents = self.extents();
@@ -864,19 +780,10 @@ pub mod tilemap {
         }
 
         pub fn check_grid_line_in_bounds(&self, grid_line: GridLine) -> bool {
-            if self.check_in_bounds_i(grid_line.location).is_some() {
-                true
-            } else if (grid_line.location.x == -1) != (grid_line.location.y == -1) {
-                if (grid_line.location.x == -1) && (grid_line.side == Basis::East) {
-                    true
-                } else if (grid_line.location.y == -1) && (grid_line.side == Basis::North) {
-                    true
-                } else {
-                    false
-                }
-            } else {
-                false
-            }
+            self.check_in_bounds_i(grid_line.location).is_some()
+                || ((grid_line.location.x == -1) != (grid_line.location.y == -1)
+                    && ((grid_line.location.x == -1) && (grid_line.side == Basis::East))
+                    || (grid_line.location.y == -1) && (grid_line.side == Basis::North))
         }
     }
 

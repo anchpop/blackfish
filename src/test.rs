@@ -8,23 +8,6 @@ pub fn default_program() -> TilemapProgram {
     in_out_id_with_indirection_prog()
 }
 
-pub fn const_prog() -> TilemapProgram {
-    let mut prog = in_out_id_prog();
-    let data = prog.constants.insert(NfData::Number(10));
-    prog.try_do_to_map(|map| {
-        let map = map.add(
-            Vec2::new(3, 0),
-            Dir::EAST,
-            TileProgram::Machine(MachineInfo::BuiltIn(
-                BuiltInMachine::Produce(()),
-                ProgramInfo {},
-            )),
-        )?;
-        map.add(Vec2::new(2, 0), Dir::NORTH, TileProgram::Literal(data))
-    })
-    .unwrap()
-}
-
 pub fn in_out_id_with_indirection_prog() -> TilemapProgram {
     in_out_id_prog()
         .try_do_to_map(|map| {
@@ -38,26 +21,6 @@ pub fn in_out_id_with_indirection_prog() -> TilemapProgram {
             )
         })
         .unwrap()
-}
-pub fn in_out_id_blocked_prog() -> TilemapProgram {
-    let clock_uuid = uuid::Uuid::new_v4();
-    let audio_uuid = uuid::Uuid::new_v4();
-
-    let mut prog = empty_program();
-    prog.inputs = vec![(clock_uuid, "Clock".to_string(), DataType::Number)];
-    prog.outputs = vec![(audio_uuid, "Audio".to_string(), DataType::Number)];
-
-    prog.try_do_to_map(|map| {
-        map.add(
-            Vec2::new(3, 0),
-            Dir::default(),
-            TileProgram::Machine(MachineInfo::BuiltIn(
-                BuiltInMachine::Produce(()),
-                ProgramInfo {},
-            )),
-        )
-    })
-    .unwrap()
 }
 
 pub fn in_out_id_prog() -> TilemapProgram {
@@ -313,25 +276,6 @@ mod tests {
         use pretty_assertions::assert_eq;
 
         #[test]
-        fn tile_line_east() {
-            let start = GridLine::new(Vec2i::new(0, 0), Dir::EAST);
-            let end = GridLine::new(Vec2i::new(5, 0), Dir::EAST);
-            let l = TileLine::new(start, end);
-            assert_eq!(l.distance, 5);
-            assert_eq!(l.grid_line, start);
-            assert_eq!(l, TileLine::new(end, start));
-        }
-        #[test]
-        fn tile_line_west() {
-            let start = GridLine::new(Vec2i::new(0, 0), Dir::EAST);
-            let end = GridLine::new(Vec2i::new(5, 0), Dir::WEST);
-            let l = TileLine::new(start, end);
-            assert_eq!(l.distance, 4);
-            assert_eq!(l.grid_line, start);
-            assert_eq!(l, TileLine::new(end, start));
-        }
-
-        #[test]
         fn tile_line_dir_east() {
             let start = GridLineDir::new(Vec2i::new(0, 0), Dir::EAST);
             let end = GridLineDir::new(Vec2i::new(5, 0), Dir::EAST);
@@ -344,51 +288,6 @@ mod tests {
             let end = GridLineDir::new(Vec2i::new(5, 0), Dir::EAST);
             let l = TileLineDir::new(end, start.grid_line);
             assert_eq!(l.sign, Sign::Negative);
-        }
-        #[test]
-        fn tile_line_dir_iter() {
-            let start = GridLineDir::new(Vec2i::new(0, 0), Dir::EAST);
-            let end = GridLineDir::new(Vec2i::new(5, 0), Dir::EAST);
-            let l = TileLineDir::new(start, end.grid_line);
-            assert_eq!(
-                l.get_start(),
-                GridLineDir {
-                    grid_line: start.grid_line,
-                    direction: Sign::Positive
-                }
-            );
-            assert_eq!(
-                l.into_iter().collect::<Vec<_>>(),
-                vec![
-                    Vec2i::new(1, 0),
-                    Vec2i::new(2, 0),
-                    Vec2i::new(3, 0),
-                    Vec2i::new(4, 0),
-                    Vec2i::new(5, 0),
-                ]
-            );
-        }
-
-        #[test]
-        fn tile_line_contains() {
-            let start = GridLine::new(Vec2i::new(0, 0), Dir::EAST);
-            let end = GridLine::new(Vec2i::new(5, 0), Dir::EAST);
-            let l = TileLine::new(start, end);
-
-            assert!(l.contains(Vec2i::new(4, 0)));
-            assert!(l.contains(Vec2i::new(5, 0)));
-            assert!(!l.contains(Vec2i::new(0, 0)));
-        }
-
-        #[test]
-        fn tile_line_0_dist() {
-            let gld = GridLine::new(Vec2i::new(0, 0), Dir::EAST);
-            assert_eq!(0, TileLine::new(gld, gld).distance);
-        }
-        #[test]
-        fn tile_line_0_dist_start() {
-            let gld = GridLineDir::new(Vec2i::new(0, 0), Dir::EAST);
-            assert_eq!(gld, TileLineDir::new(gld, gld.grid_line).get_start());
         }
 
         #[test]
@@ -628,10 +527,7 @@ mod tests {
                 .spec
                 .raycast(GridLineDir::new(Vec2::new(2, 0), Dir::WEST));
 
-            assert_eq!(
-                raycast_hit_input.to_normal(),
-                prog.get_input_grid_line_dir(0)
-            );
+            assert_eq!(raycast_hit_input.normal(), prog.get_input_grid_line_dir(0));
         }
         #[test]
         fn raycast_hit_equals_output() {
@@ -686,8 +582,6 @@ mod tests {
         use crate::evaluation;
         use velcro::hash_map;
 
-        use std::collections::HashSet;
-
         #[test]
         fn test_id_program() {
             let data = WhnfData::Number(0);
@@ -732,6 +626,22 @@ mod tests {
 
         #[test]
         fn test_get_value_from_literal() {
+            pub fn const_prog() -> TilemapProgram {
+                let mut prog = in_out_id_prog();
+                let data = prog.constants.insert(NfData::Number(10));
+                prog.try_do_to_map(|map| {
+                    let map = map.add(
+                        Vec2::new(3, 0),
+                        Dir::EAST,
+                        TileProgram::Machine(MachineInfo::BuiltIn(
+                            BuiltInMachine::Produce(()),
+                            ProgramInfo {},
+                        )),
+                    )?;
+                    map.add(Vec2::new(2, 0), Dir::NORTH, TileProgram::Literal(data))
+                })
+                .unwrap()
+            }
             let data = WhnfData::Number(0);
             let prog = const_prog();
 

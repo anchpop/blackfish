@@ -1,4 +1,3 @@
-#![feature(inherent_associated_types)]
 mod evaluation;
 mod geom;
 mod test;
@@ -12,7 +11,6 @@ use bevy::{
     prelude::*,
     render::camera::{Camera, OrthographicProjection, ScalingMode},
 };
-use frunk::monoid::Monoid;
 use geom::{Extent2, Vec2, Vec2i};
 use midir::{MidiOutput, MidiOutputPort};
 use std::{
@@ -158,8 +156,8 @@ impl Default for ClockIncrementTimer {
     fn default() -> Self {
         Self(Timer::new(
             Duration::from_millis(
-                (1000.0 as f64 * (MusicTime::new::<bang>(1.0)).get::<beat>()
-                    / (BEATS_PER_SECOND as f64)) as u64,
+                (1000.0 * (MusicTime::new::<bang>(1.0)).get::<beat>() / (BEATS_PER_SECOND as f64))
+                    as u64,
             ),
             true,
         ))
@@ -210,7 +208,7 @@ fn main() {
 const CLEAR_COLOR: Color = Color::rgb(0.118, 0.122, 0.149);
 const EMPTY_COLOR: Color = Color::rgb(49. / 255., 53. / 255., 52. / 255.);
 const ID_MACHINE_COLOR: Color = Color::rgb(42. / 255., 183. / 255., 202. / 255.);
-const IO_COLOR: Color = Color::rgb(255. / 255., 111. / 255., 89. / 255.);
+const IO_COLOR: Color = Color::rgb(254. / 255., 111. / 255., 89. / 255.);
 const IO_EMPTY_COLOR: Color = Color::rgb(55. / 255., 62. / 255., 67. / 255.);
 const IO_CONNECTED_COLOR: Color = Color::rgb(80. / 255., 83. / 255., 90. / 255.);
 const TRACE_COLOR: Color = Color::rgb(0.5, 0.3, 0.5);
@@ -218,7 +216,7 @@ const CONSTANT_COLOR: Color = Color::rgb(254. / 255., 215. / 255., 102. / 255.);
 const MIRROR_COLOR: Color = Color::rgb(220. / 255., 220. / 255., 220. / 255.);
 const TRANSPAENT_COLOR: Color = Color::rgba(0., 0., 0., 0.);
 
-fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+fn setup(mut commands: Commands) {
     commands.insert_resource(CurrentClock(0));
 
     commands.insert_resource(ClearColor(CLEAR_COLOR));
@@ -389,11 +387,7 @@ struct ConstantAssignmentUiBox;
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct ConstantListUiElement(KeyNamedConstant);
 
-fn add_literal_editing_ui(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    asset_server: Res<AssetServer>,
-) {
+fn add_literal_editing_ui(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     // root node
     commands
         .spawn_bundle(NodeBundle {
@@ -443,7 +437,6 @@ struct HotbarItem(usize);
 const HOTBAR_NUM_ITEMS: usize = 3;
 const HOTBAR_ITEM_WIDTH: f32 = 30.;
 const HOTBAR_ITEM_PADDING: f32 = 2.;
-const HOTBAR_VERTICAL_PADDING: f32 = 30.;
 
 const HOTBAR_ITEM_TOTAL_WIDTH: f32 = HOTBAR_ITEM_WIDTH + HOTBAR_ITEM_PADDING;
 const HOTBAR_TOTAL_WIDTH: f32 = HOTBAR_ITEM_TOTAL_WIDTH * HOTBAR_NUM_ITEMS as f32;
@@ -543,14 +536,12 @@ fn map_to_world_coord_i(map_location: Vec2i) -> bevy::prelude::Vec2 {
         * MAP_TO_WORLD_SCALE_FACTOR
 }
 
-fn positioning(
-    mut q: QuerySet<(
-        Query<(&TileFromMap, &mut Transform)>,
-        Query<(&TileForPicking, &mut Transform)>,
-        Query<(&TileFromBorder, &mut Transform)>,
-    )>,
-    tilemap: Res<TilemapWorld>,
-) {
+type AllTileTypesQuery<'a, 'b, C> = QuerySet<(
+    Query<'a, (&'b TileFromMap, C)>,
+    Query<'a, (&'b TileForPicking, C)>,
+    Query<'a, (&'b TileFromBorder, C)>,
+)>;
+fn positioning(mut q: AllTileTypesQuery<&mut Transform>, tilemap: Res<TilemapWorld>) {
     let world_extent = tilemap.world_dim();
     for (&TileFromMap(pos), mut transform) in q.q0_mut().iter_mut() {
         // Position
@@ -615,7 +606,6 @@ enum ConnectionType {
 fn get_connection_type(
     grid_line_dir: GridLineDir,
     connection_info: &ConnectionInfo,
-    program: &TilemapProgram,
 ) -> Option<ConnectionType> {
     let connections = connection_info.iter().filter_map(|(connection, info)| {
         if info.contains(grid_line_dir) {
@@ -624,7 +614,7 @@ fn get_connection_type(
             None
         }
     });
-    let connections = connections.map(|(from_node, from_to, (from_connection, to_connection))| {
+    let connections = connections.map(|(_, _, (from_connection, to_connection))| {
         if !from_connection.is_nothing() && !to_connection.is_nothing() {
             Some(ConnectionType::FullyConnected)
         } else if !from_connection.is_nothing() {
@@ -642,7 +632,6 @@ fn get_tile_material(
     materials: &TileMaterials,
     connection_info: &ConnectionInfo,
     laser_connection_info: &ConnectionInfo,
-    program: &TilemapProgram,
 ) -> Handle<ColorMaterial> {
     fn get_connection_at_location(
         location: vek::Vec2<usize>,
@@ -650,20 +639,18 @@ fn get_tile_material(
             (GraphNode, GraphNode, (FromConnection, ToConnection)),
             ConnectionPath,
         >,
-        program: &TilemapProgram,
     ) -> Option<ConnectionType> {
         let dirs = [Dir::NORTH, Dir::EAST, Dir::SOUTH, Dir::WEST];
         dirs.iter()
             .filter_map(|&dir| {
-                get_connection_type(GridLineDir::new(location, dir), connection_info, program)
+                get_connection_type(GridLineDir::new(location, dir), connection_info)
             })
             .max()
     }
     match tile {
         None => {
-            let connection = get_connection_at_location(location, connection_info, program);
-            let laser_connection =
-                get_connection_at_location(location, laser_connection_info, program);
+            let connection = get_connection_at_location(location, connection_info);
+            let laser_connection = get_connection_at_location(location, laser_connection_info);
             match (laser_connection, connection) {
                 (Some(ConnectionType::FullyConnected), _) => materials.io_used.clone(),
                 (_, Some(ConnectionType::FullyConnected)) => materials.io_connected.clone(),
@@ -676,11 +663,7 @@ fn get_tile_material(
 }
 
 fn tile_appearance(
-    mut q: QuerySet<(
-        Query<(&TileFromMap, &mut Handle<ColorMaterial>)>,
-        Query<(&TileForPicking, &mut Handle<ColorMaterial>)>,
-        Query<(&TileFromBorder, &mut Handle<ColorMaterial>)>,
-    )>,
+    mut q: AllTileTypesQuery<&mut Handle<ColorMaterial>>,
     placing: Res<Placing>,
     hotbar: Res<Hotbar>,
     tilemap_program: Res<TilemapProgram>,
@@ -691,7 +674,7 @@ fn tile_appearance(
         tilemap_program
             .clone()
             .try_do_to_map(|map| map.add(location, orientation, hotbar[tile]))
-            .unwrap_or(tilemap_program.clone())
+            .unwrap_or_else(|_| tilemap_program.clone())
     } else {
         tilemap_program.clone()
     };
@@ -719,7 +702,6 @@ fn tile_appearance(
             &materials,
             &connection_info,
             &laser_connection_info,
-            &tilemap_program,
         );
     }
 
@@ -735,7 +717,6 @@ fn tile_appearance(
                         match get_connection_type(
                             tilemap_world.get_input_grid_line_dir(index),
                             &connection_info,
-                            &tilemap_program,
                         ) {
                             Some(typ) => match typ {
                                 ConnectionType::FullyConnected => materials.io_connected.clone(),
@@ -746,29 +727,26 @@ fn tile_appearance(
                     }
                 } else {
                     materials.transparent.clone()
+                }
+            } else if index < tilemap_world.outputs.len() {
+                if laser_connection_info.values().any(|connection| {
+                    connection.contains(-tilemap_world.get_output_grid_line_dir(index))
+                }) {
+                    materials.io_used.clone()
+                } else {
+                    match get_connection_type(
+                        -tilemap_world.get_output_grid_line_dir(index),
+                        &connection_info,
+                    ) {
+                        Some(typ) => match typ {
+                            ConnectionType::FullyConnected => materials.io_connected.clone(),
+                            ConnectionType::HalfConnected => materials.io_nothing.clone(),
+                        },
+                        None => materials.empty.clone(),
+                    }
                 }
             } else {
-                if index < tilemap_world.outputs.len() {
-                    if laser_connection_info.values().any(|connection| {
-                        connection.contains(-tilemap_world.get_output_grid_line_dir(index))
-                    }) {
-                        materials.io_used.clone()
-                    } else {
-                        match get_connection_type(
-                            -tilemap_world.get_output_grid_line_dir(index),
-                            &connection_info,
-                            &tilemap_program,
-                        ) {
-                            Some(typ) => match typ {
-                                ConnectionType::FullyConnected => materials.io_connected.clone(),
-                                ConnectionType::HalfConnected => materials.io_nothing.clone(),
-                            },
-                            None => materials.empty.clone(),
-                        }
-                    }
-                } else {
-                    materials.transparent.clone()
-                }
+                materials.transparent.clone()
             }
         }
     }
@@ -786,14 +764,13 @@ fn tile_appearance(
         if let Some(positions) = positions {
             let positions: HashMap<_, _> = positions.into_iter().collect();
             for (&TileForPicking(position), mut color_mat_handle) in q.q1_mut().iter_mut() {
-                if let Some(_) = positions.get(&position) {
+                if positions.get(&position).is_some() {
                     *color_mat_handle = get_tile_material(
                         &Some(&hotbar[tile].into_world()),
                         position,
                         &materials,
                         &connection_info,
                         &laser_connection_info,
-                        &tilemap_program,
                     );
                 }
             }
@@ -801,6 +778,7 @@ fn tile_appearance(
     }
 }
 
+#[allow(clippy::clippy::too_many_arguments)]
 fn tile_text(
     q_map: Query<(&TileFromMap, &Children)>,
     q_picking: Query<(&TileForPicking, &Children)>,
@@ -833,7 +811,7 @@ fn tile_text(
                         children,
                         placing
                             .0
-                            .map(|(location, _)| (location, placing.1, hotbar[placing.2].clone())),
+                            .map(|(location, _)| (location, placing.1, hotbar[placing.2])),
                         false,
                     )
                 }),
@@ -841,11 +819,7 @@ fn tile_text(
     {
         for child in children.iter() {
             if let Ok(mut text) = text_q.get_mut(*child) {
-                let picker_on_free_tile = if let Placing(Some((_, None)), _, _) = *placing {
-                    true
-                } else {
-                    false
-                };
+                let picker_on_free_tile = matches!(*placing, Placing(Some((_, None)), _, _));
                 if picker_on_free_tile || on_main_map {
                     if let Some((tile_center, tile_orientation, tile_type)) = tile_info {
                         text.sections[0].value = if location == tile_center {
@@ -883,12 +857,12 @@ fn tile_text(
                         } else {
                             "".to_owned()
                         }
+                    } else if let Some((_, Data::Whnf(whnf_data))) =
+                        tilemap_world.outputs.get(index)
+                    {
+                        format!("{} {}", Dir::EAST.to_arrow(), whnf_data.show())
                     } else {
-                        if let Some((_, Data::Whnf(whnf_data))) = tilemap_world.outputs.get(index) {
-                            format!("{} {}", Dir::EAST.to_arrow(), whnf_data.show())
-                        } else {
-                            "".to_owned()
-                        }
+                        "".to_owned()
                     }
                 } else {
                     "".to_owned()
@@ -965,14 +939,16 @@ fn start_note(
     velocity: u8,
 ) {
     // We're ignoring errors in here
-    let duration = (1000.0 as f64 * duration.get::<beat>() / (BEATS_PER_SECOND as f64)) as u64;
+    let duration = (1000. * duration.get::<beat>() / (BEATS_PER_SECOND as f64)) as u64;
     println!("Playing note for {}ms", duration);
-    /*let _ = conn_out.send(&[NOTE_ON_MSG, pitch, velocity]);
-    notes_to_end_queue.0.push((
-        Timer::new(Duration::from_millis(duration), false),
-        pitch,
-        velocity,
-    ))*/
+    if false {
+        let _ = conn_out.send(&[NOTE_ON_MSG, pitch, velocity]);
+        notes_to_end_queue.0.push((
+            Timer::new(Duration::from_millis(duration), false),
+            pitch,
+            velocity,
+        ))
+    }
 }
 
 fn end_note(conn_out: &mut MutexGuard<midir::MidiOutputConnection>, pitch: u8, velocity: u8) {
@@ -1121,6 +1097,7 @@ fn keyboard_input_system(keyboard_input: Res<Input<KeyCode>>, mut placing: ResMu
     }
 }
 
+#[allow(clippy::clippy::too_many_arguments)]
 fn recreate_constant_list(
     mut commands: Commands,
     entities: Query<Entity>,
@@ -1153,14 +1130,14 @@ fn recreate_constant_list(
                         ..Default::default()
                     },
                     material: if let SelectedBlock(Some(selected_tile_key)) = *selected_block {
-                        let &(location, orientation, tile) = tilemap_program
+                        let &(_, _, tile) = tilemap_program
                             .spec
                             .tiles
                             .get(selected_tile_key)
                             .expect("referring to a tile that no longer exists!");
 
-                        match &tile {
-                            &TileProgramF::Literal(current_constant)
+                        match tile {
+                            TileProgramF::Literal(current_constant)
                                 if current_constant == key_named_constant =>
                             {
                                 button_materials.pressed.clone()
@@ -1197,23 +1174,15 @@ fn recreate_constant_list(
     });
 }
 
+type InteractionQuery<'a, 'b> =
+    Query<'a, (&'b Interaction, &'b ConstantListUiElement), (Changed<Interaction>, With<Button>)>;
 fn constant_button(
-    mut interaction_query: Query<
-        (
-            &Interaction,
-            &ConstantListUiElement,
-            &mut Handle<ColorMaterial>,
-            &Children,
-        ),
-        (Changed<Interaction>, With<Button>),
-    >,
+    mut interaction_query: InteractionQuery,
     mut tilemap_program: ResMut<TilemapProgram>,
     mut selected_block: ResMut<SelectedBlock>,
     mut menu_state: ResMut<MenuState>,
 ) {
-    for (interaction, &ConstantListUiElement(key_named_constant), mut material, children) in
-        interaction_query.iter_mut()
-    {
+    for (interaction, &ConstantListUiElement(key_named_constant)) in interaction_query.iter_mut() {
         let selected_block = &mut selected_block.0;
         if let Some(selected_tile_key) = selected_block {
             let &(location, _, tile) = tilemap_program
@@ -1221,8 +1190,8 @@ fn constant_button(
                 .tiles
                 .get(*selected_tile_key)
                 .expect("referring to a tile that no longer exists!");
-            match &tile {
-                TileProgramF::Literal(_) => match *interaction {
+            if let TileProgramF::Literal(_) = tile {
+                match *interaction {
                     Interaction::Clicked => {
                         if let Ok(new_tilemap_program) =
                             tilemap_program.clone().try_do_to_map(|map| {
@@ -1247,8 +1216,7 @@ fn constant_button(
                             menu_state.constant_hovered = None
                         }
                     }
-                },
-                _ => {}
+                }
             }
         }
     }

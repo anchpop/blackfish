@@ -1,4 +1,4 @@
-use std::{fmt::Debug, iter};
+use std::fmt::Debug;
 
 use crate::geom::{direction::*, tilemap::RaycastHit, *};
 
@@ -25,7 +25,7 @@ pub mod tiles {
 
     impl Semigroup for ProgramInfo {
         fn combine(&self, other: &Self) -> Self {
-            other.clone()
+            *other
         }
     }
     impl Monoid for ProgramInfo {
@@ -91,6 +91,7 @@ pub mod tiles {
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum TilePhysics {}
 
+    type RectangleSide = (Option<IOType>, Option<IOType>);
     impl<I> TileProgramF<I> {
         pub fn name(&self) -> &'static str {
             match self {
@@ -106,12 +107,7 @@ pub mod tiles {
         /// determines the width and its elements determine the top and bottom inputs/outputs. The length of the second vector
         /// determines the height and its elements determine the left and right inputs/outputs.
         // Positive signs (top/north and right/east come first)
-        pub fn block_desc(
-            &self,
-        ) -> (
-            Vec<(Option<IOType>, Option<IOType>)>,
-            Vec<(Option<IOType>, Option<IOType>)>,
-        ) {
+        pub fn block_desc(&self) -> (Vec<RectangleSide>, Vec<RectangleSide>) {
             match self {
                 TileProgramF::Machine(machine_info) => match machine_info {
                     MachineInfo::BuiltIn(builtin, _) => match builtin {
@@ -174,7 +170,7 @@ pub mod tiles {
             Vec2i::new(0, 0)
         }
 
-        pub fn into_tiles(&self) -> NonEmptyIndexMap<Vec2i, DirMap<Option<IOType>>> {
+        pub fn tiles(&self) -> NonEmptyIndexMap<Vec2i, DirMap<Option<IOType>>> {
             match self {
                 TileProgramF::Machine(a) => match a {
                     MachineInfo::BuiltIn(_, _) => {
@@ -220,14 +216,11 @@ pub mod tiles {
         pub fn get_inputs(
             m: NonEmptyIndexMap<Vec2, DirMap<Option<IOType>>>,
         ) -> HashMap<MachineInput, GridLineDir> {
-            let i = m
-                .into_iter()
+            m.into_iter()
                 .flat_map(|(position, dir_map)| {
                     dir_map
                         .into_iter()
-                        .map(|(direction, iotype)| {
-                            (GridLineDir::new(position.clone(), direction), iotype)
-                        })
+                        .map(|(direction, iotype)| (GridLineDir::new(position, direction), iotype))
                         .collect::<Vec<_>>()
                         .into_iter()
                 })
@@ -238,20 +231,16 @@ pub mod tiles {
                         None
                     }
                 })
-                .collect();
-            i
+                .collect()
         }
         pub fn get_outputs(
             m: NonEmptyIndexMap<Vec2, DirMap<Option<IOType>>>,
         ) -> HashMap<(MachineInput, bool), GridLineDir> {
-            let i = m
-                .into_iter()
+            m.into_iter()
                 .flat_map(|(position, dir_map)| {
                     dir_map
                         .into_iter()
-                        .map(|(direction, iotype)| {
-                            (GridLineDir::new(position.clone(), direction), iotype)
-                        })
+                        .map(|(direction, iotype)| (GridLineDir::new(position, direction), iotype))
                         .collect::<Vec<_>>()
                         .into_iter()
                 })
@@ -260,8 +249,7 @@ pub mod tiles {
                     Some(IOType::OutShort(iotype)) => Some(((iotype, false), grid_line_dir)),
                     _ => None,
                 })
-                .collect();
-            i
+                .collect()
         }
     }
     impl TilePhysics {
@@ -309,7 +297,7 @@ pub mod tiles {
     impl<T> tilemap::Shaped for TileProgramF<T> {
         type ExtraInfo = DirMap<Option<IOType>>;
         fn shape(&self) -> NonEmptyIndexMap<Vec2i, Self::ExtraInfo> {
-            self.into_tiles()
+            self.tiles()
         }
     }
 
@@ -338,15 +326,6 @@ pub mod tilemaps {
     use super::{data::*, tiles::*, *};
 
     use std::collections::HashSet;
-
-    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-    pub enum Edit {
-        AddTile(Vec2, TileWorld),
-        SetTile(Vec2, TileWorld),
-        RemoveTile(Vec2),
-        AddLaser(Vec2, DirData),
-        Edits(Vec<Edit>),
-    }
 
     new_key_type! { pub struct KeyProgram; }
     new_key_type! { pub struct KeyWorld; }
@@ -382,40 +361,6 @@ pub mod tilemaps {
             let dim = self.world.map.dim();
             Extent2::new(dim.1, dim.0)
         }
-        pub fn try_do_to_map<
-            F: FnOnce(
-                tilemap::Tilemap<KeyWorld, TileWorld>,
-            ) -> Result<
-                tilemap::Tilemap<KeyWorld, TileWorld>,
-                tilemap::Tilemap<KeyWorld, TileWorld>,
-            >,
-        >(
-            self,
-            f: F,
-        ) -> Result<Self, Self> {
-            match f(self.world) {
-                Ok(world) => Ok(Self { world, ..self }),
-                Err(world) => Err(Self { world, ..self }),
-            }
-        }
-        pub fn apply_to_map<
-            F: FnOnce(tilemap::Tilemap<KeyWorld, TileWorld>) -> tilemap::Tilemap<KeyWorld, TileWorld>,
-        >(
-            self,
-            f: F,
-        ) -> Self {
-            Self {
-                world: f(self.world),
-                ..self
-            }
-        }
-
-        pub fn get_from_map<A, F: FnOnce(&tilemap::Tilemap<KeyWorld, TileWorld>) -> A>(
-            self,
-            f: F,
-        ) -> A {
-            f(&self.world)
-        }
 
         pub fn make_slotmap() -> SlotMap<KeyWorld, (Vec2, Dir, TileWorld)> {
             SlotMap::with_key()
@@ -432,7 +377,7 @@ pub mod tilemaps {
             let hit = self.spec.raycast(grid_line_dir);
             let path_item = PathItem::Direct(TileLineDir::new(
                 grid_line_dir,
-                hit.clone().to_normal().grid_line,
+                hit.clone().normal().grid_line,
             ));
             match hit {
                 RaycastHit::HitTile(
@@ -469,41 +414,6 @@ pub mod tilemaps {
         pub fn get_output_grid_line_dir(&self, index: OutputIndex) -> GridLineDir {
             GridLineDir::new(Vec2::new(self.spec.extents().w, index), Dir::WEST)
         }
-        pub fn check_input_grid_line_dir(&self, grid_line_dir: GridLineDir) -> Option<InputIndex> {
-            let GridLineDir {
-                grid_line,
-                direction,
-            } = grid_line_dir;
-            if grid_line.location.x == -1
-                && 0 <= grid_line.location.y
-                && (grid_line.location.y as usize) < self.inputs.len()
-                && direction == Sign::Positive
-                && grid_line.side == Basis::East
-            {
-                Some(grid_line.location.y as usize)
-            } else {
-                None
-            }
-        }
-        pub fn check_output_grid_line_dir(
-            &self,
-            grid_line_dir: GridLineDir,
-        ) -> Option<OutputIndex> {
-            let GridLineDir {
-                grid_line,
-                direction,
-            } = grid_line_dir;
-            if (grid_line.location.x as usize) == self.spec.extents().w - 1
-                && 0 <= grid_line.location.y
-                && (grid_line.location.y as usize) < self.outputs.len()
-                && direction == Sign::Negative
-                && grid_line.side == Basis::East
-            {
-                Some(grid_line.location.y as usize)
-            } else {
-                None
-            }
-        }
 
         pub fn new_empty(dim: Extent2) -> Self {
             let map: Array2<Option<KeyProgram>> =
@@ -512,17 +422,8 @@ pub mod tilemaps {
             Self {
                 spec: tilemap::Tilemap {
                     tiles: Self::make_slotmap(),
-                    map: map,
+                    map,
                 },
-                inputs: vec![],
-                outputs: vec![],
-                constants: SlotMap::with_key(),
-            }
-        }
-
-        pub fn new(tilemap: tilemap::Tilemap<KeyProgram, TileProgram>) -> Self {
-            Self {
-                spec: tilemap,
                 inputs: vec![],
                 outputs: vec![],
                 constants: SlotMap::with_key(),
@@ -596,44 +497,20 @@ pub mod tilemaps {
                 }
                 _ => None,
             });
-            let world = TilemapWorld {
+            TilemapWorld {
                 world: tilemap::Tilemap {
                     tiles: world_tiles,
                     map: world_map,
                 },
                 inputs,
                 outputs,
-                lasers: lasers.clone(),
+                lasers,
                 connection_info,
-            };
-            world
+            }
         }
 
         pub fn make_slotmap() -> SlotMap<KeyProgram, (Vec2, Dir, TileProgram)> {
             SlotMap::with_key()
-        }
-    }
-
-    impl Semigroup for Edit {
-        fn combine(&self, other: &Self) -> Self {
-            match (self, other) {
-                (Edit::Edits(e1s), Edit::Edits(e2s)) => {
-                    Edit::Edits(e1s.iter().chain(e2s).cloned().collect())
-                }
-                (Edit::Edits(e1s), e2) => {
-                    Edit::Edits(e1s.iter().chain(iter::once(e2)).cloned().collect())
-                }
-                (e1, Edit::Edits(e2s)) => {
-                    Edit::Edits(iter::once(e1).chain(e2s.iter()).cloned().collect())
-                }
-                (e1, e2) => Edit::Edits(vec![e1.clone(), e2.clone()]),
-            }
-        }
-    }
-
-    impl Monoid for Edit {
-        fn empty() -> Self {
-            Edit::Edits(vec![])
         }
     }
 }
@@ -642,7 +519,7 @@ pub mod data {
     use std::{collections::HashMap, ops::Neg};
 
     use super::{
-        tilemaps::{InputIndex, OutputIndex, TilemapProgram},
+        tilemaps::{InputIndex, OutputIndex},
         tiles::BuiltInMachine,
     };
     use crate::geom::{direction::*, Vec2};
@@ -676,10 +553,7 @@ pub mod data {
     }
     impl WhnfData {
         pub fn is_nothing(&self) -> bool {
-            match self {
-                Self::Nothing => true,
-                _ => false,
-            }
+            matches!(self, Self::Nothing)
         }
     }
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -735,8 +609,6 @@ pub mod data {
         }
     }
 
-    pub type DirData = crate::geom::direction::DirMap<Option<Data>>;
-
     #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum GraphNode {
         Input(uuid::Uuid),
@@ -748,10 +620,6 @@ pub mod data {
     impl GraphNode {
         pub fn new(tile_info: (Vec2, Dir, super::tiles::TileProgram)) -> Self {
             Self::Block((tile_info.0.x, tile_info.0.y), tile_info.1, tile_info.2)
-        }
-        pub fn nothing(grid_line_dir: GridLineDir) -> Self {
-            let (location, direction) = grid_line_dir.previous();
-            Self::Nothing((location.x, location.y), direction)
         }
     }
 
