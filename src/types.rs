@@ -73,11 +73,17 @@ pub mod tiles {
         BuiltIn(BuiltInMachine<()>, I),
     }
     new_key_type! { pub struct KeyNamedConstant; }
+
+    #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    pub enum Optic {
+        Mirror,
+    }
+
     #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum TileProgramF<I> {
         Machine(MachineInfo<I>),
         Literal(KeyNamedConstant),
-        Mirror,
+        Optic(Optic),
     }
     pub type TileProgram = TileProgramF<ProgramInfo>;
     pub type TileProgramMachineInfo = TileProgramF<WorldMachineInfo>;
@@ -92,7 +98,7 @@ pub mod tiles {
                 Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Trace(_), _)) => "Trace",
                 Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Produce(_), _)) => "Producer",
                 Self::Literal(_) => "Constant",
-                Self::Mirror => "Mirror",
+                Self::Optic(Optic::Mirror) => "Mirror",
             }
         }
 
@@ -151,7 +157,7 @@ pub mod tiles {
                         Some(IOType::OutShort("w".to_owned())), // west
                     )],
                 ),
-                TileProgramF::Mirror => (
+                TileProgramF::Optic(Optic::Mirror) => (
                     vec![(
                         None, // north
                         None, // south
@@ -196,7 +202,7 @@ pub mod tiles {
                         },
                     )
                 }
-                TileProgramF::Mirror => {
+                TileProgramF::Optic(Optic::Mirror) => {
                     let desc = self.block_desc();
                     NonEmptyIndexMap::new(
                         self.get_center(),
@@ -291,7 +297,7 @@ pub mod tiles {
                     })
                 }
                 TileProgram::Literal(lit) => TileProgramMachineInfo::Literal(lit),
-                TileProgram::Mirror => TileProgramMachineInfo::Mirror,
+                TileProgram::Optic(Optic::Mirror) => TileProgramMachineInfo::Optic(Optic::Mirror),
             }
         }
 
@@ -429,7 +435,11 @@ pub mod tilemaps {
                 hit.clone().to_normal().grid_line,
             ));
             match hit {
-                RaycastHit::HitTile(loc, _, (_, orientation, TileProgramF::Mirror)) => {
+                RaycastHit::HitTile(
+                    loc,
+                    _,
+                    (_, orientation, TileProgramF::Optic(Optic::Mirror)),
+                ) => {
                     let angle_of_attack = grid_line_dir.next().1;
                     let mirror_orientation = orientation.to_num() % 2 == 0;
                     let should_flip_right =
@@ -821,12 +831,14 @@ pub mod data {
         }
 
         pub fn distance(&self) -> usize {
-            self.0
+            let direct_dist: usize = self
+                .0
                 .iter()
                 .map(|item| match item {
-                    PathItem::Direct(tile_line_dir) => tile_line_dir.tile_line.distance + 1,
+                    PathItem::Direct(tile_line_dir) => tile_line_dir.tile_line.distance,
                 })
-                .sum()
+                .sum();
+            direct_dist + (self.0.len() - 1)
         }
     }
 

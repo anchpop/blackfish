@@ -302,7 +302,7 @@ fn create_map(mut commands: Commands) {
             ProgramInfo,
         )),
         TileProgram::Literal(key),
-        TileProgram::Mirror,
+        TileProgram::Optic(Optic::Mirror),
     ]));
 }
 

@@ -221,7 +221,7 @@ pub fn weak_head_normal_form(
                             TileProgramF::Literal(l) => {
                                 (WhnfData::from(prog.constants[*l].clone()), hash_set![])
                             }
-                            TileProgramF::Mirror => {
+                            TileProgramF::Optic(Optic::Mirror) => {
                                 panic!("A value should never depend on a mirror!")
                             }
                         }
@@ -273,16 +273,13 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, ConnectionInfo) {
             .get(&from)
             .cloned()
             .and_then(|(from_connection, from_node, long)| {
-                if long
-                    || (!to_connection.is_nothing()
-                        && connection_info[&(
-                            from_node,
-                            to_node,
-                            (from_connection.clone(), to_connection.clone()),
-                        )]
-                            .distance()
-                            == 0)
-                {
+                let connection = &(
+                    from_node,
+                    to_node,
+                    (from_connection.clone(), to_connection.clone()),
+                );
+                //dbg!(connection);
+                if long || (!to_connection.is_nothing() && path.distance() == 0) {
                     Some((from_connection, from_node))
                 } else {
                     None
