@@ -56,6 +56,7 @@ pub mod tiles {
         Iffy(D, D, D),
         Trace(D),
         Produce(D),
+        Copy(D),
     }
 
     impl<D> BuiltInMachine<D> {
@@ -64,6 +65,7 @@ pub mod tiles {
                 Self::Produce(_) => "id",
                 Self::Iffy(_, _, _) => "if",
                 Self::Trace(_) => "trace",
+                Self::Copy(_) => "Copy",
             }
         }
     }
@@ -98,6 +100,7 @@ pub mod tiles {
                 Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Iffy(_, _, _), _)) => "Iffy",
                 Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Trace(_), _)) => "Trace",
                 Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Produce(_), _)) => "Producer",
+                Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Copy(_), _)) => "Producer",
                 Self::Literal(_) => "Constant",
                 Self::Optic(Optic::Mirror) => "Mirror",
             }
@@ -139,6 +142,16 @@ pub mod tiles {
                             vec![(
                                 None, // east
                                 None, // west
+                            )],
+                        ),
+                        BuiltInMachine::Copy(_) => (
+                            vec![(
+                                Some(IOType::OutLong("a1".to_owned())), // north
+                                Some(IOType::In("a".to_owned())),       // south
+                            )],
+                            vec![(
+                                Some(IOType::OutLong("a2".to_owned())), // north
+                                None,                                   // west
                             )],
                         ),
                     },

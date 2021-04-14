@@ -208,6 +208,27 @@ pub fn weak_head_normal_form(
                                         }
                                         (whnf, lasers)
                                     }
+                                    BuiltInMachine::Copy(()) => {
+                                        let (from_node, from_connection, (connection, _)) = inputs.get(&"a".to_owned()).expect("Needed 'a' as an input to the built-in machine 'copy', but it wasn't there >:(").clone();
+                                        let data = Data::ThunkBuiltinOp(
+                                            Box::new(BuiltInMachine::Copy(Data::from((
+                                                from_node,
+                                                from_connection,
+                                            )))),
+                                            desired_output,
+                                        );
+                                        let (whnf, mut lasers) = weak_head_normal_form(
+                                            graph,
+                                            prog,
+                                            connection_info,
+                                            data,
+                                            context,
+                                        );
+                                        if !whnf.is_nothing() {
+                                            lasers.insert(connection);
+                                        }
+                                        (whnf, lasers)
+                                    }
                                     BuiltInMachine::Iffy((), (), ()) => {
                                         todo!()
                                     }
@@ -245,6 +266,7 @@ pub fn weak_head_normal_form(
                     todo!()
                 }
                 BuiltInMachine::Produce(a) => a,
+                BuiltInMachine::Copy(a) => a,
             },
             context,
         ),
