@@ -61,6 +61,14 @@ impl FromWorld for TileMaterials {
                 ),
                 (
                     TileProgram::Machine(MachineInfo::BuiltIn(
+                        BuiltInMachine::Copy(()),
+                        ProgramInfo {},
+                    ))
+                    .name(),
+                    materials.add(COPY_MACHINE_COLOR.into()),
+                ),
+                (
+                    TileProgram::Machine(MachineInfo::BuiltIn(
                         BuiltInMachine::Trace(()),
                         ProgramInfo {},
                     ))
@@ -208,6 +216,7 @@ fn main() {
 const CLEAR_COLOR: Color = Color::rgb(0.118, 0.122, 0.149);
 const EMPTY_COLOR: Color = Color::rgb(49. / 255., 53. / 255., 52. / 255.);
 const ID_MACHINE_COLOR: Color = Color::rgb(42. / 255., 183. / 255., 202. / 255.);
+const COPY_MACHINE_COLOR: Color = Color::rgb(22. / 255., 210. / 255., 202. / 255.);
 const IO_COLOR: Color = Color::rgb(254. / 255., 111. / 255., 89. / 255.);
 const IO_EMPTY_COLOR: Color = Color::rgb(55. / 255., 62. / 255., 67. / 255.);
 const IO_CONNECTED_COLOR: Color = Color::rgb(80. / 255., 83. / 255., 90. / 255.);
@@ -299,6 +308,7 @@ fn create_map(mut commands: Commands) {
             BuiltInMachine::Produce(()),
             ProgramInfo,
         )),
+        TileProgram::Machine(MachineInfo::BuiltIn(BuiltInMachine::Copy(()), ProgramInfo)),
         TileProgram::Literal(key),
         TileProgram::Optic(Optic::Mirror),
     ]));
@@ -434,7 +444,7 @@ struct HotbarParent;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct HotbarItem(usize);
 
-const HOTBAR_NUM_ITEMS: usize = 3;
+const HOTBAR_NUM_ITEMS: usize = 4;
 const HOTBAR_ITEM_WIDTH: f32 = 30.;
 const HOTBAR_ITEM_PADDING: f32 = 2.;
 

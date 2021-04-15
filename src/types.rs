@@ -100,7 +100,7 @@ pub mod tiles {
                 Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Iffy(_, _, _), _)) => "Iffy",
                 Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Trace(_), _)) => "Trace",
                 Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Produce(_), _)) => "Producer",
-                Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Copy(_), _)) => "Producer",
+                Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Copy(_), _)) => "Copy",
                 Self::Literal(_) => "Constant",
                 Self::Optic(Optic::Mirror) => "Mirror",
             }
@@ -150,8 +150,8 @@ pub mod tiles {
                                 Some(IOType::In("a".to_owned())),       // south
                             )],
                             vec![(
-                                Some(IOType::OutLong("a2".to_owned())), // north
-                                None,                                   // west
+                                None,                                   // east
+                                Some(IOType::OutLong("a2".to_owned())), // west
                             )],
                         ),
                     },
