@@ -86,6 +86,7 @@ pub fn weak_head_normal_form(
     context: Vec<HashMap<uuid::Uuid, Data>>,
 ) -> (WhnfData, HashSet<(GraphNode, GraphNode, GraphEdge)>) {
     match data {
+        Data::Whnf(WhnfData::TypeErr) => (WhnfData::TypeErr, hash_set![]),
         Data::Whnf(WhnfData::Nothing) => (WhnfData::Nothing, hash_set![]),
         Data::Whnf(n @ WhnfData::Number(_)) => (n, hash_set![]),
         Data::Whnf(p @ WhnfData::Product(_)) => (p, hash_set![]),
@@ -236,7 +237,33 @@ pub fn weak_head_normal_form(
                                         todo!()
                                     }
                                     BuiltInMachine::Modulo((), ()) => {
-                                        todo!()
+                                        let (hours_passed_from_node, hours_passed_from_connection, (hours_passed_connection, _)) = inputs.get(&"hours_passed".to_owned()).expect("Needed 'hours_passed' as an input to the built-in machine 'modulo', but it wasn't there >:(").clone();
+                                        let (notches_from_node, notches_from_connection, (notches_connection, _)) = inputs.get(&"notches".to_owned()).expect("Needed 'notches' as an input to the built-in machine 'modulo', but it wasn't there >:(").clone();
+                                        let data = Data::ThunkBuiltinOp(
+                                            Box::new(BuiltInMachine::Modulo(
+                                                Data::from((
+                                                    hours_passed_from_node,
+                                                    hours_passed_from_connection,
+                                                )),
+                                                Data::from((
+                                                    notches_from_node,
+                                                    notches_from_connection,
+                                                )),
+                                            )),
+                                            desired_output,
+                                        );
+                                        let (whnf, mut lasers) = weak_head_normal_form(
+                                            graph,
+                                            prog,
+                                            connection_info,
+                                            data,
+                                            context,
+                                        );
+                                        if !whnf.is_nothing() {
+                                            lasers.insert(hours_passed_connection);
+                                            lasers.insert(notches_connection);
+                                        }
+                                        (whnf, lasers)
                                     }
                                 },
                             },
@@ -271,7 +298,28 @@ pub fn weak_head_normal_form(
                 weak_head_normal_form(graph, prog, connection_info, a, context)
             }
             BuiltInMachine::Modulo(hours_passed, notches) => {
-                weak_head_normal_form(graph, prog, connection_info, todo!(), context)
+                let (hours_passed, mut hours_passed_connections) = weak_head_normal_form(
+                    graph,
+                    prog,
+                    connection_info,
+                    hours_passed,
+                    context.clone(),
+                );
+                let (notches, notches_connections) =
+                    weak_head_normal_form(graph, prog, connection_info, notches, context);
+                hours_passed_connections.extend(notches_connections);
+                (
+                    match (hours_passed, notches) {
+                        (WhnfData::Number(hours_passed), WhnfData::Number(notches)) => {
+                            WhnfData::Number(hours_passed % notches)
+                        }
+                        (WhnfData::Nothing, WhnfData::Number(_))
+                        | (WhnfData::Number(_), WhnfData::Nothing)
+                        | (WhnfData::Nothing, WhnfData::Nothing) => WhnfData::Nothing,
+                        (_, _) => WhnfData::TypeErr,
+                    },
+                    hours_passed_connections,
+                )
             }
         },
     }

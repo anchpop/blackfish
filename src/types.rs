@@ -570,6 +570,8 @@ pub mod data {
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum WhnfData {
         Nothing,
+
+        TypeErr,
         Number(i32),
         Product(Vec<(RowLabel, Data)>),
     }
@@ -604,6 +606,7 @@ pub mod data {
                 WhnfData::Product(_) => {
                     todo!()
                 }
+                WhnfData::TypeErr => "Type Error".to_owned(),
             }
         }
     }
