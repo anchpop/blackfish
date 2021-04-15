@@ -235,6 +235,9 @@ pub fn weak_head_normal_form(
                                     BuiltInMachine::Trace(()) => {
                                         todo!()
                                     }
+                                    BuiltInMachine::Modulo((), ()) => {
+                                        todo!()
+                                    }
                                 },
                             },
                             TileProgramF::Literal(l) => {
@@ -254,22 +257,23 @@ pub fn weak_head_normal_form(
                 }
             }
         }
-        Data::ThunkBuiltinOp(op, _output) => weak_head_normal_form(
-            graph,
-            prog,
-            connection_info,
-            match *op {
-                BuiltInMachine::Iffy(_, _, _) => {
-                    todo!()
-                }
-                BuiltInMachine::Trace(_) => {
-                    todo!()
-                }
-                BuiltInMachine::Produce(a) => a,
-                BuiltInMachine::Copy(a) => a,
-            },
-            context,
-        ),
+        Data::ThunkBuiltinOp(op, _output) => match *op {
+            BuiltInMachine::Iffy(_, _, _) => {
+                weak_head_normal_form(graph, prog, connection_info, todo!(), context)
+            }
+            BuiltInMachine::Trace(_) => {
+                weak_head_normal_form(graph, prog, connection_info, todo!(), context)
+            }
+            BuiltInMachine::Produce(a) => {
+                weak_head_normal_form(graph, prog, connection_info, a, context)
+            }
+            BuiltInMachine::Copy(a) => {
+                weak_head_normal_form(graph, prog, connection_info, a, context)
+            }
+            BuiltInMachine::Modulo(hours_passed, notches) => {
+                weak_head_normal_form(graph, prog, connection_info, todo!(), context)
+            }
+        },
     }
 }
 

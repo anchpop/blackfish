@@ -57,15 +57,17 @@ pub mod tiles {
         Trace(D),
         Produce(D),
         Copy(D),
+        Modulo(D, D),
     }
 
     impl<D> BuiltInMachine<D> {
-        pub fn name(&self) -> &str {
+        pub fn name(&self) -> &'static str {
             match self {
                 Self::Produce(_) => "id",
                 Self::Iffy(_, _, _) => "if",
                 Self::Trace(_) => "trace",
                 Self::Copy(_) => "Copy",
+                Self::Modulo(_, _) => "Modulo",
             }
         }
     }
@@ -97,10 +99,7 @@ pub mod tiles {
     impl<I> TileProgramF<I> {
         pub fn name(&self) -> &'static str {
             match self {
-                Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Iffy(_, _, _), _)) => "Iffy",
-                Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Trace(_), _)) => "Trace",
-                Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Produce(_), _)) => "Producer",
-                Self::Machine(MachineInfo::BuiltIn(BuiltInMachine::Copy(_), _)) => "Copy",
+                Self::Machine(MachineInfo::BuiltIn(builtin, _)) => builtin.name(),
                 Self::Literal(_) => "Constant",
                 Self::Optic(Optic::Mirror) => "Mirror",
             }
@@ -152,6 +151,16 @@ pub mod tiles {
                             vec![(
                                 None,                                   // east
                                 Some(IOType::OutLong("a2".to_owned())), // west
+                            )],
+                        ),
+                        BuiltInMachine::Modulo(_, _) => (
+                            vec![(
+                                Some(IOType::OutLong("time".to_owned())),    // north
+                                Some(IOType::In("hours_passed".to_owned())), // south
+                            )],
+                            vec![(
+                                None,                                   // east
+                                Some(IOType::In("notches".to_owned())), // west
                             )],
                         ),
                     },
