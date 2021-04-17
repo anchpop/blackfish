@@ -359,6 +359,14 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, ConnectionInfo) {
 
         if !to_connection.is_nothing() || !from_connection.is_nothing() {
             let connection = (from_connection, to_connection);
+            assert!(
+                !graph.contains_edge(from_node, to_node),
+                "Adding an edge to the graph that it already contains!"
+            );
+            assert!(
+                !connection_info.contains_key(&(from_node, to_node, connection.clone())),
+                "Adding an edge to the graph that already appears in connection_info!"
+            );
             graph.add_edge(from_node, to_node, connection.clone());
             connection_info.insert((from_node, to_node, connection), path);
         }
@@ -639,7 +647,8 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, ConnectionInfo) {
                 (from_connection.clone(), to_connection.clone())
             ))
             .collect::<HashSet<_>>(),
-        connection_info.keys().cloned().collect()
+        connection_info.keys().cloned().collect(),
+        "< graph edges == connection_info >"
     );
 
     (graph, connection_info)
