@@ -465,7 +465,8 @@ const HOTBAR_ITEM_PADDING: f32 = 2.;
 
 const HOTBAR_ITEM_TOTAL_WIDTH: f32 = HOTBAR_ITEM_WIDTH + HOTBAR_ITEM_PADDING;
 const HOTBAR_TOTAL_WIDTH: f32 = HOTBAR_ITEM_TOTAL_WIDTH * HOTBAR_NUM_ITEMS as f32;
-const HOTBAR_TOTAL_HEIGHT: f32 = HOTBAR_ITEM_TOTAL_WIDTH * HOTBAR_NUM_ITEMS as f32;
+const HOTBAR_VERTICAL_PADDING: f32 = 30.;
+const HOTBAR_TOTAL_HEIGHT: f32 = HOTBAR_ITEM_WIDTH as f32 + HOTBAR_VERTICAL_PADDING;
 
 fn create_hotbar_ui(
     mut commands: Commands,
@@ -1007,7 +1008,9 @@ fn render_hotbar(
     materials: Res<TileMaterials>,
 ) {
     for (mut material, &HotbarItem(i)) in q.iter_mut() {
-        *material = materials.tiles[hotbar[(i + placing.2) % HOTBAR_NUM_ITEMS].name()].clone()
+        *material = materials.tiles
+            [hotbar[(i + placing.2 + (HOTBAR_NUM_ITEMS / 2 + 1)) % HOTBAR_NUM_ITEMS].name()]
+        .clone()
     }
 }
 
@@ -1065,6 +1068,7 @@ fn picker_follow_mouse(
     }
 }
 
+#[invariant(match selected_block.0 {Some(selected_block) => tilemap_program.spec.tiles.contains_key(selected_block), _ => true}, "selected_block always valid")]
 fn place_block(
     mouse_button_input: Res<Input<MouseButton>>,
     placing: Res<Placing>,
@@ -1123,6 +1127,7 @@ fn keyboard_input_system(keyboard_input: Res<Input<KeyCode>>, mut placing: ResMu
 }
 
 #[allow(clippy::clippy::too_many_arguments)]
+#[invariant(match selected_block.0 {Some(selected_block) => tilemap_program.spec.tiles.contains_key(selected_block), _ => true}, "selected_block always valid")]
 fn recreate_constant_list(
     mut commands: Commands,
     entities: Query<Entity>,
