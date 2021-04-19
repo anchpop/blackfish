@@ -367,7 +367,7 @@ pub mod tilemaps {
         pub world: tilemap::Tilemap<KeyWorld, TileWorld>,
         pub inputs: Vec<(MachineInput, Option<Data>)>,
         pub outputs: Vec<(MachineOutput, Data)>,
-        pub lasers: HashSet<(GraphNode, GraphNode, GraphEdge)>,
+        pub lasers: HashSet<SingleConnection>,
         pub connection_info: ConnectionInfo,
     }
 
@@ -495,7 +495,7 @@ pub mod tilemaps {
             self,
             inputs: Vec<(MachineInput, Option<Data>)>,
             outputs: Vec<(MachineOutput, Data)>,
-            lasers: HashSet<(GraphNode, GraphNode, GraphEdge)>,
+            lasers: HashSet<SingleConnection>,
             connection_info: ConnectionInfo,
         ) -> TilemapWorld {
             let map = self.spec.map;
@@ -538,7 +538,10 @@ pub mod tilemaps {
 }
 
 pub mod data {
-    use std::{collections::HashMap, ops::Neg};
+    use std::{
+        collections::{BTreeSet, HashMap, HashSet},
+        ops::Neg,
+    };
 
     use super::{
         tilemaps::{InputIndex, OutputIndex},
@@ -735,8 +738,9 @@ pub mod data {
         }
     }
 
-    pub type GraphEdge = (FromConnection, ToConnection);
-    pub type ConnectionInfo = HashMap<(GraphNode, GraphNode, GraphEdge), ConnectionPath>;
+    pub type SingleConnection = (GraphNode, GraphNode, (FromConnection, ToConnection));
+    pub type GraphEdge = BTreeSet<(FromConnection, ToConnection)>;
+    pub type ConnectionInfo = HashMap<SingleConnection, ConnectionPath>;
     pub type Graph = petgraph::graphmap::GraphMap<GraphNode, GraphEdge, petgraph::Directed>;
 
     /*

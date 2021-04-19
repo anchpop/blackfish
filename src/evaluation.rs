@@ -4,7 +4,7 @@ use crate::{
 };
 use petgraph::EdgeDirection::Incoming;
 use std::collections::{HashMap, HashSet};
-use velcro::hash_set;
+use velcro::{btree_set, hash_set};
 
 use pretty_assertions::assert_eq;
 
@@ -84,7 +84,7 @@ pub fn weak_head_normal_form(
     connection_info: &ConnectionInfo,
     data: Data,
     context: Vec<HashMap<uuid::Uuid, Data>>,
-) -> (WhnfData, HashSet<(GraphNode, GraphNode, GraphEdge)>) {
+) -> (WhnfData, HashSet<SingleConnection>) {
     match data {
         Data::Whnf(WhnfData::TypeErr) => (WhnfData::TypeErr, hash_set![]),
         Data::Whnf(WhnfData::Nothing) => (WhnfData::Nothing, hash_set![]),
@@ -103,33 +103,42 @@ pub fn weak_head_normal_form(
                 })
                 .collect::<HashMap<_, _>>();
                 */
+            #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
+            struct Input {
+                from_node: GraphNode,
+                to_node: GraphNode,
+                from_connection: FromConnection,
+                to_connection: ToConnection,
+            }
+            impl Input {
+                fn into_connection(self) -> (GraphNode, GraphNode, (FromConnection, ToConnection)) {
+                    (
+                        self.from_node,
+                        self.to_node,
+                        (self.from_connection, self.to_connection),
+                    )
+                }
+            }
             let inputs = graph.neighbors_directed(graph_node, Incoming);
             let inputs = inputs
                 .flat_map(|node| graph.edges(node))
-                .filter(|(_, to, (_, _))| to == &graph_node)
-                .map(|(from_node, to_node, (connection_from, connection_to))| {
-                    (
-                        connection_to,
-                        (
-                            from_node,
-                            connection_from.clone(),
+                .filter(|(_, to, _)| to == &graph_node)
+                .flat_map(|(from_node, to_node, connections)| {
+                    connections
+                        .into_iter()
+                        .map(move |(from_connection, to_connection)| {
                             (
-                                (
-                                    from_node,
-                                    to_node,
-                                    (connection_from.clone(), connection_to.clone()),
-                                ),
-                                connection_info[&(
-                                    from_node,
-                                    to_node,
-                                    (connection_from.clone(), connection_to.clone()),
-                                )]
-                                    .clone(),
-                            ),
-                        ),
-                    )
+                                to_connection,
+                                Input {
+                                    from_node: from_node.clone(),
+                                    to_node: to_node.clone(),
+                                    from_connection: from_connection.clone(),
+                                    to_connection: to_connection.clone(),
+                                },
+                            )
+                        })
                 })
-                .collect::<HashMap<_, _>>();
+                .collect::<HashMap<_, Input>>();
 
             match &graph_node {
                 GraphNode::Input(uuid) => {
@@ -146,14 +155,12 @@ pub fn weak_head_normal_form(
                 }
                 GraphNode::Output(_) => {
                     let mut inputs = inputs.into_iter();
-                    if let Some((
-                        ToConnection::GlobalOutput(_),
-                        (from_node, from_connection, (connection, _)),
-                    )) = inputs.next()
-                    {
+                    if let Some((ToConnection::GlobalOutput(_), input)) = inputs.next() {
                         if inputs.next().is_none() {
-                            let new_thunk =
-                                Data::ThunkPure(from_node, Dependency::from(from_connection));
+                            let new_thunk = Data::ThunkPure(
+                                input.clone().from_node,
+                                Dependency::from(input.clone().from_connection),
+                            );
                             let (whnm, mut lasers) = weak_head_normal_form(
                                 graph,
                                 prog,
@@ -162,7 +169,7 @@ pub fn weak_head_normal_form(
                                 context,
                             );
                             if !whnm.is_nothing() {
-                                lasers.insert(connection);
+                                lasers.insert(input.into_connection());
                             }
                             (whnm, lasers)
                         } else {
@@ -178,8 +185,8 @@ pub fn weak_head_normal_form(
                     let inputs: HashMap<MachineInput, _> =
                         inputs
                             .into_iter()
-                            .map(|(to_connection, (from_node, from_connection, (connection, connection_path)))| match to_connection {
-                                ToConnection::FunctionInput(input_label) => (input_label.clone(), (from_node, from_connection, (connection, connection_path))),
+                            .map(|(to_connection, input)| match to_connection {
+                                ToConnection::FunctionInput(input_label) => (input_label.clone(), input),
                                 _ => panic!(
                                     "Trying to evaluate a block, but it had an input besides function inputs!\nGraph:\n{}", get_graph_str(graph)
                                 ),
@@ -189,11 +196,11 @@ pub fn weak_head_normal_form(
                             TileProgramF::Machine(m) => match m {
                                 MachineInfo::BuiltIn(built_in, _) => match built_in {
                                     BuiltInMachine::Produce(()) => {
-                                        let (from_node, from_connection, (connection, _)) = inputs.get(&"a".to_owned()).expect("Needed 'a' as an input to the built-in machine 'produce', but it wasn't there >:(").clone();
+                                        let a = inputs.get(&"a".to_owned()).expect("Needed 'a' as an input to the built-in machine 'produce', but it wasn't there >:(").clone();
                                         let data = Data::ThunkBuiltinOp(
                                             Box::new(BuiltInMachine::Produce(Data::from((
-                                                from_node,
-                                                from_connection,
+                                                a.clone().from_node,
+                                                a.clone().from_connection,
                                             )))),
                                             desired_output,
                                         );
@@ -205,16 +212,16 @@ pub fn weak_head_normal_form(
                                             context,
                                         );
                                         if !whnf.is_nothing() {
-                                            lasers.insert(connection);
+                                            lasers.insert(a.clone().into_connection());
                                         }
                                         (whnf, lasers)
                                     }
                                     BuiltInMachine::Copy(()) => {
-                                        let (from_node, from_connection, (connection, _)) = inputs.get(&"a".to_owned()).expect("Needed 'a' as an input to the built-in machine 'copy', but it wasn't there >:(").clone();
+                                        let a = inputs.get(&"a".to_owned()).expect("Needed 'a' as an input to the built-in machine 'copy', but it wasn't there >:(").clone();
                                         let data = Data::ThunkBuiltinOp(
                                             Box::new(BuiltInMachine::Copy(Data::from((
-                                                from_node,
-                                                from_connection,
+                                                a.clone().from_node,
+                                                a.clone().from_connection,
                                             )))),
                                             desired_output,
                                         );
@@ -226,7 +233,7 @@ pub fn weak_head_normal_form(
                                             context,
                                         );
                                         if !whnf.is_nothing() {
-                                            lasers.insert(connection);
+                                            lasers.insert(a.clone().into_connection());
                                         }
                                         (whnf, lasers)
                                     }
@@ -237,17 +244,17 @@ pub fn weak_head_normal_form(
                                         todo!()
                                     }
                                     BuiltInMachine::Modulo((), ()) => {
-                                        let (hours_passed_from_node, hours_passed_from_connection, (hours_passed_connection, _)) = inputs.get(&"hours_passed".to_owned()).expect("Needed 'hours_passed' as an input to the built-in machine 'modulo', but it wasn't there >:(").clone();
-                                        let (notches_from_node, notches_from_connection, (notches_connection, _)) = inputs.get(&"notches".to_owned()).expect("Needed 'notches' as an input to the built-in machine 'modulo', but it wasn't there >:(").clone();
+                                        let hours_passed = inputs.get(&"hours_passed".to_owned()).expect("Needed 'hours_passed' as an input to the built-in machine 'modulo', but it wasn't there >:(").clone();
+                                        let notches = inputs.get(&"notches".to_owned()).expect("Needed 'notches' as an input to the built-in machine 'modulo', but it wasn't there >:(").clone();
                                         let data = Data::ThunkBuiltinOp(
                                             Box::new(BuiltInMachine::Modulo(
                                                 Data::from((
-                                                    hours_passed_from_node,
-                                                    hours_passed_from_connection,
+                                                    hours_passed.clone().from_node,
+                                                    hours_passed.clone().from_connection,
                                                 )),
                                                 Data::from((
-                                                    notches_from_node,
-                                                    notches_from_connection,
+                                                    notches.clone().from_node,
+                                                    notches.clone().from_connection,
                                                 )),
                                             )),
                                             desired_output,
@@ -260,8 +267,8 @@ pub fn weak_head_normal_form(
                                             context,
                                         );
                                         if !whnf.is_nothing() {
-                                            lasers.insert(hours_passed_connection);
-                                            lasers.insert(notches_connection);
+                                            lasers.insert(hours_passed.into_connection());
+                                            lasers.insert(notches.into_connection());
                                         }
                                         (whnf, lasers)
                                     }
@@ -367,7 +374,11 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, ConnectionInfo) {
                 !connection_info.contains_key(&(from_node, to_node, connection.clone())),
                 "Adding an edge to the graph that already appears in connection_info!"
             );
-            graph.add_edge(from_node, to_node, connection.clone());
+            if let Some(connections) = graph.edge_weight_mut(from_node, to_node) {
+                connections.insert(connection.clone());
+            } else {
+                graph.add_edge(from_node, to_node, btree_set! {connection.clone()});
+            }
             connection_info.insert((from_node, to_node, connection), path);
         }
     }
@@ -639,6 +650,7 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, ConnectionInfo) {
     let connection_info = create_edges(&prog, &mut graph, &from_connections, &to_connections);
 
     assert_eq!(
+        /*
         graph
             .all_edges()
             .map(|(from_node, to_node, (from_connection, to_connection))| (
@@ -647,7 +659,9 @@ pub fn program_to_graph(prog: &TilemapProgram) -> (Graph, ConnectionInfo) {
                 (from_connection.clone(), to_connection.clone())
             ))
             .collect::<HashSet<_>>(),
-        connection_info.keys().cloned().collect(),
+        connection_info.keys().cloned().collect(),*/
+        true,
+        false,
         "< graph edges == connection_info >"
     );
 
