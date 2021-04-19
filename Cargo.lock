@@ -769,6 +769,7 @@ name = "blackfish"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "contracts",
  "frunk",
  "midir",
  "ndarray",
@@ -959,6 +960,17 @@ checksum = "b8d976903543e0c48546a91908f21588a680a8c8f984df9a5d69feccb2b2a211"
 dependencies = [
  "cfg-if 0.1.10",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "contracts"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3416a1f2714ed256355952da25596bcedc330b3e9da147879b024a746ada437e"
+dependencies = [
+ "proc-macro2 1.0.26",
+ "quote 1.0.9",
+ "syn 1.0.65",
 ]
 
 [[package]]

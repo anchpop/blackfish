@@ -5,6 +5,8 @@ mod types;
 mod units;
 #[macro_use]
 extern crate uom;
+#[macro_use]
+extern crate contracts;
 
 use crate::geom::direction::*;
 use bevy::{
