@@ -303,6 +303,8 @@ fn create_map(mut commands: Commands) {
         let mut prog = default_program();
         let key = prog.constants.insert(NfData::Number(4));
         let _ = prog.constants.insert(NfData::Number(8));
+        let _ = prog.constants.insert(NfData::Bool(true));
+        let _ = prog.constants.insert(NfData::Bool(false));
         (prog, key)
     };
 
@@ -511,7 +513,7 @@ fn create_hotbar_ui(
                             ..Default::default()
                         },
                         material: materials.add(
-                            if i == 0 {
+                            if i == HOTBAR_NUM_ITEMS / 2 {
                                 Color::rgb(0.2, 0.2, 0.4)
                             } else {
                                 Color::rgba(0.2, 0.2, 0.4, 0.5)
@@ -615,12 +617,6 @@ fn positioning(mut q: AllTileTypesQuery<&mut Transform>, tilemap: Res<TilemapWor
         };
 
         transform.translation = map_to_world_coord_i(pos).extend(0.);
-        /*
-        // Size
-        sprite.size = bevy::prelude::Vec2::new(
-            1 as f32 / world_extent.w as f32 * window.width() as f32,
-            1 as f32 / world_extent.h as f32 * window.height() as f32,
-        );*/
     }
 }
 

@@ -573,10 +573,11 @@ pub mod data {
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum WhnfData {
         Nothing,
-
         TypeErr,
+
         Number(i32),
         Product(Vec<(RowLabel, Data)>),
+        Bool(bool), // going to replace this with polymorphic variants eventually
     }
     impl WhnfData {
         pub fn is_nothing(&self) -> bool {
@@ -587,11 +588,13 @@ pub mod data {
     pub enum NfData {
         Number(i32),
         Product(Vec<(RowLabel, NfData)>),
+        Bool(bool), // going to replace this with polymorphic variants eventually
     }
     impl From<NfData> for WhnfData {
         fn from(data: NfData) -> Self {
             match data {
                 NfData::Number(a) => WhnfData::Number(a),
+                NfData::Bool(a) => WhnfData::Bool(a),
                 NfData::Product(l) => WhnfData::Product(
                     l.into_iter()
                         .map(|(label, data)| (label, Data::Whnf(WhnfData::from(data))))
@@ -609,6 +612,13 @@ pub mod data {
                 WhnfData::Product(_) => {
                     todo!()
                 }
+                &WhnfData::Bool(b) => {
+                    if b {
+                        "true".to_string()
+                    } else {
+                        "false".to_string()
+                    }
+                }
                 WhnfData::TypeErr => "Type Error".to_owned(),
             }
         }
@@ -616,12 +626,7 @@ pub mod data {
 
     impl NfData {
         pub fn show(&self) -> String {
-            match self {
-                NfData::Number(n) => n.to_string(),
-                NfData::Product(_) => {
-                    todo!()
-                }
-            }
+            WhnfData::from(self.clone()).show()
         }
     }
 

@@ -88,8 +88,9 @@ pub fn weak_head_normal_form(
     match data {
         Data::Whnf(WhnfData::TypeErr) => (WhnfData::TypeErr, hash_set![]),
         Data::Whnf(WhnfData::Nothing) => (WhnfData::Nothing, hash_set![]),
-        Data::Whnf(n @ WhnfData::Number(_)) => (n, hash_set![]),
-        Data::Whnf(p @ WhnfData::Product(_)) => (p, hash_set![]),
+        Data::Whnf(n @ (WhnfData::Number(_) | WhnfData::Bool(_) | WhnfData::Product(_))) => {
+            (n, hash_set![])
+        }
         Data::ThunkPure(graph_node, dependency) => {
             /*let inputs = graph.neighbors_directed(graph_node, Incoming);
             let inputs = inputs
