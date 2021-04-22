@@ -85,6 +85,75 @@ pub fn weak_head_normal_form(
     data: Data,
     context: Vec<HashMap<uuid::Uuid, Data>>,
 ) -> (WhnfData, HashSet<SingleConnection>) {
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
+    struct Input {
+        from_node: GraphNode,
+        to_node: GraphNode,
+        from_connection: FromConnection,
+        to_connection: ToConnection,
+    }
+    impl Input {
+        fn to_thunk(self) -> Data {
+            Data::from((self.from_node, self.from_connection))
+        }
+    }
+    fn eval_machine(
+        op: BuiltInMachine<()>,
+        inputs: HashMap<String, Input>,
+        _output: MachineOutput, // unused since they currently all have only one output
+        graph: &Graph,
+        prog: &TilemapProgram,
+        connection_info: &ConnectionInfo,
+        context: Vec<HashMap<uuid::Uuid, Data>>,
+    ) -> (WhnfData, HashSet<SingleConnection>) {
+        let get_input = |inp: &str| {
+            inputs.get(&inp.to_owned()).unwrap_or_else(|| panic!("Needed '{:?}' as an input to the built-in machine '{:?}', but it wasn't there >:(", inp, op)).clone().to_thunk()
+        };
+        match op {
+            BuiltInMachine::Iffy(_, _, _) => {
+                weak_head_normal_form(graph, prog, connection_info, todo!(), context)
+            }
+            BuiltInMachine::Trace(_) => {
+                weak_head_normal_form(graph, prog, connection_info, todo!(), context)
+            }
+            BuiltInMachine::Produce(_) => {
+                weak_head_normal_form(graph, prog, connection_info, get_input("a"), context)
+            }
+            BuiltInMachine::Copy(_) => {
+                weak_head_normal_form(graph, prog, connection_info, get_input("a"), context)
+            }
+            BuiltInMachine::Modulo(_, _) => {
+                let (hours_passed, mut hours_passed_connections) = weak_head_normal_form(
+                    graph,
+                    prog,
+                    connection_info,
+                    get_input("hours_passed"),
+                    context.clone(),
+                );
+                let (notches, notches_connections) = weak_head_normal_form(
+                    graph,
+                    prog,
+                    connection_info,
+                    get_input("notches"),
+                    context,
+                );
+                hours_passed_connections.extend(notches_connections);
+                (
+                    match (hours_passed, notches) {
+                        (WhnfData::Number(hours_passed), WhnfData::Number(notches)) => {
+                            WhnfData::Number(hours_passed % notches)
+                        }
+                        (WhnfData::Nothing, WhnfData::Number(_))
+                        | (WhnfData::Number(_), WhnfData::Nothing)
+                        | (WhnfData::Nothing, WhnfData::Nothing) => WhnfData::Nothing,
+                        (_, _) => WhnfData::TypeErr,
+                    },
+                    hours_passed_connections,
+                )
+            }
+        }
+    }
+
     match data {
         Data::Whnf(WhnfData::TypeErr) => (WhnfData::TypeErr, hash_set![]),
         Data::Whnf(WhnfData::Nothing) => (WhnfData::Nothing, hash_set![]),
@@ -92,25 +161,6 @@ pub fn weak_head_normal_form(
             (n, hash_set![])
         }
         Data::ThunkPure(graph_node, dependency) => {
-            /*let inputs = graph.neighbors_directed(graph_node, Incoming);
-            let inputs = inputs
-                .flat_map(|node| graph.edges(node))
-                .filter(|(_, to, (_, _))| to == &graph_node)
-                .map(|(from_node, to_node, (connection_from, connection_to))| {
-                    (
-                        connection_to,
-                        (from_node, to_node, (connection_from, connection_to)),
-                    )
-                })
-                .collect::<HashMap<_, _>>();
-                */
-            #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
-            struct Input {
-                from_node: GraphNode,
-                to_node: GraphNode,
-                from_connection: FromConnection,
-                to_connection: ToConnection,
-            }
             impl Input {
                 fn into_connection(self) -> (GraphNode, GraphNode, (FromConnection, ToConnection)) {
                     (
@@ -195,85 +245,15 @@ pub fn weak_head_normal_form(
                     if let Dependency::On(desired_output) = dependency {
                         match tile {
                             TileProgramF::Machine(m) => match m {
-                                MachineInfo::BuiltIn(built_in, _) => match built_in {
-                                    BuiltInMachine::Produce(()) => {
-                                        let a = inputs.get(&"a".to_owned()).expect("Needed 'a' as an input to the built-in machine 'produce', but it wasn't there >:(").clone();
-                                        let data = Data::ThunkBuiltinOp(
-                                            Box::new(BuiltInMachine::Produce(Data::from((
-                                                a.clone().from_node,
-                                                a.clone().from_connection,
-                                            )))),
-                                            desired_output,
-                                        );
-                                        let (whnf, mut lasers) = weak_head_normal_form(
-                                            graph,
-                                            prog,
-                                            connection_info,
-                                            data,
-                                            context,
-                                        );
-                                        if !whnf.is_nothing() {
-                                            lasers.insert(a.clone().into_connection());
-                                        }
-                                        (whnf, lasers)
-                                    }
-                                    BuiltInMachine::Copy(()) => {
-                                        let a = inputs.get(&"a".to_owned()).expect("Needed 'a' as an input to the built-in machine 'copy', but it wasn't there >:(").clone();
-                                        let data = Data::ThunkBuiltinOp(
-                                            Box::new(BuiltInMachine::Copy(Data::from((
-                                                a.clone().from_node,
-                                                a.clone().from_connection,
-                                            )))),
-                                            desired_output,
-                                        );
-                                        let (whnf, mut lasers) = weak_head_normal_form(
-                                            graph,
-                                            prog,
-                                            connection_info,
-                                            data,
-                                            context,
-                                        );
-                                        if !whnf.is_nothing() {
-                                            lasers.insert(a.clone().into_connection());
-                                        }
-                                        (whnf, lasers)
-                                    }
-                                    BuiltInMachine::Iffy((), (), ()) => {
-                                        todo!()
-                                    }
-                                    BuiltInMachine::Trace(()) => {
-                                        todo!()
-                                    }
-                                    BuiltInMachine::Modulo((), ()) => {
-                                        let hours_passed = inputs.get(&"hours_passed".to_owned()).expect("Needed 'hours_passed' as an input to the built-in machine 'modulo', but it wasn't there >:(").clone();
-                                        let notches = inputs.get(&"notches".to_owned()).expect("Needed 'notches' as an input to the built-in machine 'modulo', but it wasn't there >:(").clone();
-                                        let data = Data::ThunkBuiltinOp(
-                                            Box::new(BuiltInMachine::Modulo(
-                                                Data::from((
-                                                    hours_passed.clone().from_node,
-                                                    hours_passed.clone().from_connection,
-                                                )),
-                                                Data::from((
-                                                    notches.clone().from_node,
-                                                    notches.clone().from_connection,
-                                                )),
-                                            )),
-                                            desired_output,
-                                        );
-                                        let (whnf, mut lasers) = weak_head_normal_form(
-                                            graph,
-                                            prog,
-                                            connection_info,
-                                            data,
-                                            context,
-                                        );
-                                        if !whnf.is_nothing() {
-                                            lasers.insert(hours_passed.into_connection());
-                                            lasers.insert(notches.into_connection());
-                                        }
-                                        (whnf, lasers)
-                                    }
-                                },
+                                &MachineInfo::BuiltIn(built_in, _) => eval_machine(
+                                    built_in,
+                                    inputs,
+                                    desired_output,
+                                    graph,
+                                    prog,
+                                    connection_info,
+                                    context,
+                                ),
                             },
                             TileProgramF::Literal(l) => {
                                 (WhnfData::from(prog.constants[*l].clone()), hash_set![])
@@ -292,44 +272,6 @@ pub fn weak_head_normal_form(
                 }
             }
         }
-        Data::ThunkBuiltinOp(op, _output) => match *op {
-            BuiltInMachine::Iffy(_, _, _) => {
-                weak_head_normal_form(graph, prog, connection_info, todo!(), context)
-            }
-            BuiltInMachine::Trace(_) => {
-                weak_head_normal_form(graph, prog, connection_info, todo!(), context)
-            }
-            BuiltInMachine::Produce(a) => {
-                weak_head_normal_form(graph, prog, connection_info, a, context)
-            }
-            BuiltInMachine::Copy(a) => {
-                weak_head_normal_form(graph, prog, connection_info, a, context)
-            }
-            BuiltInMachine::Modulo(hours_passed, notches) => {
-                let (hours_passed, mut hours_passed_connections) = weak_head_normal_form(
-                    graph,
-                    prog,
-                    connection_info,
-                    hours_passed,
-                    context.clone(),
-                );
-                let (notches, notches_connections) =
-                    weak_head_normal_form(graph, prog, connection_info, notches, context);
-                hours_passed_connections.extend(notches_connections);
-                (
-                    match (hours_passed, notches) {
-                        (WhnfData::Number(hours_passed), WhnfData::Number(notches)) => {
-                            WhnfData::Number(hours_passed % notches)
-                        }
-                        (WhnfData::Nothing, WhnfData::Number(_))
-                        | (WhnfData::Number(_), WhnfData::Nothing)
-                        | (WhnfData::Nothing, WhnfData::Nothing) => WhnfData::Nothing,
-                        (_, _) => WhnfData::TypeErr,
-                    },
-                    hours_passed_connections,
-                )
-            }
-        },
     }
 }
 #[ensures(ret.0

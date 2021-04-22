@@ -566,7 +566,6 @@ pub mod data {
     #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum Data {
         ThunkPure(GraphNode, Dependency),
-        ThunkBuiltinOp(Box<BuiltInMachine<Data>>, MachineOutput),
         Whnf(WhnfData),
     }
     type RowLabel = String;
