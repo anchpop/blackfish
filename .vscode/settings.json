@@ -5,6 +5,7 @@
         "clippy",
         "frunk",
         "mapv",
+        "midir",
         "ndarray",
         "slotmap",
         "tilemap",

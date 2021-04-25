@@ -118,11 +118,17 @@ impl FromWorld for ButtonMaterials {
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Placing(Option<(Vec2, Option<KeyProgram>)>, Dir, usize);
+pub struct Placing(Option<Vec2>, Dir, usize);
 
 impl Default for Placing {
     fn default() -> Self {
         Self(None, Dir::default(), 0)
+    }
+}
+
+impl Placing {
+    fn key_program(&self, program: &TilemapProgram) -> Option<KeyProgram> {
+        self.0.and_then(|location| program.spec.get_loc(location))
     }
 }
 
@@ -692,7 +698,7 @@ fn tile_appearance(
     materials: Res<TileMaterials>,
     tilemap_world: Res<TilemapWorld>,
 ) {
-    let connection_map = if let Placing(Some((location, _)), orientation, tile) = *placing {
+    let connection_map = if let Placing(Some(location), orientation, tile) = *placing {
         tilemap_program
             .clone()
             .try_do_to_map(|map| map.add(location, orientation, hotbar[tile]))
@@ -777,23 +783,25 @@ fn tile_appearance(
         *color_mat_handle = materials.transparent.clone();
     }
 
-    let Placing(picker_position, orientation, tile) = *placing;
-    if let Some((center, None)) = picker_position {
-        let positions =
-            tilemap_program
-                .spec
-                .get_tile_positions(&center, &orientation, &hotbar[tile]);
-        if let Some(positions) = positions {
-            let positions: HashMap<_, _> = positions.into_iter().collect();
-            for (&TileForPicking(position), mut color_mat_handle) in q.q1_mut().iter_mut() {
-                if positions.get(&position).is_some() {
-                    *color_mat_handle = get_tile_material(
-                        &Some(&hotbar[tile].into_world()),
-                        position,
-                        &materials,
-                        &connection_info,
-                        &laser_connection_info,
-                    );
+    if let Placing(Some(placing_center), orientation, hotbar_index) = *placing {
+        if placing.key_program(&tilemap_program).is_none() {
+            let positions = tilemap_program.spec.get_tile_positions(
+                &placing_center,
+                &orientation,
+                &hotbar[hotbar_index],
+            );
+            if let Some(positions) = positions {
+                let positions: HashMap<_, _> = positions.into_iter().collect();
+                for (&TileForPicking(position), mut color_mat_handle) in q.q1_mut().iter_mut() {
+                    if positions.get(&position).is_some() {
+                        *color_mat_handle = get_tile_material(
+                            &Some(&hotbar[hotbar_index].into_world()),
+                            position,
+                            &materials,
+                            &connection_info,
+                            &laser_connection_info,
+                        );
+                    }
                 }
             }
         }
@@ -833,7 +841,7 @@ fn tile_text(
                         children,
                         placing
                             .0
-                            .map(|(location, _)| (location, placing.1, hotbar[placing.2])),
+                            .map(|location| (location, placing.1, hotbar[placing.2])),
                         false,
                     )
                 }),
@@ -841,7 +849,7 @@ fn tile_text(
     {
         for child in children.iter() {
             if let Ok(mut text) = text_q.get_mut(*child) {
-                let picker_on_free_tile = matches!(*placing, Placing(Some((_, None)), _, _));
+                let picker_on_free_tile = placing.key_program(&tilemap_program).is_none();
                 if picker_on_free_tile || on_main_map {
                     if let Some((tile_center, tile_orientation, tile_type)) = tile_info {
                         text.sections[0].value = if location == tile_center {
@@ -1043,7 +1051,7 @@ fn picker_follow_mouse(
 
             if let Some(map_location) = map_location {
                 if tilemap_program.spec.check_in_bounds(map_location) {
-                    placing.0 = Some((map_location, tilemap_program.spec.get_loc(map_location)));
+                    placing.0 = Some(map_location);
                 } else {
                     placing.0 = None;
                 }
@@ -1064,7 +1072,7 @@ fn picker_follow_mouse(
     }
 }
 
-#[invariant(match selected_block.0 {Some(selected_block) => tilemap_program.spec.tiles.contains_key(selected_block), _ => true}, "selected_block always valid")]
+#[invariant(match selected_block.0 {Some(block) => tilemap_program.spec.tiles.contains_key(block), _ => true}, "selected_block always valid")]
 fn place_block(
     mouse_button_input: Res<Input<MouseButton>>,
     placing: Res<Placing>,
@@ -1081,34 +1089,34 @@ fn place_block(
             Interaction::None => false,
         })
     {
-        let selected_block = &mut selected_block.0;
-
+        let mouse_over = placing.key_program(&tilemap_program);
         if mouse_button_input.just_pressed(MouseButton::Left) {
-            if let Placing(Some((location, None)), orientation, tile) = *placing {
+            if let (Placing(Some(location), orientation, tile), None) =
+                (placing.clone(), mouse_over)
+            {
                 if let Ok(new_program) = tilemap_program
                     .clone()
                     .try_do_to_map(|map| map.add(location, orientation, hotbar[tile]))
                 {
                     *tilemap_program = new_program;
-                    *selected_block = tilemap_program.spec.get_loc(location);
+                    selected_block.0 = placing.key_program(&tilemap_program);
                 }
-            } else if let Placing(Some((_, key_program @ Some(_))), _, _) = *placing {
-                *selected_block = key_program;
             } else {
-                *selected_block = None;
+                selected_block.0 = mouse_over;
             }
         }
 
         if mouse_button_input.just_pressed(MouseButton::Right) {
-            if let Placing(Some((location, Some(_))), _, _) = *placing {
+            if let (Placing(Some(location), _, _), Some(_)) = (placing.clone(), mouse_over) {
                 let new_program = tilemap_program
                     .clone()
                     .apply_to_map(|map| map.remove(location));
                 *tilemap_program = new_program;
-            }
-            if let Some(block) = selected_block {
-                if tilemap_program.spec.tiles.get(*block).is_none() {
-                    *selected_block = None;
+
+                if let Some(block) = selected_block.0 {
+                    if !tilemap_program.spec.tiles.contains_key(block) {
+                        selected_block.0 = None;
+                    }
                 }
             }
         }
