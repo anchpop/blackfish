@@ -106,39 +106,36 @@ pub fn weak_head_normal_form(
         connection_info: &ConnectionInfo,
         context: Vec<HashMap<uuid::Uuid, Data>>,
     ) -> (WhnfData, HashSet<SingleConnection>) {
-        let get_input = |inp: &str| {
-            inputs.get(&inp.to_owned()).unwrap_or_else(|| panic!("Needed '{:?}' as an input to the built-in machine '{:?}', but it wasn't there >:(", inp, op)).clone().to_thunk()
+        let mut lasers = hash_set![];
+        let mut get_input = |input_name: &str| {
+            let input = inputs.get(&input_name.to_owned()).unwrap_or_else(|| panic!("Needed '{:?}' as an input to the built-in machine '{:?}', but it wasn't there >:(", input_name, op));
+            let (whnf, whnf_connections) = weak_head_normal_form(
+                graph,
+                prog,
+                connection_info,
+                input.clone().to_thunk(),
+                context.clone(),
+            );
+
+            if !whnf.is_nothing() {
+                lasers.insert(input.clone().into_connection());
+            }
+            lasers.extend(whnf_connections);
+            whnf
         };
-        match op {
-            BuiltInMachine::Iffy(_, _, _) => {
-                weak_head_normal_form(graph, prog, connection_info, todo!(), context)
-            }
-            BuiltInMachine::Trace(_) => {
-                weak_head_normal_form(graph, prog, connection_info, todo!(), context)
-            }
-            BuiltInMachine::Produce(_) => {
-                weak_head_normal_form(graph, prog, connection_info, get_input("a"), context)
-            }
-            BuiltInMachine::Copy(_) => {
-                weak_head_normal_form(graph, prog, connection_info, get_input("a"), context)
-            }
-            BuiltInMachine::Modulo(_, _) => {
-                let (hours_passed, mut hours_passed_connections) = weak_head_normal_form(
-                    graph,
-                    prog,
-                    connection_info,
-                    get_input("hours_passed"),
-                    context.clone(),
-                );
-                let (notches, notches_connections) = weak_head_normal_form(
-                    graph,
-                    prog,
-                    connection_info,
-                    get_input("notches"),
-                    context,
-                );
-                hours_passed_connections.extend(notches_connections);
-                (
+        (
+            match op {
+                BuiltInMachine::Iffy(_, _, _) => {
+                    todo!()
+                }
+                BuiltInMachine::Trace(_) => {
+                    todo!()
+                }
+                BuiltInMachine::Produce(_) => get_input("a"),
+                BuiltInMachine::Copy(_) => get_input("a"),
+                BuiltInMachine::Modulo(_, _) => {
+                    let hours_passed = get_input("hours_passed");
+                    let notches = get_input("notches");
                     match (hours_passed, notches) {
                         (WhnfData::Number(hours_passed), WhnfData::Number(notches)) => {
                             WhnfData::Number(hours_passed % notches)
@@ -147,11 +144,11 @@ pub fn weak_head_normal_form(
                         | (WhnfData::Number(_), WhnfData::Nothing)
                         | (WhnfData::Nothing, WhnfData::Nothing) => WhnfData::Nothing,
                         (_, _) => WhnfData::TypeErr,
-                    },
-                    hours_passed_connections,
-                )
-            }
-        }
+                    }
+                }
+            },
+            lasers,
+        )
     }
 
     match data {
