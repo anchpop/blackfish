@@ -380,8 +380,8 @@ pub mod tiles {
             machines.insert(
                 TileProgramF::Literal(()),
                 TileUserInfo {
-                    name: "literal",
-                    color: Color::rgb(220. / 255., 220. / 255., 220. / 255.),
+                    name: "constant",
+                    color: Color::rgb(254. / 255., 215. / 255., 102. / 255.),
                 },
             );
             machines
