@@ -38,7 +38,7 @@ const BEATS_PER_SECOND: u64 = 1;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TileSize(pub Extent2);
 pub struct TileMaterials {
-    pub tiles: HashMap<&'static str, Handle<ColorMaterial>>,
+    pub tiles: HashMap<TileNoInfo, Handle<ColorMaterial>>,
     pub empty: Handle<ColorMaterial>,
     pub io_nothing: Handle<ColorMaterial>,
     pub io_connected: Handle<ColorMaterial>,
@@ -52,45 +52,10 @@ impl FromWorld for TileMaterials {
 
         TileMaterials {
             empty: materials.add(EMPTY_COLOR.into()),
-            tiles: [
-                (
-                    TileProgram::Machine(MachineInfo::BuiltIn(
-                        BuiltInMachine::Produce(()),
-                        ProgramInfo {},
-                    ))
-                    .name(),
-                    materials.add(ID_MACHINE_COLOR.into()),
-                ),
-                (
-                    TileProgram::Machine(MachineInfo::BuiltIn(
-                        BuiltInMachine::Copy(()),
-                        ProgramInfo {},
-                    ))
-                    .name(),
-                    materials.add(COPY_MACHINE_COLOR.into()),
-                ),
-                (
-                    TileProgram::Machine(MachineInfo::BuiltIn(
-                        BuiltInMachine::Modulo((), ()),
-                        ProgramInfo {},
-                    ))
-                    .name(),
-                    materials.add(MODULO_MACHINE_COLOR.into()),
-                ),
-                (
-                    TileProgram::Machine(MachineInfo::BuiltIn(
-                        BuiltInMachine::Trace(()),
-                        ProgramInfo {},
-                    ))
-                    .name(),
-                    materials.add(TRACE_COLOR.into()),
-                ),
-                ("Constant", materials.add(CONSTANT_COLOR.into())),
-                ("Mirror", materials.add(MIRROR_COLOR.into())),
-            ]
-            .iter()
-            .cloned()
-            .collect(),
+            tiles: TileProgramF::user_infos()
+                .into_iter()
+                .map(|(k, v)| (k, materials.add(v.color.into())))
+                .collect(),
             io_nothing: materials.add(IO_EMPTY_COLOR.into()),
             io_connected: materials.add(IO_CONNECTED_COLOR.into()),
             io_used: materials.add(IO_COLOR.into()),
@@ -162,12 +127,17 @@ pub enum PickerOver {
     Occupied,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Hotbar(Vec<TileProgram>);
+pub struct Hotbar(Vec<TileNoInfo>);
 impl std::ops::Index<usize> for Hotbar {
-    type Output = TileProgram;
+    type Output = TileNoInfo;
 
     fn index(&self, i: usize) -> &Self::Output {
         &self.0[i]
+    }
+}
+impl Default for Hotbar {
+    fn default() -> Self {
+        Self(TileProgramF::user_infos().keys().cloned().collect())
     }
 }
 
@@ -202,6 +172,8 @@ fn main() {
         .init_resource::<SelectedBlock>()
         .init_resource::<MenuState>()
         .init_resource::<TileMaterials>()
+        .init_resource::<Hotbar>()
+        .add_startup_stage("after_init_resources", SystemStage::parallel())
         .add_startup_system(get_midi_ports.system())
         .add_startup_system(setup.system())
         .add_startup_system(create_map.system())
@@ -231,15 +203,9 @@ fn main() {
 
 const CLEAR_COLOR: Color = Color::rgb(0.118, 0.122, 0.149);
 const EMPTY_COLOR: Color = Color::rgb(49. / 255., 53. / 255., 52. / 255.);
-const ID_MACHINE_COLOR: Color = Color::rgb(42. / 255., 183. / 255., 202. / 255.);
-const COPY_MACHINE_COLOR: Color = Color::rgb(22. / 255., 210. / 255., 202. / 255.);
-const MODULO_MACHINE_COLOR: Color = Color::rgb(50. / 255., 230. / 255., 100. / 255.);
 const IO_COLOR: Color = Color::rgb(254. / 255., 111. / 255., 89. / 255.);
 const IO_EMPTY_COLOR: Color = Color::rgb(55. / 255., 62. / 255., 67. / 255.);
 const IO_CONNECTED_COLOR: Color = Color::rgb(80. / 255., 83. / 255., 90. / 255.);
-const TRACE_COLOR: Color = Color::rgb(0.5, 0.3, 0.5);
-const CONSTANT_COLOR: Color = Color::rgb(254. / 255., 215. / 255., 102. / 255.);
-const MIRROR_COLOR: Color = Color::rgb(220. / 255., 220. / 255., 220. / 255.);
 const TRANSPAENT_COLOR: Color = Color::rgba(0., 0., 0., 0.);
 
 fn setup(mut commands: Commands) {
@@ -309,6 +275,7 @@ fn create_map(mut commands: Commands) {
         let mut prog = default_program();
         let key = prog.constants.insert(NfData::Number(4));
         let _ = prog.constants.insert(NfData::Number(8));
+        let _ = prog.constants.insert(NfData::Number(32));
         let _ = prog.constants.insert(NfData::Bool(true));
         let _ = prog.constants.insert(NfData::Bool(false));
         (prog, key)
@@ -321,20 +288,6 @@ fn create_map(mut commands: Commands) {
 
     commands.insert_resource(prog);
     commands.insert_resource(world);
-
-    commands.insert_resource(Hotbar(vec![
-        TileProgram::Machine(MachineInfo::BuiltIn(
-            BuiltInMachine::Produce(()),
-            ProgramInfo,
-        )),
-        TileProgram::Machine(MachineInfo::BuiltIn(BuiltInMachine::Copy(()), ProgramInfo)),
-        TileProgram::Machine(MachineInfo::BuiltIn(
-            BuiltInMachine::Modulo((), ()),
-            ProgramInfo,
-        )),
-        TileProgram::Literal(key),
-        TileProgram::Optic(Optic::Mirror),
-    ]));
 }
 
 fn spawn_main_tilemap_sprites(
@@ -467,12 +420,10 @@ struct HotbarParent;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct HotbarItem(usize);
 
-const HOTBAR_NUM_ITEMS: usize = 5;
 const HOTBAR_ITEM_WIDTH: f32 = 30.;
 const HOTBAR_ITEM_PADDING: f32 = 2.;
 
 const HOTBAR_ITEM_TOTAL_WIDTH: f32 = HOTBAR_ITEM_WIDTH + HOTBAR_ITEM_PADDING;
-const HOTBAR_TOTAL_WIDTH: f32 = HOTBAR_ITEM_TOTAL_WIDTH * HOTBAR_NUM_ITEMS as f32;
 const HOTBAR_VERTICAL_PADDING: f32 = 30.;
 const HOTBAR_TOTAL_HEIGHT: f32 = HOTBAR_ITEM_WIDTH as f32 + HOTBAR_VERTICAL_PADDING;
 
@@ -480,6 +431,7 @@ fn create_hotbar_ui(
     mut commands: Commands,
     _asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    hotbar: Res<Hotbar>,
 ) {
     commands.spawn_bundle(UiCameraBundle::default());
     // root node
@@ -500,7 +452,7 @@ fn create_hotbar_ui(
         })
         .insert(HotbarParent)
         .with_children(|parent| {
-            for i in 0..HOTBAR_NUM_ITEMS {
+            for i in 0..hotbar.0.len() {
                 parent
                     .spawn_bundle(NodeBundle {
                         style: Style {
@@ -508,8 +460,8 @@ fn create_hotbar_ui(
                             position_type: PositionType::Absolute,
                             position: Rect {
                                 left: Val::Px(
-                                    i as f32 * HOTBAR_ITEM_TOTAL_WIDTH
-                                        + (((HOTBAR_NUM_ITEMS + 1) as f32 / 2.) % 1.
+                                    i as f32 * (HOTBAR_ITEM_TOTAL_WIDTH)
+                                        + (((hotbar.0.len() + 1) as f32 / 2.) % 1.
                                             * HOTBAR_ITEM_TOTAL_WIDTH),
                                 ),
                                 bottom: Val::Px(0.),
@@ -519,7 +471,7 @@ fn create_hotbar_ui(
                             ..Default::default()
                         },
                         material: materials.add(
-                            if i == HOTBAR_NUM_ITEMS / 2 {
+                            if i == hotbar.0.len() / 2 {
                                 Color::rgb(0.2, 0.2, 0.4)
                             } else {
                                 Color::rgba(0.2, 0.2, 0.4, 0.5)
@@ -675,7 +627,7 @@ fn get_tile_material(
             })
             .max()
     }
-    match tile {
+    match tile.clone().cloned() {
         None => {
             let connection = get_connection_at_location(location, connection_info);
             let laser_connection = get_connection_at_location(location, laser_connection_info);
@@ -686,7 +638,7 @@ fn get_tile_material(
                 (_, _) => materials.empty.clone(),
             }
         }
-        Some(t) => materials.tiles[t.name()].clone(),
+        Some(t) => materials.tiles[&t.strip_info()].clone(),
     }
 }
 
@@ -701,7 +653,13 @@ fn tile_appearance(
     let connection_map = if let Placing(Some(location), orientation, tile) = *placing {
         tilemap_program
             .clone()
-            .try_do_to_map(|map| map.add(location, orientation, hotbar[tile]))
+            .try_do_to_map(|map| {
+                map.add(
+                    location,
+                    orientation,
+                    hotbar[tile].make_tile_program(&tilemap_program),
+                )
+            })
             .unwrap_or_else(|_| tilemap_program.clone())
     } else {
         tilemap_program.clone()
@@ -756,11 +714,33 @@ fn tile_appearance(
                 } else {
                     materials.transparent.clone()
                 }
+            //<<<<<<< Updated upstream
             } else if index < tilemap_world.outputs.len() {
                 if laser_connection_info.values().any(|connection| {
                     connection.contains(-tilemap_world.get_output_grid_line_dir(index))
                 }) {
                     materials.io_used.clone()
+                /*=======
+                            } else {
+                                if *index < tilemap_world.outputs.len() {
+                                    if tilemap_world.connections.iter().any(|connection| {
+                                        connection.get_end() == tilemap_world.get_output_grid_line_dir(*index)
+                                    }) {
+                                        materials.io_used.clone()
+                                    } else {
+                                        match get_connection_type(
+                                            tilemap_world.get_outputb_grid_line_dir(*index),
+                                            &connections,
+                                            &tilemap_program,
+                                        ) {
+                                            Some(typ) => match typ {
+                                                ConnectionType::FullyConnected => materials.io_connected.clone(),
+                                                ConnectionType::HalfConnected => materials.io_nothing.clone(),
+                                            },
+                                            None => materials.empty.clone(),
+                                        }
+                                    }
+                //>>>>>>> Stashed changes*/
                 } else {
                     match get_connection_type(
                         -tilemap_world.get_output_grid_line_dir(index),
@@ -785,17 +765,18 @@ fn tile_appearance(
 
     if let Placing(Some(placing_center), orientation, hotbar_index) = *placing {
         if placing.key_program(&tilemap_program).is_none() {
+            let tile_to_place = hotbar[hotbar_index].make_tile_program(&tilemap_program);
             let positions = tilemap_program.spec.get_tile_positions(
                 &placing_center,
                 &orientation,
-                &hotbar[hotbar_index],
+                &tile_to_place,
             );
             if let Some(positions) = positions {
                 let positions: HashMap<_, _> = positions.into_iter().collect();
                 for (&TileForPicking(position), mut color_mat_handle) in q.q1_mut().iter_mut() {
                     if positions.get(&position).is_some() {
                         *color_mat_handle = get_tile_material(
-                            &Some(&hotbar[hotbar_index].into_world()),
+                            &Some(&tile_to_place.into_world()),
                             position,
                             &materials,
                             &connection_info,
@@ -839,9 +820,13 @@ fn tile_text(
                     (
                         location,
                         children,
-                        placing
-                            .0
-                            .map(|location| (location, placing.1, hotbar[placing.2])),
+                        placing.0.map(|location| {
+                            (
+                                location,
+                                placing.1,
+                                hotbar[placing.2].make_tile_program(&tilemap_program),
+                            )
+                        }),
                         false,
                     )
                 }),
@@ -1013,22 +998,27 @@ fn render_hotbar(
 ) {
     for (mut material, &HotbarItem(i)) in q.iter_mut() {
         *material = materials.tiles
-            [hotbar[(i + placing.2 + (HOTBAR_NUM_ITEMS / 2 + 1)) % HOTBAR_NUM_ITEMS].name()]
-        .clone()
+            [&hotbar[(i + placing.2 + (hotbar.0.len() / 2 + 1)) % hotbar.0.len()]]
+            .clone()
     }
 }
 
-fn rotate_hotbar(mut placing: ResMut<Placing>, keyboard_input: Res<Input<KeyCode>>) {
+fn rotate_hotbar(
+    mut placing: ResMut<Placing>,
+    keyboard_input: Res<Input<KeyCode>>,
+    hotbar: Res<Hotbar>,
+) {
     if keyboard_input.just_pressed(KeyCode::Key1) {
-        (*placing).2 = (1 + (*placing).2) % HOTBAR_NUM_ITEMS;
+        (*placing).2 = (1 + (*placing).2) % hotbar.0.len();
     } else if keyboard_input.just_pressed(KeyCode::Key2) {
-        (*placing).2 = (2 + (*placing).2) % HOTBAR_NUM_ITEMS;
+        (*placing).2 = (2 + (*placing).2) % hotbar.0.len();
     }
 }
 
 fn picker_follow_mouse(
     q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     mut q_hotbar_parent: Query<&mut Style, With<HotbarParent>>,
+    hotbar: Res<Hotbar>,
 
     windows: Res<Windows>,
     mut evr_cursor: EventReader<CursorMoved>,
@@ -1061,14 +1051,23 @@ fn picker_follow_mouse(
         }
     }
 
-    fn hotbar_follow_mouse(mut hotbar_parent_style: Mut<Style>, cursor_pos: bevy::prelude::Vec2) {
-        hotbar_parent_style.position.left = Val::Px(cursor_pos.x - HOTBAR_TOTAL_WIDTH / 2.);
+    fn hotbar_follow_mouse(
+        hotbar: Res<Hotbar>,
+        mut hotbar_parent_style: Mut<Style>,
+        cursor_pos: bevy::prelude::Vec2,
+    ) {
+        let hotbar_total_width = HOTBAR_ITEM_TOTAL_WIDTH * hotbar.0.len() as f32;
+        hotbar_parent_style.position.left = Val::Px(cursor_pos.x - hotbar_total_width / 2.);
         hotbar_parent_style.position.bottom = Val::Px(cursor_pos.y - HOTBAR_TOTAL_HEIGHT);
     }
 
     if let Some(cursor) = evr_cursor.iter().next() {
         block_follow_mouse(q_camera, windows, cursor.position, placing, tilemap_program);
-        hotbar_follow_mouse(q_hotbar_parent.single_mut().unwrap(), cursor.position);
+        hotbar_follow_mouse(
+            hotbar,
+            q_hotbar_parent.single_mut().unwrap(),
+            cursor.position,
+        );
     }
 }
 
@@ -1094,10 +1093,13 @@ fn place_block(
             if let (Placing(Some(location), orientation, tile), None) =
                 (placing.clone(), mouse_over)
             {
-                if let Ok(new_program) = tilemap_program
-                    .clone()
-                    .try_do_to_map(|map| map.add(location, orientation, hotbar[tile]))
-                {
+                if let Ok(new_program) = tilemap_program.clone().try_do_to_map(|map| {
+                    map.add(
+                        location,
+                        orientation,
+                        hotbar[tile].make_tile_program(&tilemap_program),
+                    )
+                }) {
                     *tilemap_program = new_program;
                     selected_block.0 = placing.key_program(&tilemap_program);
                 }

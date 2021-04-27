@@ -15,7 +15,7 @@ pub fn in_out_id_with_indirection_prog() -> TilemapProgram {
                 Vec2::new(3, 0),
                 Dir::EAST,
                 TileProgram::Machine(MachineInfo::BuiltIn(
-                    BuiltInMachine::Produce(()),
+                    BuiltInMachine::Produce,
                     ProgramInfo {},
                 )),
             )
@@ -38,7 +38,7 @@ pub fn simple_program() -> TilemapProgram {
             Vec2::new(3, 2),
             Dir::default(),
             TileProgram::Machine(MachineInfo::BuiltIn(
-                BuiltInMachine::Produce(()),
+                BuiltInMachine::Produce,
                 ProgramInfo {},
             )),
         )
@@ -59,7 +59,7 @@ mod tests {
         assert_eq!(2 + 2, 4);
     }
 
-    // I want to put algebra-driven design into practice and design a tilemap algebra with proprety-based tests.
+    // I want to put algebra-driven design into practice and design a tilemap algebra with property-based tests.
     // But for now, I'm just going to write simple unit tests to test things that obviously should work.
 
     #[cfg(test)]
@@ -97,7 +97,7 @@ mod tests {
                 Vec2::new(0, 0),
                 Dir::default(),
                 TileProgram::Machine(MachineInfo::BuiltIn(
-                    BuiltInMachine::Produce(()),
+                    BuiltInMachine::Produce,
                     ProgramInfo {},
                 )),
             ));
@@ -372,7 +372,7 @@ mod tests {
                         Vec2::new(3, 0),
                         Dir::EAST,
                         TileProgram::Machine(MachineInfo::BuiltIn(
-                            BuiltInMachine::Produce(()),
+                            BuiltInMachine::Produce,
                             ProgramInfo {},
                         ))
                     )
@@ -396,7 +396,7 @@ mod tests {
                         Vec2::new(3, 0),
                         Dir::EAST,
                         TileProgram::Machine(MachineInfo::BuiltIn(
-                            BuiltInMachine::Produce(()),
+                            BuiltInMachine::Produce,
                             ProgramInfo {},
                         ))
                     )
@@ -421,7 +421,7 @@ mod tests {
                         Vec2::new(3, 0),
                         Dir::EAST,
                         TileProgram::Machine(MachineInfo::BuiltIn(
-                            BuiltInMachine::Produce(()),
+                            BuiltInMachine::Produce,
                             ProgramInfo {},
                         ))
                     )
@@ -445,7 +445,7 @@ mod tests {
                         Vec2::new(3, 0),
                         Dir::EAST,
                         TileProgram::Machine(MachineInfo::BuiltIn(
-                            BuiltInMachine::Produce(()),
+                            BuiltInMachine::Produce,
                             ProgramInfo {},
                         ))
                     )
@@ -634,7 +634,7 @@ mod tests {
                         Vec2::new(3, 0),
                         Dir::EAST,
                         TileProgram::Machine(MachineInfo::BuiltIn(
-                            BuiltInMachine::Produce(()),
+                            BuiltInMachine::Produce,
                             ProgramInfo {},
                         )),
                     )?;
@@ -670,7 +670,7 @@ mod tests {
                         Vec2::new(3, 0),
                         Dir::EAST,
                         TileProgram::Machine(MachineInfo::BuiltIn(
-                            BuiltInMachine::Produce(()),
+                            BuiltInMachine::Produce,
                             ProgramInfo {},
                         )),
                     )?;

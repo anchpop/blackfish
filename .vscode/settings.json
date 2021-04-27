@@ -4,10 +4,13 @@
         "Monoid",
         "clippy",
         "frunk",
+        "gridlines",
         "mapv",
         "midir",
         "ndarray",
+        "raycast",
         "slotmap",
+        "tilelines",
         "tilemap",
         "whnf"
     ]

@@ -15,6 +15,8 @@ pub mod tiles {
 
     use std::collections::HashMap;
 
+    use velcro::hash_map;
+
     #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub struct ProgramInfo;
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -52,30 +54,91 @@ pub mod tiles {
     }
 
     #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-    pub enum BuiltInMachine<D> {
-        Iffy(D, D, D),
-        Trace(D),
-        Produce(D),
-        Copy(D),
-        Modulo(D, D),
+    pub enum BuiltInMachine {
+        Iffy,
+        Trace,
+        Produce,
+        Copy,
+        Modulo,
     }
 
-    impl<D> BuiltInMachine<D> {
-        pub fn name(&self) -> &'static str {
+    #[derive(Copy, Debug, Clone)]
+    pub struct TileUserInfo {
+        pub name: &'static str,
+        pub color: bevy::render::color::Color,
+    }
+
+    impl BuiltInMachine {
+        pub fn evaluate<F>(&self, mut get_input: F) -> WhnfData
+        where
+            F: FnMut(&str) -> WhnfData, // should take a MachineInput
+        {
             match self {
-                Self::Produce(_) => "id",
-                Self::Iffy(_, _, _) => "if",
-                Self::Trace(_) => "trace",
-                Self::Copy(_) => "Copy",
-                Self::Modulo(_, _) => "Modulo",
+                Self::Iffy => {
+                    todo!()
+                }
+                Self::Trace => {
+                    todo!()
+                }
+                Self::Produce => get_input("a"),
+                Self::Copy => get_input("a"),
+                Self::Modulo => {
+                    let hours_passed = get_input("hours_passed");
+                    let notches = get_input("notches");
+                    match (hours_passed, notches) {
+                        (WhnfData::Number(hours_passed), WhnfData::Number(notches)) => {
+                            WhnfData::Number(hours_passed % notches)
+                        }
+                        (WhnfData::Nothing, WhnfData::Number(_))
+                        | (WhnfData::Number(_), WhnfData::Nothing)
+                        | (WhnfData::Nothing, WhnfData::Nothing) => WhnfData::Nothing,
+                        (_, _) => WhnfData::TypeErr,
+                    }
+                }
+            }
+        }
+
+        fn user_infos() -> HashMap<BuiltInMachine, TileUserInfo> {
+            use bevy::render::color::Color;
+            hash_map! {
+                Self::Produce: TileUserInfo {
+                    name: "diode",
+                    color: Color::rgb(42. / 255., 183. / 255., 202. / 255.),
+                },
+                /*Self::Iffy:  TileUserInfo {
+                    name: "if",
+                    color: Color::rgb(42. / 255., 183. / 255., 202. / 255.),
+                },
+                Self::Trace:  TileUserInfo {
+                    name: "trace",
+                    color: Color::rgb(0.5, 0.3, 0.5),
+                },*/
+                Self::Copy:  TileUserInfo {
+                    name: "duplicate",
+                    color: Color::rgb(22. / 255., 210. / 255., 202. / 255.),
+                },
+                Self::Modulo: TileUserInfo {
+                    name: "modulo",
+                    color: Color::rgb(50. / 255., 230. / 255., 100. / 255.)
+                },
             }
         }
     }
 
     #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum MachineInfo<I> {
-        BuiltIn(BuiltInMachine<()>, I),
+        BuiltIn(BuiltInMachine, I),
     }
+
+    impl MachineInfo<()> {
+        fn user_infos() -> HashMap<MachineInfo<()>, TileUserInfo> {
+            BuiltInMachine::user_infos()
+                .into_iter()
+                .map(|(k, v)| (MachineInfo::BuiltIn(k, ()), v))
+                .collect()
+        }
+    }
+
     new_key_type! { pub struct KeyNamedConstant; }
 
     #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -84,36 +147,28 @@ pub mod tiles {
     }
 
     #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-    pub enum TileProgramF<I> {
+    pub enum TileProgramF<I, LiteralContent = KeyNamedConstant> {
         Machine(MachineInfo<I>),
-        Literal(KeyNamedConstant),
+        Literal(LiteralContent),
         Optic(Optic),
     }
     pub type TileProgram = TileProgramF<ProgramInfo>;
     pub type TileProgramMachineInfo = TileProgramF<WorldMachineInfo>;
+    pub type TileNoInfo = TileProgramF<(), ()>;
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum TilePhysics {}
 
     type RectangleSide = (Option<IOType>, Option<IOType>);
-    impl<I> TileProgramF<I> {
-        pub fn name(&self) -> &'static str {
-            match self {
-                Self::Machine(MachineInfo::BuiltIn(builtin, _)) => builtin.name(),
-                Self::Literal(_) => "Constant",
-                Self::Optic(Optic::Mirror) => "Mirror",
-            }
-        }
 
-        /// Since tiles are rectangles, this precisely describes each tile's inputs/outputs. The length of the first vector
-        /// determines the width and its elements determine the top and bottom inputs/outputs. The length of the second vector
-        /// determines the height and its elements determine the left and right inputs/outputs.
+    impl<I, L> TileProgramF<I, L> {
+        /// Since tiles are rectangles, this precisely describes each tile's inputs/outputs. The length of the first vector determines the width and its elements determine the top and bottom inputs/outputs. The length of the second vector determines the height and its elements determine the left and right inputs/outputs.
         // Positive signs (top/north and right/east come first)
         pub fn block_desc(&self) -> (Vec<RectangleSide>, Vec<RectangleSide>) {
             match self {
                 TileProgramF::Machine(machine_info) => match machine_info {
                     MachineInfo::BuiltIn(builtin, _) => match builtin {
-                        BuiltInMachine::Iffy(_, _, _) => (
+                        BuiltInMachine::Iffy => (
                             vec![(
                                 Some(IOType::OutLong("a".to_owned())),  // north
                                 Some(IOType::In("boolean".to_owned())), // south
@@ -123,7 +178,7 @@ pub mod tiles {
                                 Some(IOType::In("a2".to_owned())), // west
                             )],
                         ),
-                        BuiltInMachine::Trace(_) => (
+                        BuiltInMachine::Trace => (
                             vec![(
                                 None,                                 // north
                                 Some(IOType::In("trace".to_owned())), // south
@@ -133,7 +188,7 @@ pub mod tiles {
                                 None, // west
                             )],
                         ),
-                        BuiltInMachine::Produce(_) => (
+                        BuiltInMachine::Produce => (
                             vec![(
                                 Some(IOType::OutLong("a".to_owned())), // north
                                 Some(IOType::In("a".to_owned())),      // south
@@ -143,7 +198,7 @@ pub mod tiles {
                                 None, // west
                             )],
                         ),
-                        BuiltInMachine::Copy(_) => (
+                        BuiltInMachine::Copy => (
                             vec![(
                                 Some(IOType::OutLong("a1".to_owned())), // north
                                 Some(IOType::In("a".to_owned())),       // south
@@ -153,7 +208,7 @@ pub mod tiles {
                                 Some(IOType::OutLong("a2".to_owned())), // west
                             )],
                         ),
-                        BuiltInMachine::Modulo(_, _) => (
+                        BuiltInMachine::Modulo => (
                             vec![(
                                 Some(IOType::OutLong("time".to_owned())),    // north
                                 Some(IOType::In("hours_passed".to_owned())), // south
@@ -273,7 +328,66 @@ pub mod tiles {
                 })
                 .collect()
         }
+
+        pub fn strip_info(self) -> TileNoInfo {
+            let user_info = TileProgramF::user_infos();
+            match self {
+                TileProgramF::Machine(MachineInfo::BuiltIn(a, _)) => {
+                    TileProgramF::Machine(MachineInfo::BuiltIn(a, ()))
+                }
+                TileProgramF::Literal(_) => TileProgramF::Literal(()),
+                TileProgramF::Optic(a) => TileProgramF::Optic(a),
+            }
+        }
+
+        pub fn make_tile_program(
+            self,
+            tilemap_program: &super::tilemaps::TilemapProgram,
+        ) -> TileProgram {
+            let user_info = TileProgramF::user_infos();
+            match self {
+                TileProgramF::Machine(MachineInfo::BuiltIn(a, _)) => {
+                    TileProgramF::Machine(MachineInfo::BuiltIn(a, ProgramInfo {}))
+                }
+                TileProgramF::Literal(_) => TileProgramF::Literal(
+                    tilemap_program
+                        .constants
+                        .iter()
+                        .next()
+                        .expect("Attempting to create a literal, but the program has no literals!")
+                        .0
+                        .clone(),
+                ),
+                TileProgramF::Optic(a) => TileProgramF::Optic(a),
+            }
+        }
     }
+
+    impl TileProgramF<()> {
+        pub fn user_infos() -> HashMap<TileProgramF<(), ()>, TileUserInfo> {
+            use bevy::render::color::Color;
+            let mut machines: HashMap<_, _> = MachineInfo::user_infos()
+                .into_iter()
+                .map(|(k, v)| (TileProgramF::Machine(k), v))
+                .collect();
+            machines.insert(
+                TileProgramF::Optic(Optic::Mirror),
+                TileUserInfo {
+                    name: "mirror",
+                    color: Color::rgb(220. / 255., 220. / 255., 220. / 255.),
+                },
+            );
+            machines.insert(
+                TileProgramF::Literal(()),
+                TileUserInfo {
+                    name: "literal",
+                    color: Color::rgb(220. / 255., 220. / 255., 220. / 255.),
+                },
+            );
+            machines
+        }
+    }
+
     impl TilePhysics {
         pub fn name(&self) -> &'static str {
             match self.clone() {}
@@ -285,10 +399,10 @@ pub mod tiles {
         Prog(TileProgramMachineInfo),
     }
     impl TileWorld {
-        pub fn name(&self) -> &'static str {
+        pub fn strip_info(self) -> TileNoInfo {
             match self {
-                Self::Phys(p) => p.name(),
-                Self::Prog(p) => p.name(),
+                TileWorld::Phys(phys) => match phys {},
+                TileWorld::Prog(prog) => prog.strip_info(),
             }
         }
     }
