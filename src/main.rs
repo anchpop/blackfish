@@ -714,33 +714,11 @@ fn tile_appearance(
                 } else {
                     materials.transparent.clone()
                 }
-            //<<<<<<< Updated upstream
             } else if index < tilemap_world.outputs.len() {
                 if laser_connection_info.values().any(|connection| {
                     connection.contains(-tilemap_world.get_output_grid_line_dir(index))
                 }) {
                     materials.io_used.clone()
-                /*=======
-                            } else {
-                                if *index < tilemap_world.outputs.len() {
-                                    if tilemap_world.connections.iter().any(|connection| {
-                                        connection.get_end() == tilemap_world.get_output_grid_line_dir(*index)
-                                    }) {
-                                        materials.io_used.clone()
-                                    } else {
-                                        match get_connection_type(
-                                            tilemap_world.get_outputb_grid_line_dir(*index),
-                                            &connections,
-                                            &tilemap_program,
-                                        ) {
-                                            Some(typ) => match typ {
-                                                ConnectionType::FullyConnected => materials.io_connected.clone(),
-                                                ConnectionType::HalfConnected => materials.io_nothing.clone(),
-                                            },
-                                            None => materials.empty.clone(),
-                                        }
-                                    }
-                //>>>>>>> Stashed changes*/
                 } else {
                     match get_connection_type(
                         -tilemap_world.get_output_grid_line_dir(index),
