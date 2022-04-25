@@ -1,9 +1,9 @@
 
 # Blackfish
 
-**Video**: 
+**Demo**: 
 
-![demo](https://user-images.githubusercontent.com/3711047/113652026-0ed89080-9661-11eb-8f6c-5f488897b5df.mp4)
+![presentation](https://docs.google.com/presentation/d/1UXS9jES6dQW1GsB7YXRpuho3W0_so1COV_kabIPdDAk/edit?ouid=108280884125026199333&usp=slides_home&ths=true)
 
 # Description
 
